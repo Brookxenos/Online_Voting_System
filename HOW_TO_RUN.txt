@@ -1,0 +1,111 @@
+# How to Run the Online Voting System
+
+## Requirements
+- A Linux machine (or WSL / macOS) with **g++** supporting C++17
+- A modern web browser (Chrome, Firefox, Safari, Edge)
+- `make` (build tool)
+
+Check you have what you need:
+```bash
+g++ --version    # must be >= 7 (C++17 support)
+make --version
+```
+
+## Quick start (3 steps)
+
+1. **Unzip the project**
+   ```bash
+   unzip voting_system.zip
+   cd voting_system
+   ```
+
+2. **Build and run**
+   ```bash
+   ./start.sh
+   ```
+   This will compile the C++ code and start the server on port 8080.
+
+3. **Open the web app**
+   Open your browser to: **http://localhost:8080**
+
+   That's it! The voting system is now live.
+
+## Default admin login
+- Username: `admin`
+- Password: `admin123`
+
+(Log in via the "Admin Login" button. **Change this password immediately** via Admin → Settings.)
+
+## How to use
+
+### As an admin
+1. Click **Admin Login**, enter `admin` / `admin123`.
+2. Go to the **Candidates** tab → add your candidates (name, party, symbol, position).
+3. Optionally go to **Voters** tab → manually add voters (or let users self-register).
+4. Use **Election Control** tab to open/close the election.
+5. Watch the **Live Results** tab update in real time.
+6. Check the **Audit Log** tab for a full timeline of every action.
+
+### As a voter
+1. Click **Register to Vote** → fill in name + password → **save your Voter ID** (e.g. `V001`).
+2. Click **I'm a Voter** → log in with your Voter ID + password.
+3. Tap a candidate card to select, then tap again to **confirm your vote**.
+4. You'll get a receipt code — votes are encrypted and one-time only.
+
+### To view results without voting
+Click **View Live Results** on the home screen.
+
+## Common commands
+
+| Command                       | What it does                              |
+|-------------------------------|-------------------------------------------|
+| `./start.sh`                  | Build + run on default port 8080          |
+| `./start.sh 9000`             | Build + run on a custom port              |
+| `make`                        | Just compile (produces `voting_server`)   |
+| `make clean`                  | Remove build artifacts                    |
+| `./voting_server 8080 web data` | Run binary directly (after `make`)      |
+
+## Where files live
+
+```
+voting_system/
+├── src/         ← C++ source (9 files)
+├── web/         ← HTML/CSS/JS frontend (3 files)
+├── data/        ← CSV files (auto-created on first run)
+├── Makefile
+├── start.sh
+└── README.md
+```
+
+After the first run, `data/` will contain:
+- `voters.csv` — registered voters (passwords are salted + SHA-256 hashed)
+- `candidates.csv` — candidates + live vote counts
+- `votes.csv` — every cast vote with timestamp + signature
+- `admins.csv` — admin accounts
+- `audit.log` — append-only audit trail
+
+## Stopping the server
+Press `Ctrl+C` in the terminal where `./start.sh` is running.
+
+## Troubleshooting
+
+**"port 8080 already in use"** — use a different port: `./start.sh 9000`
+
+**"g++: command not found"** — install build tools:
+- Ubuntu/Debian: `sudo apt install build-essential`
+- CentOS/RHEL:   `sudo yum groupinstall "Development Tools"`
+- macOS:         `xcode-select --install` (use `clang++`)
+
+**Browser can't connect** — make sure the server is running and the port isn't blocked by a firewall.
+
+## Tested features (all verified working)
+✅ Voter registration with hashed passwords
+✅ Voter + admin login
+✅ Candidate add/remove
+✅ Encrypted ballot casting (XOR cipher + tamper detection)
+✅ One-vote-per-voter enforcement
+✅ Live results with percentages + leader
+✅ Election open/close control
+✅ Audit log with timestamps
+✅ CSV data persistence
+✅ Responsive web UI (mobile, tablet, desktop)

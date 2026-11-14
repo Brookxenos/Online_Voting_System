@@ -1,0 +1,51 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build voting_server",
+      "type": "shell",
+      "command": "make",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "detail": "Compile the C++ voting system (g++ -std=c++17)"
+    },
+    {
+      "label": "Build & Run voting_server (port 8080)",
+      "type": "shell",
+      "command": "./start.sh",
+      "group": "test",
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "detail": "Build + launch server on http://localhost:8080"
+    },
+    {
+      "label": "Run on custom port (prompt)",
+      "type": "shell",
+      "command": "read -p 'Port: ' p && ./start.sh \"$p\"",
+      "group": "test",
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Clean build artifacts",
+      "type": "shell",
+      "command": "make clean",
+      "problemMatcher": []
+    }
+  ]
+}

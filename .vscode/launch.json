@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run voting_server (debug, port 8080)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/voting_server",
+      "args": ["8080", "web", "data"],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Build voting_server",
+      "miDebuggerPath": "/usr/bin/gdb"
+    },
+    {
+      "name": "Run voting_server (release, port 8080)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/voting_server",
+      "args": ["8080", "web", "data"],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "preLaunchTask": "Build voting_server",
+      "miDebuggerPath": "/usr/bin/gdb"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "C_Cpp.default.cppStandard": "c++17",
+  "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+  "files.associations": {
+    "*.cpp": "cpp",
+    "*.h": "cpp"
+  },
+  "files.exclude": {
+    "**/*.o": true,
+    "**/.git": true
+  },
+  "search.exclude": {
+    "**/data/*.csv": true,
+    "**/data/*.log": true
+  }
+}

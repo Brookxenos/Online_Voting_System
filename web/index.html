@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Voting System</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ============== Templates ============== -->
+
+<!-- Splash / role chooser -->
+<template id="tpl-home">
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-badges">
+        <span>Secure</span>
+        <span>Transparent</span>
+        <span>Auditable</span>
+      </div>
+      <h1>🗳️ Online Voting System</h1>
+      <p class="subtitle">Empowering every citizen with a safer, clearer, and more trusted voting experience.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary btn-lg" data-go="voter-login">I'm a Voter</button>
+        <button class="btn btn-secondary btn-lg" data-go="voter-register">Register to Vote</button>
+        <button class="btn btn-outline btn-lg" data-go="admin-login">Admin Login</button>
+      </div>
+      <div class="hero-footer">
+        <button class="btn btn-link" data-go="results">View Live Results →</button>
+      </div>
+    </div>
+  </header>
+</template>
+
+<!-- Voter registration -->
+<template id="tpl-voter-register">
+  <section class="card">
+    <h2>Register to Vote</h2>
+    <p class="muted">Complete the form to get a unique voter ID.</p>
+    <form id="form-register">
+      <label>Name<input type="text" name="name" required></label>
+      <label>National ID (optional)<input type="text" name="nationalId"></label>
+      <label>Password (min 6 chars)<input type="password" name="password" minlength="6" required></label>
+      <button type="submit" class="btn btn-primary">Register</button>
+      <button type="button" class="btn btn-link" data-go="home">← Back</button>
+    </form>
+    <div class="result-box" id="reg-result"></div>
+  </section>
+</template>
+
+<!-- Voter login -->
+<template id="tpl-voter-login">
+  <section class="card">
+    <h2>Voter Login</h2>
+    <form id="form-voter-login">
+      <label>Voter ID<input type="text" name="voterId" required></label>
+      <label>Password<input type="password" name="password" required></label>
+      <button type="submit" class="btn btn-primary">Login</button>
+      <button type="button" class="btn btn-link" data-go="home">← Back</button>
+    </form>
+    <div class="result-box" id="voter-login-result"></div>
+  </section>
+</template>
+
+<!-- Voter dashboard (vote) -->
+<template id="tpl-voter-dashboard">
+  <header class="page-head">
+    <h2>Cast Your Vote</h2>
+    <span class="badge" id="voter-badge"></span>
+    <button class="btn btn-link" data-action="logout">Logout</button>
+  </header>
+  <div id="election-status-box"></div>
+  <div id="candidate-grid" class="grid"></div>
+  <div class="result-box" id="vote-result"></div>
+</template>
+
+<!-- Admin login -->
+<template id="tpl-admin-login">
+  <section class="card">
+    <h2>Admin Login</h2>
+    <p class="muted">Default credentials: <code>admin</code> / <code>admin123</code></p>
+    <form id="form-admin-login">
+      <label>Username<input type="text" name="username" required></label>
+      <label>Password<input type="password" name="password" required></label>
+      <button type="submit" class="btn btn-primary">Login</button>
+      <button type="button" class="btn btn-link" data-go="home">← Back</button>
+    </form>
+    <div class="result-box" id="admin-login-result"></div>
+  </section>
+</template>
+
+<!-- Admin dashboard -->
+<template id="tpl-admin-dashboard">
+  <header class="page-head">
+    <h2>Admin Dashboard</h2>
+    <span class="badge badge-admin" id="admin-badge"></span>
+    <button class="btn btn-link" data-action="logout">Logout</button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="candidates">Candidates</button>
+    <button class="tab" data-tab="voters">Voters</button>
+    <button class="tab" data-tab="results">Live Results</button>
+    <button class="tab" data-tab="election">Election Control</button>
+    <button class="tab" data-tab="audit">Audit Log</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+
+  <div id="tab-candidates" class="tab-panel active">
+    <h3>Add Candidate</h3>
+    <form id="form-add-candidate" class="inline-form">
+      <input type="text" name="name" placeholder="Candidate name" required>
+      <input type="text" name="party" placeholder="Party" required>
+      <input type="text" name="symbol" placeholder="Symbol / emoji">
+      <input type="text" name="position" placeholder="Position" value="President">
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+    <div id="candidate-list" class="table-wrap"></div>
+  </div>
+
+  <div id="tab-voters" class="tab-panel">
+    <h3>Add Voter</h3>
+    <form id="form-add-voter" class="inline-form">
+      <input type="text" name="name" placeholder="Voter name" required>
+      <input type="text" name="nationalId" placeholder="National ID (opt)">
+      <input type="password" name="password" placeholder="Password" minlength="6" required>
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+    <div id="voter-list" class="table-wrap"></div>
+  </div>
+
+  <div id="tab-results" class="tab-panel">
+    <div id="results-panel"></div>
+    <button class="btn btn-secondary" data-action="refresh-results">Refresh</button>
+  </div>
+
+  <div id="tab-election" class="tab-panel">
+    <h3>Election State</h3>
+    <div id="election-state-box"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" data-action="open-election">Open Election</button>
+      <button class="btn btn-danger" data-action="close-election">Close Election</button>
+    </div>
+  </div>
+
+  <div id="tab-audit" class="tab-panel">
+    <h3>Audit Log (last 200 entries)</h3>
+    <div id="audit-list" class="table-wrap"></div>
+    <button class="btn btn-secondary" data-action="refresh-audit">Refresh</button>
+  </div>
+
+  <div id="tab-settings" class="tab-panel">
+    <h3>Change Admin Password</h3>
+    <form id="form-change-pwd" class="stack-form">
+      <label>Current password<input type="password" name="oldPassword" required></label>
+      <label>New password (min 8 chars)<input type="password" name="newPassword" minlength="8" required></label>
+      <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+    <div class="result-box" id="pwd-result"></div>
+  </div>
+</template>
+
+<!-- Results page -->
+<template id="tpl-results">
+  <header class="page-head">
+    <h2>Live Results</h2>
+    <button class="btn btn-secondary" data-action="refresh-results">Refresh</button>
+    <button class="btn btn-link" data-go="home">← Home</button>
+  </header>
+  <div id="results-page"></div>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

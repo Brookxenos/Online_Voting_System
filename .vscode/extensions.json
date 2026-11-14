@@ -1,0 +1,20 @@
+{
+  "recommendations": [
+    "ms-vscode.cpptools",
+    "ms-vscode.cpptools-extension-pack"
+  ],
+  "settings": {
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+    "files.associations": {
+      "*.cpp": "cpp",
+      "*.h": "cpp"
+    },
+    "editor.formatOnSave": false,
+    "C_Cpp.formatting": "vcFormat",
+    "files.exclude": {
+      "**/*.o": true,
+      "**/.git": true
+    }
+  }
+}
