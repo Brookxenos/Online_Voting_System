@@ -6,13 +6,13 @@
 
 ## Current project status
 
--   **Overall status:** Planning / baseline inspection not yet completed
-    by the implementation agent.
+-   **Overall status:** Core demo implementation completed; run guide
+    corrected; manual browser walkthrough still pending.
 -   **Current approved direction:** General-purpose voting platform;
     retain C++17 and HTML/CSS/vanilla JavaScript; improve the existing
     project incrementally.
--   **Current phase:** Phase 0 --- repository baseline and safety
-    assessment.
+-   **Current phase:** Post-implementation review --- documentation
+    alignment and frontend walkthrough.
 -   **Production status:** Educational/demo project only. Not certified
     or approved for legally binding elections.
 
@@ -142,3 +142,35 @@
     `voting_server` against `data/` (import is one-time), or accept the
     reset. No db file exists in `data/` yet, so the import has not run
     there. After that: manual browser walkthrough of the frontend flows.
+
+### 2026-11-14 --- Codex --- Run guide alignment and smoke verification
+
+-   **Status:** Documentation and launch messaging updated; automated
+    smoke suite passed. Manual browser walkthrough could not run because
+    the browser access host was unavailable.
+-   **Summary:** Replaced obsolete HOW_TO_RUN.txt guidance about CSV
+    persistence, XOR ballots, live results, and default credentials with
+    instructions matching the current SQLite application. Corrected
+    `start.sh` so it no longer prints the removed `admin/admin123`
+    credentials and explains first-run password provisioning.
+-   **Files changed:** `HOW_TO_RUN.txt`, `start.sh`, `PROGRESS_LOG.md`.
+-   **Decisions:** Followed the current source for run behavior. Did not
+    start the server against the repository `data/` directory because its
+    existing CSV files could be imported into a newly created database.
+    The README still describes the legacy implementation and remains a
+    documentation discrepancy for owner review.
+-   **Commands run:** `make clean`; `make`; `make test` (first attempt
+    could not bind a local socket in the sandbox; rerun with approved
+    elevated socket access).
+-   **Build result:** `make` succeeded with C++17 and no compiler
+    warnings.
+-   **Tests and results:** `make test` passed: 53 passed, 0 failed,
+    including auth, role checks, election lifecycle, ballot rules,
+    publication behavior, concurrent voting, and audit hygiene.
+-   **Risks or known gaps:** Browser access host unavailable, so no manual
+    UI walkthrough. `README.md` still documents the retired CSV/XOR
+    implementation and default credentials. Database separation does
+    not establish cryptographic anonymity; the project remains demo-only.
+-   **Next exact task:** Complete the manual browser walkthrough using an
+    isolated temporary data directory when browser access is available;
+    review with the owner whether to align `README.md` with current source.

@@ -1,111 +1,129 @@
-# How to Run the Online Voting System
+OpenVote — How to Build and Run
+================================
 
-## Requirements
-- A Linux machine (or WSL / macOS) with **g++** supporting C++17
-- A modern web browser (Chrome, Firefox, Safari, Edge)
-- `make` (build tool)
+OpenVote is an educational/demo voting application. It is not certified or
+approved for legally binding public elections. The application uses a C++17
+backend, a vanilla HTML/CSS/JavaScript frontend, SQLite persistence, and
+libsodium for password hashing and secure random generation.
 
-Check you have what you need:
-```bash
-g++ --version    # must be >= 7 (C++17 support)
-make --version
-```
+Requirements
+------------
 
-## Quick start (3 steps)
+- Linux or WSL with g++ and make
+- C++17 support
+- Runtime libraries available at the paths configured in Makefile:
+  libsodium.so.23 and libsqlite3.so.0
+- A modern web browser
+- bash and curl to run the integration smoke tests
 
-1. **Unzip the project**
-   ```bash
-   unzip voting_system.zip
-   cd voting_system
-   ```
+Build and start
+---------------
 
-2. **Build and run**
-   ```bash
-   ./start.sh
-   ```
-   This will compile the C++ code and start the server on port 8080.
+From the repository directory:
 
-3. **Open the web app**
-   Open your browser to: **http://localhost:8080**
+    make
+    ./start.sh
 
-   That's it! The voting system is now live.
+Open http://localhost:8080 in your browser. To use another port:
 
-## Default admin login
-- Username: `admin`
-- Password: `admin123`
+    ./start.sh 9000
 
-(Log in via the "Admin Login" button. **Change this password immediately** via Admin → Settings.)
+The start script builds the application before launching it. You can also run
+the binary directly after building:
 
-## How to use
+    ./voting_server 8080 web data
 
-### As an admin
-1. Click **Admin Login**, enter `admin` / `admin123`.
-2. Go to the **Candidates** tab → add your candidates (name, party, symbol, position).
-3. Optionally go to **Voters** tab → manually add voters (or let users self-register).
-4. Use **Election Control** tab to open/close the election.
-5. Watch the **Live Results** tab update in real time.
-6. Check the **Audit Log** tab for a full timeline of every action.
+Press Ctrl+C in the server terminal to stop it.
 
-### As a voter
-1. Click **Register to Vote** → fill in name + password → **save your Voter ID** (e.g. `V001`).
-2. Click **I'm a Voter** → log in with your Voter ID + password.
-3. Tap a candidate card to select, then tap again to **confirm your vote**.
-4. You'll get a receipt code — votes are encrypted and one-time only.
+Initial administrator account
+------------------------------
 
-### To view results without voting
-Click **View Live Results** on the home screen.
+There is no default admin/admin123 account. On a fresh data directory, the
+server creates the username "admin". If OV_INITIAL_ADMIN_PASSWORD is unset,
+the server generates a random password and prints it once in the server
+terminal. Save it securely at that time; the application does not write this
+password to a file or provide password recovery.
 
-## Common commands
+To choose the initial password explicitly, set the environment variable when
+starting the server. For example:
 
-| Command                       | What it does                              |
-|-------------------------------|-------------------------------------------|
-| `./start.sh`                  | Build + run on default port 8080          |
-| `./start.sh 9000`             | Build + run on a custom port              |
-| `make`                        | Just compile (produces `voting_server`)   |
-| `make clean`                  | Remove build artifacts                    |
-| `./voting_server 8080 web data` | Run binary directly (after `make`)      |
+    OV_INITIAL_ADMIN_PASSWORD='choose-a-unique-password' ./start.sh
 
-## Where files live
+Choose a password of at least 8 characters. Do not put a real password into
+shared shell history, screenshots, logs, or this document. The initial admin
+is created only when the database has no active platform administrator.
 
-```
-voting_system/
-├── src/         ← C++ source (9 files)
-├── web/         ← HTML/CSS/JS frontend (3 files)
-├── data/        ← CSV files (auto-created on first run)
-├── Makefile
-├── start.sh
-└── README.md
-```
+Data and configuration
+----------------------
 
-After the first run, `data/` will contain:
-- `voters.csv` — registered voters (passwords are salted + SHA-256 hashed)
-- `candidates.csv` — candidates + live vote counts
-- `votes.csv` — every cast vote with timestamp + signature
-- `admins.csv` — admin accounts
-- `audit.log` — append-only audit trail
+By default, the application stores its SQLite database at
+data/openvote.db. The server creates the data directory if needed. Existing
+legacy CSV files in that directory may be imported once into a fresh database;
+the CSV files are left in place. Historical votes imported from the legacy
+format remain identity-linked and are not anonymous.
 
-## Stopping the server
-Press `Ctrl+C` in the terminal where `./start.sh` is running.
+Configuration can be provided through environment variables:
 
-## Troubleshooting
+- OV_PORT: listening port (default 8080)
+- OV_WEB_DIR: static frontend directory (default web)
+- OV_DATA_DIR: data directory (default data)
+- OV_DB_FILE: SQLite database path (default <data directory>/openvote.db)
+- OV_SESSION_HOURS: session lifetime (default 168 hours)
+- OV_SECURE_COOKIES: set to 1 when HTTPS is correctly terminated by a trusted
+  reverse proxy; default 0 for local HTTP development
+- OV_INITIAL_ADMIN_PASSWORD: initial admin password, as described above
 
-**"port 8080 already in use"** — use a different port: `./start.sh 9000`
+Positional arguments to the binary remain supported:
 
-**"g++: command not found"** — install build tools:
-- Ubuntu/Debian: `sudo apt install build-essential`
-- CentOS/RHEL:   `sudo yum groupinstall "Development Tools"`
-- macOS:         `xcode-select --install` (use `clang++`)
+    ./voting_server [port] [web_dir] [data_dir]
 
-**Browser can't connect** — make sure the server is running and the port isn't blocked by a firewall.
+Common commands
+---------------
 
-## Tested features (all verified working)
-✅ Voter registration with hashed passwords
-✅ Voter + admin login
-✅ Candidate add/remove
-✅ Encrypted ballot casting (XOR cipher + tamper detection)
-✅ One-vote-per-voter enforcement
-✅ Live results with percentages + leader
-✅ Election open/close control
-✅ Audit log with timestamps
-✅ CSV data persistence
-✅ Responsive web UI (mobile, tablet, desktop)
+    make              Build voting_server
+    make run          Build and run on port 8080
+    make run-port PORT=9000
+                      Build and run on the selected port
+    make test         Run integration smoke tests (bash + curl required)
+    make clean        Remove compiled object files and voting_server
+
+Basic use
+---------
+
+1. Register an account or log in with an existing account.
+2. A platform administrator can create an organization and elections, manage
+   candidates and eligibility, and control the election lifecycle.
+3. Eligible voters can view an open election and submit one ballot.
+4. Results become available according to the election's publication state.
+   Results are not exposed while an election is open by default.
+5. Observers have read-only access to the elections available to their
+   organization.
+
+The available actions depend on the account role and election status. All
+authorization must be enforced by the server; frontend controls are not a
+security boundary.
+
+Troubleshooting
+---------------
+
+"Address already in use": start on another port, for example ./start.sh 9000.
+
+"g++: command not found" or "make: command not found": install the compiler
+and build tools using the package manager for your Linux distribution.
+
+Missing libsodium or SQLite runtime library: install the matching runtime
+packages or update the library paths in Makefile for your system.
+
+Browser cannot connect: confirm the server is running, use the same port shown
+in its startup output, and check local firewall settings.
+
+Security and privacy limits
+---------------------------
+
+This is an educational/demo application, not production election software.
+Its database separates participation records from ballot choices, but this
+does not provide cryptographic anonymity or prevent timing and operational
+metadata from linking a voter to a ballot. The development server uses plain
+HTTP unless protected by a correctly configured HTTPS reverse proxy. Do not
+use it for a legally binding election or claim certification, anonymity, or
+end-to-end verifiability without independent review and evidence.
