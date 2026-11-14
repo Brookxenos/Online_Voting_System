@@ -1,38 +1,53 @@
 #ifndef CRYPTO_H
 #define CRYPTO_H
 
-#include <string>
-#include <cstdint>
-#include <vector>
+//
+// Crypto module — security-sensitive helpers built on libsodium
+// (a maintained, independently reviewed library). Nothing here invents
+// cryptographic primitives.
+//
+//   - Argon2id password hashing (crypto_pwhash_str / crypto_pwhash_str_verify)
+//   - CSPRNG (libsodium randombytes_buf) for salts, session tokens, nonces
+//   - SHA-256 hashing (libsodium crypto_hash_sha256) for token hashing and
+//     ballot receipts
+//   - Legacy "salt$sha256hex" password verification for data migrated from
+//     the old CSV system (verification only; new/updated hashes are Argon2id)
+//
 
-//
-// Crypto module — provides:
-//   1. SHA-256 password hashing (FIPS 180-4 compliant, public-domain impl)
-//   2. A simple XOR-stream cipher for vote payload encryption between
-//      client and server (educational, not for production use).
-//
+#include <string>
+
 namespace crypto {
 
-// Returns a 64-char lowercase hex SHA-256 digest of the given input.
-std::string sha256(const std::string& input);
+// Initialize libsodium. Throws std::runtime_error on failure.
+void init();
 
-// Convenience: hash a password with a per-record salt.
-// Returns "<salt>$<sha256(salt + password)>".
-std::string hashPassword(const std::string& password, const std::string& salt);
+// --- Password hashing (Argon2id via libsodium's encoded-string API) --------
 
-// Verify a password against a stored "salt$hash" string.
+// Hash a password. Returns an encoded PHC-format string ("$argon2id$...").
+std::string hashPassword(const std::string& password);
+
+// Verify a password against a stored hash. Supports:
+//   - Argon2id encoded strings (current format)
+//   - legacy "sha256$salt$hexhash" format (migrated CSV accounts)
+//   - legacy raw "salt$hexhash" format (old CSV accounts, pre-migration)
 bool verifyPassword(const std::string& password, const std::string& stored);
 
-// Generate a random hex salt of the given byte length (default 16 bytes -> 32 hex chars).
-std::string generateSalt(size_t bytes = 16);
+// True if the stored hash uses the current Argon2id format. Legacy-format
+// hashes should be upgraded to Argon2id after a successful verification.
+bool isModernHash(const std::string& stored);
 
-// XOR-stream encrypt/decrypt (symmetric). Same function for both directions.
-// key should be at least 16 chars for reasonable mixing.
-std::string xorCrypt(const std::string& data, const std::string& key);
+// --- Cryptographically secure randomness -----------------------------------
 
-// Base64 encode / decode (used for transporting encrypted binary blobs in JSON).
-std::string base64Encode(const std::string& data);
-std::string base64Decode(const std::string& encoded);
+// Hex string of `bytes` random bytes from the OS CSPRNG (via libsodium).
+std::string randomHex(size_t bytes = 32);
+
+// --- Hashing ----------------------------------------------------------------
+
+// Lowercase hex SHA-256 digest (libsodium implementation).
+std::string sha256Hex(const std::string& input);
+
+// Constant-time string comparison for secret material.
+bool constantTimeEquals(const std::string& a, const std::string& b);
 
 } // namespace crypto
 

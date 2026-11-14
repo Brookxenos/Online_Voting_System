@@ -1,46 +1,96 @@
 #ifndef MODELS_H
 #define MODELS_H
 
+//
+// OpenVote domain models. All records are persisted in the SQL database
+// (see store.h / db.h); the structs below mirror the schema.
+//
+
 #include <string>
 #include <vector>
 
-// All data records persisted to CSV files in the data/ directory.
-// Field order matches the CSV column order for easy load/save.
-
-struct Voter {
-    std::string id;          // e.g. "V001"
+struct Organization {
+    long long id = 0;
     std::string name;
-    std::string passwordHash;// "salt$sha256hex"
-    std::string nationalId;  // optional unique citizen id
-    bool        hasVoted = false;
+    std::string slug;
+    bool allowSelfRegistration = true;
+    std::string createdAt;
+};
+
+// Roles (least privilege):
+//   platform_admin — manages organizations and platform users
+//   org_admin      — manages one organization's elections and members
+//   observer       — read-only visibility into that organization's elections
+//   voter          — votes in elections of organizations that declare them eligible
+struct User {
+    long long id = 0;
+    std::string username;
+    std::string displayName;
+    std::string passwordHash;
+    std::string role;       // platform_admin | org_admin | observer | voter
+    long long orgId = 0;    // 0 = no organization (platform-level only)
+    std::string nationalId; // legacy data only; not collected from new registrations
+    bool disabled = false;
+    std::string createdAt;
+};
+
+struct Session {
+    std::string tokenHash;  // sha256 of the session token; raw token never stored
+    long long userId = 0;
+    std::string createdAt;
+    std::string expiresAt;
+    bool revoked = false;
+};
+
+// Election lifecycle: draft -> open -> closed -> published -> archived
+// (transitions enforced server-side in store.cpp / api.cpp).
+struct Election {
+    long long id = 0;
+    long long orgId = 0;
+    std::string name;
+    std::string description;
+    std::string status;
+    bool resultsPublic = false;    // results readable without authentication once published
+    bool showLiveResults = false;  // live totals visible while open (must be configured deliberately)
+    std::string startAt;           // ISO 8601 UTC, empty = no restriction
+    std::string endAt;             // ISO 8601 UTC, empty = no restriction
+    long long createdBy = 0;
+    std::string createdAt;
 };
 
 struct Candidate {
-    std::string id;          // e.g. "C001"
+    long long id = 0;
+    long long electionId = 0;
     std::string name;
     std::string party;
-    std::string symbol;      // emoji or short token
-    std::string position;    // e.g. "President"
-    int         votes = 0;
+    std::string description;
+    long long position = 0;   // neutral display ordering
 };
 
-struct Admin {
-    std::string username;
-    std::string passwordHash;
-};
-
-struct Vote {
-    std::string voterId;
-    std::string candidateId;
-    std::string timestamp;   // ISO 8601
-    std::string signature;   // hash of (voterId|candidateId|timestamp) for tamper check
-};
-
-struct AuditEntry {
-    std::string timestamp;
-    std::string actor;       // voter id / admin username / "system"
-    std::string action;      // e.g. "REGISTER", "LOGIN_OK", "VOTE", "ADD_CANDIDATE"
+struct AuditEvent {
+    long long id = 0;
+    std::string ts;
+    std::string actor;
+    std::string action;
+    long long electionId = 0;
     std::string detail;
+};
+
+struct TallyResult {
+    long long candidateId = 0;
+    std::string name;
+    std::string party;
+    long long votes = 0;
+};
+
+struct Tally {
+    long long id = 0;
+    long long electionId = 0;
+    long long totalBallots = 0;
+    long long totalParticipations = 0;
+    bool integrityOk = false;
+    std::vector<TallyResult> candidates;
+    std::string createdAt;
 };
 
 #endif // MODELS_H
