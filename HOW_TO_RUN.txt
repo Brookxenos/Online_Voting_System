@@ -63,7 +63,7 @@ There is no default admin/admin123 account. On a fresh data directory, the
 server creates the username "admin". If OV_INITIAL_ADMIN_PASSWORD is unset,
 the server generates a random password and prints it once in the server
 terminal. Save it securely at that time; the application does not write this
-password to a file or provide password recovery.
+password to a file or provide web-based password recovery.
 
 To choose the initial password explicitly, set the environment variable when
 starting the server. For example:
@@ -73,6 +73,42 @@ starting the server. For example:
 Choose a password of at least 8 characters. Do not put a real password into
 shared shell history, screenshots, logs, or this document. The initial admin
 is created only when the database has no active platform administrator.
+
+If the database contains a legacy admin account, including one imported from
+admins.csv, the server keeps that account and does not generate another admin
+password. In that case use the legacy account password. If it is unavailable,
+use the local recovery command below; OV_INITIAL_ADMIN_PASSWORD does not
+replace the password of an account that already exists.
+
+Recover an administrator password
+---------------------------------
+
+1. Stop the running server with Ctrl+C. Run this local recovery command only
+   from a trusted computer with access to the project files and database.
+2. From the repository directory, run:
+
+       ./start.sh --reset-admin-password
+
+   For an admin account with a different username, add it after the command:
+
+       ./start.sh --reset-admin-password admin_name
+
+3. Enter a new password of 8-256 characters twice when prompted. The terminal
+   does not display the password as you type. The command updates only that
+   administrator's password hash, leaves election and ballot data untouched,
+   and revokes existing sessions for that account.
+4. Start the server normally with ./start.sh and log in with the same username
+   and the new password.
+
+The command uses the database selected by OV_DB_FILE or, if that is unset,
+OV_DATA_DIR/openvote.db (default data/openvote.db). If you normally start with
+a custom data directory, use the same setting for recovery, for example:
+
+    OV_DATA_DIR=./demo-data ./start.sh --reset-admin-password
+
+Check the data path printed at server startup before running recovery. If the
+database file does not exist or the username is not an enabled platform admin,
+the command exits without creating a database or changing data.
 
 Data and configuration
 ----------------------

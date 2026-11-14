@@ -7,6 +7,11 @@ WEB_DIR="${OV_WEB_DIR:-web}"
 DATA_DIR="${OV_DATA_DIR:-data}"
 echo "==> Building voting_server ..."
 make -s
+if [ "${1:-}" = "--reset-admin-password" ]; then
+  shift
+  echo "==> Stop the server before resetting an administrator password."
+  exec ./voting_server --reset-admin-password "$@"
+fi
 mkdir -p "$DATA_DIR"
 echo "==> Launching on port $PORT"
 echo "==> Open http://localhost:$PORT  in your browser"

@@ -9,6 +9,9 @@
 #include <cstdlib>
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
+#include <termios.h>
+#include <unistd.h>
 
 static HttpServer* g_server = nullptr;
 
@@ -24,6 +27,7 @@ static std::string envOr(const char* name, const std::string& def) {
 
 static void usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [port] [web_dir] [data_dir]\n\n"
+              << "       " << prog << " --reset-admin-password [username]\n\n"
               << "Positional arguments are a legacy convenience; configuration is\n"
               << "normally supplied through environment variables:\n"
               << "  OV_PORT                     listen port (default 8080)\n"
@@ -36,10 +40,93 @@ static void usage(const char* prog) {
               << "                              a random one is generated and printed once\n";
 }
 
+static bool readHiddenInput(const std::string& prompt, std::string& value) {
+    if (!::isatty(STDIN_FILENO)) {
+        std::cerr << "[main] password reset requires an interactive terminal\n";
+        return false;
+    }
+    termios original{};
+    if (::tcgetattr(STDIN_FILENO, &original) != 0) {
+        std::cerr << "[main] could not configure terminal input\n";
+        return false;
+    }
+    termios hidden = original;
+    hidden.c_lflag &= static_cast<tcflag_t>(~ECHO);
+    if (::tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) != 0) {
+        std::cerr << "[main] could not hide terminal input\n";
+        return false;
+    }
+    std::cout << prompt << std::flush;
+    bool readOk = static_cast<bool>(std::getline(std::cin, value));
+    const bool restoreOk = (::tcsetattr(STDIN_FILENO, TCSAFLUSH, &original) == 0);
+    std::cout << '\n';
+    if (!restoreOk) {
+        std::cerr << "[main] could not restore terminal settings\n";
+        return false;
+    }
+    return readOk;
+}
+
+static int resetAdminPassword(const std::string& dbFile,
+                              const std::string& username) {
+    if (!std::filesystem::exists(dbFile)) {
+        std::cerr << "[main] database not found: " << dbFile
+                  << " (no files were created)\n";
+        return 1;
+    }
+
+    Database db(dbFile);
+    Store store(db);
+    auto user = store.findUserByUsername(username);
+    if (!user || user->role != "platform_admin" || user->disabled) {
+        std::cerr << "[main] no enabled platform administrator with that username\n";
+        return 1;
+    }
+
+    std::string password, confirmation;
+    if (!readHiddenInput("New password (8-256 characters): ", password) ||
+        !readHiddenInput("Confirm new password: ", confirmation)) {
+        std::fill(password.begin(), password.end(), '\0');
+        std::fill(confirmation.begin(), confirmation.end(), '\0');
+        return 1;
+    }
+    if (password.size() < 8 || password.size() > 256) {
+        std::fill(password.begin(), password.end(), '\0');
+        std::fill(confirmation.begin(), confirmation.end(), '\0');
+        std::cerr << "[main] password must be between 8 and 256 characters\n";
+        return 1;
+    }
+    if (password != confirmation) {
+        std::fill(password.begin(), password.end(), '\0');
+        std::fill(confirmation.begin(), confirmation.end(), '\0');
+        std::cerr << "[main] passwords do not match; no changes made\n";
+        return 1;
+    }
+
+    crypto::init();
+    const std::string newHash = crypto::hashPassword(password);
+    std::fill(password.begin(), password.end(), '\0');
+    std::fill(confirmation.begin(), confirmation.end(), '\0');
+    store.updatePasswordHash(user->id, newHash);
+    store.revokeAllSessions(user->id);
+    store.addAudit("local-operator", "ADMIN_PASSWORD_RESET", 0, "");
+    std::cout << "[main] password reset for platform administrator '"
+              << username << "'; existing sessions were revoked\n";
+    return 0;
+}
+
 int main(int argc, char** argv) {
     try {
         std::signal(SIGINT, onSignal);
         std::signal(SIGTERM, onSignal);
+
+        if (argc >= 2 && std::string(argv[1]) == "--reset-admin-password") {
+            if (argc > 3) { usage(argv[0]); return 1; }
+            const std::string dataDir = envOr("OV_DATA_DIR", "data");
+            const std::string dbFile = envOr("OV_DB_FILE", dataDir + "/openvote.db");
+            const std::string username = argc == 3 ? argv[2] : "admin";
+            return resetAdminPassword(dbFile, username);
+        }
 
         // ---- Configuration (environment overrides, legacy argv kept working) ----
         std::string webDir = envOr("OV_WEB_DIR", "web");
