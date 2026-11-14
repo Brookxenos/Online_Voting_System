@@ -220,3 +220,40 @@
     to the current Linux environment.
 -   **Next exact task:** User should retry `./start.sh`; if it still fails,
     diagnose from the exact error output and their OS/environment.
+
+### 2026-11-14 --- Codex --- Recover imported administrator access
+
+-   **Status:** Completed; local credential recovery is available.
+-   **Summary:** Confirmed the active `admin` in the current database is an
+    enabled legacy-hash platform administrator imported from
+    `data/admins.csv`. This explains why no new random initial password was
+    emitted and why a newly chosen `OV_INITIAL_ADMIN_PASSWORD` could not
+    replace this account's existing credential. Added a local
+    `--reset-admin-password` command, available through `start.sh`, which
+    prompts without echoing, requires a matching 8-256 character password,
+    updates only that platform admin hash, revokes their sessions, and records
+    a password-free audit event. Documented recovery and legacy-import behavior.
+-   **Files changed:** `src/main.cpp`, `start.sh`, `HOW_TO_RUN.txt`,
+    `PROGRESS_LOG.md`.
+-   **Decisions:** Recovery is restricted to the local operator with access
+    to the selected database; it refuses non-interactive input, nonexistent
+    databases, disabled accounts, and non-platform-admin users. No project
+    database or election data was changed during verification.
+-   **Commands run:** `bash -n start.sh`; `make clean`; `make`;
+    `make test`; exercised reset command against a synthetic database under
+    `/tmp` using a terminal, then checked hash format, session revocation,
+    and audit action without printing the hash or test password;
+    `git diff --check`.
+-   **Build result:** `make` succeeded with C++17 and no warnings.
+-   **Tests and results:** `make test` passed: 53 passed, 0 failed.
+    Interactive reset check passed against the isolated synthetic DB; new
+    hash uses Argon2id, prior session was revoked, and reset audit event was
+    written. Non-terminal reset invocation correctly refused to read a
+    password.
+-   **Risks or known gaps:** A person with local filesystem access can reset
+    the platform admin password; stop the server first and carefully select
+    the same database path used for normal operation. This does not provide
+    web-based account recovery.
+-   **Next exact task:** User should stop OpenVote and run
+    `./start.sh --reset-admin-password`, enter a new password twice, then
+    restart with `./start.sh` and log in as `admin`.
