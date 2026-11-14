@@ -256,7 +256,7 @@ Store::CreateUserResult Store::createUser(User& user) {
             "INSERT INTO users(username,display_name,password_hash,role,org_id,national_id,disabled,created_at) "
             "VALUES(?,?,?,?,?,?,0,?)",
             {user.username, user.displayName, user.passwordHash, user.role,
-             user.orgId == 0 ? "" : std::to_string(user.orgId), user.nationalId, nowIso()});
+             user.orgId == 0 ? DbValue::null() : DbValue(user.orgId), user.nationalId, nowIso()});
     } catch (const std::runtime_error&) {
         // UNIQUE constraint on username (or another constraint failure).
         auto rows = db_.query("SELECT id FROM users WHERE username=?", {user.username});
@@ -343,10 +343,10 @@ Store::CreateElectionResult Store::createElection(Election& e) {
         "INSERT INTO elections(org_id,name,description,status,results_public,show_live_results,"
         "start_at,end_at,created_by,created_at) VALUES(?,?,?,?,?,?,COALESCE(NULLIF(?,''),NULL),"
         "COALESCE(NULLIF(?,''),NULL),?,?)",
-        {std::to_string(e.orgId), e.name, e.description, "draft",
+        {DbValue(e.orgId), e.name, e.description, "draft",
          e.resultsPublic ? "1" : "0", e.showLiveResults ? "1" : "0",
          e.startAt, e.endAt,
-         e.createdBy == 0 ? "" : std::to_string(e.createdBy), nowIso()});
+         e.createdBy == 0 ? DbValue::null() : DbValue(e.createdBy), nowIso()});
     e.id = db_.lastInsertId();
     e.status = "draft";
     e.createdAt = nowIso();
@@ -688,13 +688,13 @@ void Store::addAudit(const std::string& actor, const std::string& action,
                      long long electionId, const std::string& detail) {
     db_.exec("INSERT INTO audit_events(ts,actor,action,election_id,detail) VALUES(?,?,?,?,?)",
              {nowIso(), actor.empty() ? "system" : actor, sanitizeDetail(action),
-              electionId == 0 ? "" : std::to_string(electionId), sanitizeDetail(detail)});
+              electionId == 0 ? DbValue::null() : DbValue(electionId), sanitizeDetail(detail)});
 }
 
 std::vector<AuditEvent> Store::listAudit(long long electionId, size_t limit) {
     std::vector<AuditEvent> out;
     std::string sql = "SELECT * FROM audit_events";
-    std::vector<std::string> binds;
+    std::vector<DbValue> binds;
     if (electionId != 0) {
         sql += " WHERE election_id=?";
         binds.push_back(std::to_string(electionId));

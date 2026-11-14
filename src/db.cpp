@@ -22,14 +22,6 @@ int sqlite3_exec(sqlite3*, const char *sql, void (*cb)(void*,int,char**,char**),
 int sqlite3_prepare_v2(sqlite3*, const char *zSql, int nByte, sqlite3_stmt **ppStmt, const char **pzTail);
 int sqlite3_bind_text(sqlite3_stmt*, int, const char*, int, void(*)(void*));
 int sqlite3_bind_null(sqlite3_stmt*, int);
-static void bindParams(sqlite3_stmt* stmt, const std::vector<DbValue>& binds) {
-    for (size_t i = 0; i < binds.size(); ++i) {
-        const DbValue& b = binds[i];
-        int idx = (int)(i + 1);
-        if (b.isNull) sqlite3_bind_null(stmt, idx);
-        else sqlite3_bind_text(stmt, idx, b.val.c_str(), (int)b.val.size(), SQLITE_TRANSIENT);
-    }
-}
 int sqlite3_step(sqlite3_stmt*);
 int sqlite3_finalize(sqlite3_stmt*);
 int sqlite3_column_count(sqlite3_stmt*);
@@ -51,6 +43,15 @@ void sqlite3_free(void*);
 #define SQLITE_TRANSIENT    ((void(*)(void*))-1)
 
 } // extern "C"
+
+static void bindParams(sqlite3_stmt* stmt, const std::vector<DbValue>& binds) {
+    for (size_t i = 0; i < binds.size(); ++i) {
+        const DbValue& b = binds[i];
+        int idx = (int)(i + 1);
+        if (b.isNull) sqlite3_bind_null(stmt, idx);
+        else sqlite3_bind_text(stmt, idx, b.val.c_str(), (int)b.val.size(), SQLITE_TRANSIENT);
+    }
+}
 
 Database::Database(const std::string& dbFile) {
     int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_FULLURI;
