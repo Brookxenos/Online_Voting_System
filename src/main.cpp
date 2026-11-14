@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
                 return 1;
             }
             store.addAudit("system", "BOOTSTRAP_ADMIN", 0,
-                           "initial platform administrator provisioned (no default password used)");
+                           "initial platform administrator provisioned");
         }
 
         // ---- HTTP server + routes ----

@@ -156,7 +156,10 @@ for i in 1 2 3 4 5; do
 done
 for p in "${PIDS[@]}"; do wait "$p"; done
 OUT=$(cat "$TMP"/race*.out)
-SUCC=$(grep -c '"ok":true' <<< "$OUT" || true)
+SUCC=$(grep -o '"ok":true' <<< "$OUT" | wc -l)
+if [ "$SUCC" != "5" ]; then
+  echo "        [debug] vote outputs:"; sed 's/^/          /' <<< "$OUT" | head -12
+fi
 check "exactly 5 of 5 concurrent voters succeeded once each" "5" "$SUCC"
 RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
 check "tally counts exactly 5 ballots" '"totalBallots":5' "$RES"
