@@ -174,3 +174,49 @@
 -   **Next exact task:** Complete the manual browser walkthrough using an
     isolated temporary data directory when browser access is available;
     review with the owner whether to align `README.md` with current source.
+
+### 2026-11-14 --- Codex --- Expand HOW_TO_RUN walkthrough
+
+-   **Status:** Completed; documentation only.
+-   **Summary:** Expanded the run guide with numbered build/start/browser
+    steps, explicit port and data directory examples, persistent database
+    behavior, first-login guidance, admin organization/user setup, election
+    preparation and lifecycle, voter eligibility and casting steps, results
+    publication, and observer usage.
+-   **Files changed:** `HOW_TO_RUN.txt`, `PROGRESS_LOG.md`.
+-   **Decisions:** Instructions were checked against the current frontend
+    flow and backend-backed feature descriptions. A separate
+    `OV_DATA_DIR=./demo-data` example is included so a new demo database can
+    be kept apart from existing CSV data.
+-   **Commands run:** Inspected current guide and relevant frontend routes;
+    `git diff --check`.
+-   **Build result:** Not run; no source or build files changed.
+-   **Tests and results:** Not run; no application behavior changed.
+-   **Risks or known gaps:** Manual browser walkthrough remains pending
+    because browser access is unavailable. `README.md` still contains
+    outdated legacy instructions.
+-   **Next exact task:** Complete a manual walkthrough with an isolated
+    data directory when browser access is available; align `README.md`
+    with current source after owner confirmation.
+
+### 2026-11-14 --- Codex --- Fix start.sh environment overrides
+
+-   **Status:** Completed; startup configuration bug corrected.
+-   **Summary:** `start.sh` previously always passed `web data` to the
+    binary, which overrode `OV_WEB_DIR` and `OV_DATA_DIR` and contradicted
+    the documented isolated-data example. The script now uses environment
+    values when set, with the first positional argument taking precedence
+    for the port, and reports the selected paths at startup.
+-   **Files changed:** `start.sh`, `PROGRESS_LOG.md`.
+-   **Decisions:** Existing CLI behavior remains available; `OV_PORT` is
+    the default when no explicit port argument is supplied.
+-   **Commands run:** `bash -n start.sh`; `make`; `make test`.
+-   **Build result:** `make` reported no work needed; prior binary remains
+    built. Start script syntax check passed.
+-   **Tests and results:** `make test` passed: 53 passed, 0 failed.
+-   **Risks or known gaps:** The user has not provided the exact error
+    text. If startup still fails on their machine, request the full terminal
+    output and OS details; runtime library paths in Makefile are specific
+    to the current Linux environment.
+-   **Next exact task:** User should retry `./start.sh`; if it still fails,
+    diagnose from the exact error output and their OS/environment.

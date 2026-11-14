@@ -19,21 +19,42 @@ Requirements
 Build and start
 ---------------
 
-From the repository directory:
+1. Open a terminal in the repository directory (the directory containing
+   Makefile and start.sh). Build the application:
 
     make
+
+   A successful build creates the voting_server executable. The build links
+   the installed SQLite and libsodium runtime libraries configured in Makefile.
+
+2. Start the server:
+
     ./start.sh
 
-Open http://localhost:8080 in your browser. To use another port:
+   The script builds again if necessary, creates the default data directory,
+   and starts the HTTP server on port 8080. Keep this terminal open while
+   using the app. Startup output identifies the port and database path.
+
+3. Open this address in a browser on the same computer:
+
+    http://localhost:8080
+
+   To use another port, pass it to the script and use that same port in the
+   browser. For example:
 
     ./start.sh 9000
 
-The start script builds the application before launching it. You can also run
-the binary directly after building:
+   Then visit http://localhost:9000. Press Ctrl+C in the server terminal to
+   stop the application. Restarting with the same data directory keeps the
+   accounts, organizations, elections, and ballots in the SQLite database.
+
+You can also run the binary directly after building. These arguments select
+the port, frontend folder, and data folder:
 
     ./voting_server 8080 web data
 
-Press Ctrl+C in the server terminal to stop it.
+When using environment variables with start.sh, OV_PORT sets the default
+port; an explicit positional port such as ./start.sh 9000 takes precedence.
 
 Initial administrator account
 ------------------------------
@@ -62,6 +83,18 @@ legacy CSV files in that directory may be imported once into a fresh database;
 the CSV files are left in place. Historical votes imported from the legacy
 format remain identity-linked and are not anonymous.
 
+If you are trying the application for the first time and want to keep its
+database separate from any existing project data, run it with a new data path:
+
+    OV_DATA_DIR=./demo-data ./start.sh
+
+This creates or uses ./demo-data/openvote.db. Keep that directory to preserve
+the demo state. Do not point a fresh database at a folder containing legacy
+CSV files unless you intend to import those records. The one-time import does
+not delete the CSV files, but imported historical data may include
+identity-linked ballots. Back up a database before moving or changing data
+directories.
+
 Configuration can be provided through environment variables:
 
 - OV_PORT: listening port (default 8080)
@@ -87,21 +120,84 @@ Common commands
     make test         Run integration smoke tests (bash + curl required)
     make clean        Remove compiled object files and voting_server
 
-Basic use
----------
+First login and administrator setup
+-----------------------------------
 
-1. Register an account or log in with an existing account.
-2. A platform administrator can create an organization and elections, manage
-   candidates and eligibility, and control the election lifecycle.
-3. Eligible voters can view an open election and submit one ballot.
-4. Results become available according to the election's publication state.
-   Results are not exposed while an election is open by default.
-5. Observers have read-only access to the elections available to their
-   organization.
+1. On the first start of a new database, note the initial admin password
+   printed in the server terminal (unless you set OV_INITIAL_ADMIN_PASSWORD).
+   The account name is admin. The generated password is displayed once; save
+   it somewhere private before closing the terminal.
+2. In the browser, choose Log in and enter username admin and that password.
+   The session is held in a server-managed HttpOnly cookie; the frontend does
+   not store the password.
+3. Open Administration. A platform administrator can create an organization
+   by entering its name and unique slug. This gives the application a place to
+   scope its elections, users, and observer access.
+4. In the Users area, create accounts as needed. Choose the account role and
+   organization. Organization administrators can administer elections within
+   their organization; observers have read-only access; voter accounts can
+   participate only when eligible for an election.
 
-The available actions depend on the account role and election status. All
-authorization must be enforced by the server; frontend controls are not a
-security boundary.
+Create and prepare an election
+------------------------------
+
+1. In Administration, create a new election and select its organization. An
+   organization administrator creates elections in their own organization.
+   New elections start in Draft.
+2. Open the election's management page. In Configuration, set the name and
+   description, and optionally set the start/end values in ISO UTC format.
+   Draft elections are the only elections whose configuration can be edited.
+   Leave live totals disabled unless the election rules intentionally permit
+   results to be shown while voting is open.
+3. In Candidates, add every candidate or ballot option and its shared
+   information fields. Review the list before opening the election; the ballot
+   options cannot be changed after the election leaves Draft.
+4. In Voter list, add the username of each account allowed to vote. Voters
+   must already have accounts. Self-registration creates a voter account, but
+   does not automatically make that user eligible for a particular election.
+5. Confirm the election description, options, voter list, and published rules
+   before choosing Open election. Opening the election allows eligible voters
+   to submit one ballot and locks its configuration.
+
+Voter steps
+-----------
+
+1. Choose Register to create a voter account with a username, display name,
+   and password of at least 8 characters. If an administrator already created
+   the account for you, use Log in instead.
+2. Ask the election administrator to add your username to the election's
+   voter list. If the election is not listed after login, it may not yet be
+   open or you may not be eligible for it.
+3. Log in and open Elections. Select an election marked Open to view its
+   description and ballot options.
+4. Select one option. No option is selected automatically. Choose Cast vote
+   and confirm the selection in the browser confirmation prompt. The server
+   records the ballot once; it cannot be changed or submitted again by that
+   account for that election.
+5. The election page confirms whether your ballot was recorded. It does not
+   reveal the stored ballot to administrators. Results are unavailable until
+   publication unless an administrator deliberately enabled live totals.
+6. Choose Log out when finished, especially on a shared computer.
+
+Close and publish results
+-------------------------
+
+1. When voting ends, an administrator opens the election management page and
+   chooses Close election. No further ballots are accepted after closing.
+2. Review the election and choose Publish results to run the tally and make
+   the results public. The server checks the tally integrity before
+   publication. Published results can be viewed from the results page and
+   downloaded as a CSV report.
+3. An administrator may then archive the published election. Archived
+   elections remain historical records and are not open for voting.
+
+An observer can log in and use Observer view to inspect elections and the
+available audit trail for their organization. Observer accounts cannot change
+election configuration or cast ballots.
+
+The available actions depend on the account role, organization, eligibility,
+and election status. A hidden or disabled frontend button is not the security
+boundary; protected operations are checked by the server.
 
 Troubleshooting
 ---------------
