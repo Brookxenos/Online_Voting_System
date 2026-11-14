@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# OpenVote integration smoke tests.
+# Exercises the running backend end-to-end over HTTP: authentication,
+# authorization, election lifecycle, eligibility, voting, concurrency,
+# results publication, audit hygiene and rate limiting.
+#
+# Requirements: bash, curl. Run via `make test` (or `bash tests/smoke.sh`).
+set -u
+
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+PORT="${OV_TEST_PORT:-18099}"
+BASE="localhost:$PORT"
+TMP="$(mktemp -d /tmp/opencode/ovtest.XXXXXX)" || exit 1
+mkdir -p "$TMP/web" "$TMP/data"
+cp "$HERE/web/index.html" "$HERE/web/app.js" "$HERE/web/style.css" "$TMP/web/"
+
+PASS=0; FAIL=0
+SERVER_PID=""
+
+cleanup() {
+  [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
+  rm -rf "$TMP"
+}
+trap cleanup EXIT
+
+check() {
+  # check <description> <expected-substring> <actual>
+  local desc="$1" expect="$2" actual="$3"
+  if [[ "$actual" == *"$expect"* ]]; then
+    PASS=$((PASS+1)); echo "  PASS: $desc"
+  else
+    FAIL=$((FAIL+1)); echo "  FAIL: $desc"
+    echo "        expected substring: $expect"
+    echo "        actual: ${actual:0:300}"
+  fi
+}
+
+jpost() { curl -s -X POST "$BASE$1" -H 'Content-Type: application/json' -d "$2" "${@:3}"; }
+jget()  { curl -s "$BASE$1" "${@:2}"; }
+
+echo "== starting server on $PORT (temp db: $TMP/data) =="
+ADMIN_PW="smoke-admin-pw-1"
+OV_INITIAL_ADMIN_PASSWORD="$ADMIN_PW" "$HERE/voting_server" "$PORT" "$TMP/web" "$TMP/data" > "$TMP/server.log" 2>&1 &
+SERVER_PID=$!
+sleep 0.8
+
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "FATAL: server did not start:"; cat "$TMP/server.log"; exit 1
+fi
+
+echo "-- static and auth --"
+check "serves index.html" "<title>OpenVote</title>" "$(jget /)"
+check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"
+check "wrong password rejected (uniform message)" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"admin","password":"nope-nope"}')"
+check "me requires session" "Not authenticated" "$(jget /api/me)"
+check "me works with session" "platform_admin" "$(jget /api/me -b "$TMP/admin.jar")"
+
+echo "-- registration and login --"
+check "register voter" '"role":"voter"' \
+  "$(jpost /api/auth/register '{"username":"voterA","password":"password123","displayName":"Voter A"}')"
+check "duplicate username rejected" "already taken" \
+  "$(jpost /api/auth/register '{"username":"voterA","password":"password123"}')"
+check "weak password rejected" "at least 8" \
+  "$(jpost /api/auth/register '{"username":"voterB","password":"short"}')"
+check "bad username rejected" "3-32" \
+  "$(jpost /api/auth/register '{"username":"x","password":"password123"}')"
+jpost /api/auth/login '{"username":"voterA","password":"password123"}' -c "$TMP/voterA.jar" > /dev/null
+check "voter login works" '"role":"voter"' "$(jget /api/me -b "$TMP/voterA.jar")"
+
+echo "-- organizations and RBAC --"
+check "org admin cannot create orgs" "Platform administrator access required" \
+  "$(jpost /api/users  '{}' -b "$TMP/voterA.jar")"
+check "voter cannot create org" "Platform administrator" \
+  "$(jpost /api/orgs '{"name":"Nope","slug":"nope1"}' -b "$TMP/voterA.jar")"
+check "admin creates org A" '"slug":"org-a"' \
+  "$(jpost /api/orgs '{"name":"Org A","slug":"org-a"}' -b "$TMP/admin.jar")"
+check "admin creates org B" '"slug":"org-b"' \
+  "$(jpost /api/orgs '{"name":"Org B","slug":"org-b"}' -b "$TMP/admin.jar")"
+check "duplicate slug rejected" "already exists" \
+  "$(jpost /api/orgs '{"name":"Org A2","slug":"org-a"}' -b "$TMP/admin.jar")"
+check "org admin created in org B" '"role":"org_admin"' \
+  "$(jpost /api/users '{"username":"admb","password":"password123","role":"org_admin","orgId":2}' -b "$TMP/admin.jar")"
+jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
+check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
+check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"
+
+echo "-- election creation and lifecycle --"
+check "org admin A cannot create in org B" "do not administer" \
+  "$(jpost /api/elections '{"orgId":2,"name":"Hijack"}' -b "$TMP/admb.jar")"
+check "create election in org A" '"status":"draft"' \
+  "$(jpost /api/elections '{"orgId":1,"name":"Election A1"}' -b "$TMP/admin.jar")"
+check "invalid status transition draft->closed rejected" "Invalid transition" \
+  "$(jpost /api/elections/1/status '{"status":"closed"}' -b "$TMP/admin.jar")"
+check "candidate added while draft" '"name":"Alice"' \
+  "$(jpost /api/elections/1/candidates '{"name":"Alice","party":"A"}' -b "$TMP/admin.jar")"
+check "candidate 2 added" '"name":"Bob"' \
+  "$(jpost /api/elections/1/candidates '{"name":"Bob","party":"B"}' -b "$TMP/admin.jar")"
+check "voter cannot add candidate" "Administrator access required" \
+  "$(jpost /api/elections/1/candidates '{"name":"Evil"}' -b "$TMP/voterA.jar")"
+check "org admin B cannot see election A1" "Election not found" "$(jget /api/elections/1 -b "$TMP/admb.jar")"
+check "org admin B cannot add candidate to A1" "Administrator access required" \
+  "$(jpost /api/elections/1/candidates '{"name":"Evil"}' -b "$TMP/admb.jar")"
+
+echo "-- eligibility and voting --"
+check "vote while draft rejected" "not open for voting" \
+  "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
+check "grant eligibility" '"ok":true' \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
+check "unknown user eligibility rejected" "User not found" \
+  "$(jpost /api/elections/1/eligibility '{"username":"ghost","action":"grant"}' -b "$TMP/admin.jar")"
+check "org admin B cannot grant eligibility on A1" "Administrator access required" \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admb.jar")"
+check "vote before eligible check: open election" '"status":"open"' \
+  "$(jpost /api/elections/1/status '{"status":"open"}' -b "$TMP/admin.jar")"
+check "candidate change after open rejected" "draft" \
+  "$(jpost /api/elections/1/candidates '{"name":"Late","party":"L"}' -b "$TMP/admin.jar")"
+check "ballot cast successfully" '"ok":true' \
+  "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
+check "duplicate ballot rejected" "already voted" \
+  "$(jpost /api/elections/1/vote '{"candidateId":2}' -b "$TMP/voterA.jar")"
+check "invalid candidate rejected" "Unknown candidate" \
+  "$(jpost /api/elections/1/vote '{"candidateId":999}' -b "$TMP/voterA.jar")"
+# voter B is registered but NOT eligible
+jpost /api/auth/register '{"username":"voterB","password":"password123"}' > /dev/null
+jpost /api/auth/login '{"username":"voterB","password":"password123"}' -c "$TMP/voterB.jar" > /dev/null
+check "non-eligible voter rejected" "not eligible" \
+  "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterB.jar")"
+
+echo "-- results privacy and publication --"
+check "results hidden while open" "not published yet" \
+  "$(jpost /api/elections/1/vote '{}' -b "$TMP/voterA.jar"; jget /api/elections/1/results -b "$TMP/voterA.jar")"
+check "results csv hidden while open" "not published yet" "$(jget /api/elections/1/results.csv)"
+check "close election" '"status":"closed"' \
+  "$(jpost /api/elections/1/status '{"status":"closed"}' -b "$TMP/admin.jar")"
+check "publish election" '"status":"published"' \
+  "$(jpost /api/elections/1/status '{"status":"published"}' -b "$TMP/admin.jar")"
+check "published results are public without auth" '"totalBallots":1' "$(jget /api/elections/1/results)"
+check "tally counts Alice=1" '"votes":1' "$(jget /api/elections/1/results)"
+check "integrity ok" '"integrityOk":true' "$(jget /api/elections/1/results)"
+check "results csv downloadable" "text/csv" "$(jget /api/elections/1/results.csv -D - | tr -d '\r' | head -5)"
+
+echo "-- concurrent voting (race safety) --"
+jpost /api/orgs '{"name":"Race Org","slug":"race-org"}' -b "$TMP/admin.jar" > /dev/null
+# election 2 with one candidate; 10 concurrent eligible voters each vote once;
+# plus 10 concurrent duplicate votes from one voter: exactly one must succeed.
+jpost /api/elections '{"orgId":3,"name":"Race Election"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections/2/candidates '{"name":"Only"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections/2/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
+for i in 1 2 3 4 5; do
+  jpost /api/auth/register "{\"username\":\"rv$i\",\"password\":\"password123\"}" > /dev/null
+  jpost /api/elections/2/eligibility "{\"username\":\"rv$i\",\"action\":\"grant\"}" -b "$TMP/admin.jar" > /dev/null
+  jpost /api/auth/login "{\"username\":\"rv$i\",\"password\":\"password123\"}" -c "$TMP/rv$i.jar" > /dev/null
+done
+OUT=$(for i in 1 2 3 4 5; do
+  ( jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv$i.jar" > "$TMP/race$i.out" ) &
+done; wait; cat "$TMP"/race*.out)
+SUCC=$(grep -c '"ok":true' <<< "$OUT" || true)
+check "exactly 5 of 5 concurrent voters succeeded once each" "5" "$SUCC"
+RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
+check "tally counts exactly 5 ballots" '"totalBallots":5' "$RES"
+
+echo "-- audit hygiene --"
+AUDIT=$(jget /api/audit -b "$TMP/admin.jar")
+check "audit records ballot event" "VOTE_CAST" "$AUDIT"
+if [[ "$AUDIT" == *"password"* ]]; then
+  FAIL=$((FAIL+1)); echo "  FAIL: audit contains the word password"
+else
+  PASS=$((PASS+1)); echo "  PASS: audit contains no password strings"
+fi
+check "voter cannot read audit" "Administrator or observer" "$(jget /api/audit -b "$TMP/voterA.jar")"
+check "org admin B cannot read org A audit for A1" "Access denied" \
+  "$(jget '/api/audit?electionId=1' -b "$TMP/admb.jar")"
+
+echo "-- rate limiting --"
+for i in 1 2 3 4 5 6; do
+  jpost /api/auth/login '{"username":"voterB","password":"wrongwrong"}' > /dev/null
+done
+check "6th bad login rate limited" "Too many failed attempts" \
+  "$(jpost /api/auth/login '{"username":"voterB","password":"wrongwrong"}')"
+
+echo "-- validation and CSRF-surface --"
+check "non-JSON content type rejected" "application/json" \
+  "$(curl -s -X POST $BASE/api/auth/login -d 'user=1')"
+check "invalid JSON body rejected" "Invalid JSON" \
+  "$(jpost /api/auth/login '{invalid')"
+check "session logout revokes access" "Not authenticated" \
+  "$(jpost /api/auth/logout '{}' -b "$TMP/voterB.jar"; jget /api/me -b "$TMP/voterB.jar")"
+
+echo
+echo "===================================================="
+echo "RESULTS: $PASS passed, $FAIL failed"
+echo "===================================================="
+[ "$FAIL" -eq 0 ] || exit 1
+exit 0
