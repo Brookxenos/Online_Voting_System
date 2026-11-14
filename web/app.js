@@ -1,23 +1,29 @@
 /* ==========================================================================
-   Online Voting System — Frontend Application
-   Vanilla JS, no dependencies. Talks to the C++ HTTP server's JSON API.
+   OpenVote — Frontend Application
+   Vanilla JS, no dependencies. Talks to the C++ backend's JSON API.
+   Authentication is a HttpOnly session cookie set by the server; the
+   frontend never stores passwords and never decides permissions itself —
+   it only renders what the server allows.
    ========================================================================== */
 
 (function () {
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Config & state
+// State
 // ---------------------------------------------------------------------------
 
-// The vote payload encryption key MUST match the server's VOTE_KEY.
-const VOTE_KEY = 'V0t!ngSys_2024_D3moKey#xyz';
-
 const state = {
-  voter: null,    // { id, name, hasVoted, password }
-  admin: null,    // { username }
+  user: null,          // {id, username, displayName, role, orgId} from /api/me
   view: 'home',
-  selectedCandidate: null,
+  params: {},          // route params
+  elections: [],
+  orgs: [],
+  users: [],
+  audit: [],
+  resultsCache: {},
+  selectedCandidate: null,   // candidate pending confirmation
+  election: null,            // currently loaded election detail
 };
 
 // ---------------------------------------------------------------------------
@@ -28,553 +34,1224 @@ async function api(path, opts) {
   opts = opts || {};
   const init = {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {},
   };
-  if (opts.body) init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
+  if (opts.body !== undefined) {
+    init.body = JSON.stringify(opts.body);
+    init.headers['Content-Type'] = 'application/json';
+  }
   const res = await fetch('/api/' + path, init);
   let data = null;
-  try { data = await res.json(); } catch (e) {}
+  try { data = await res.json(); } catch (e) { /* non-JSON (e.g. CSV) */ }
   if (!res.ok) {
     const msg = (data && data.error) || ('HTTP ' + res.status);
     const err = new Error(msg);
-    err.status = res.status; err.data = data;
+    err.status = res.status;
+    err.data = data;
     throw err;
   }
   return data;
 }
 
 // ---------------------------------------------------------------------------
-// Crypto helpers (mirror of server-side, for ballot encryption)
-// ---------------------------------------------------------------------------
-
-// XOR-stream cipher (UTF-8 safe): we operate on bytes via Uint8Array.
-function xorCryptBytes(bytes, keyStr) {
-  const keyBytes = new TextEncoder().encode(keyStr);
-  const out = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) {
-    out[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-  return out;
-}
-
-function base64EncodeBytes(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
-
-function encryptBallot(candidateId, voterId) {
-  const plain = candidateId + '|' + voterId;
-  const bytes = new TextEncoder().encode(plain);
-  const enc = xorCryptBytes(bytes, VOTE_KEY);
-  return base64EncodeBytes(enc);
-}
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
-
-const app = document.getElementById('app');
-
-function go(view) {
-  state.view = view;
-  state.selectedCandidate = null;
-  render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function render() {
-  const tplId = 'tpl-' + state.view;
-  let tpl = document.getElementById(tplId);
-  if (!tpl) tpl = document.getElementById('tpl-home');
-  app.innerHTML = '';
-  app.appendChild(document.importNode(tpl.content, true));
-  bindView();
-}
-
-// ---------------------------------------------------------------------------
-// View bindings
-// ---------------------------------------------------------------------------
-
-function bindView() {
-  // Generic data-go navigation
-  app.querySelectorAll('[data-go]').forEach(el => {
-    el.addEventListener('click', () => go(el.getAttribute('data-go')));
-  });
-
-  switch (state.view) {
-    case 'voter-register':     bindRegister(); break;
-    case 'voter-login':        bindVoterLogin(); break;
-    case 'voter-dashboard':    bindVoterDashboard(); break;
-    case 'admin-login':        bindAdminLogin(); break;
-    case 'admin-dashboard':    bindAdminDashboard(); break;
-    case 'results':            bindResultsPage(); break;
-  }
-}
-
-function setBox(id, type, msg) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.className = 'result-box ' + type;
-  el.textContent = msg;
-}
-
-// ----- Register -----
-function bindRegister() {
-  const form = document.getElementById('form-register');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    try {
-      const r = await api('register', {
-        method: 'POST',
-        body: {
-          name: fd.get('name'),
-          nationalId: fd.get('nationalId') || '',
-          password: fd.get('password'),
-        }
-      });
-      setBox('reg-result', 'success',
-        'Registration successful! Your Voter ID is: ' + r.voterId +
-        ' — please save it. You can now log in.');
-      // Pre-fill login hint
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-link';
-      btn.textContent = 'Go to Login →';
-      btn.onclick = () => go('voter-login');
-      document.getElementById('reg-result').appendChild(document.createElement('br'));
-      document.getElementById('reg-result').appendChild(btn);
-    } catch (err) {
-      setBox('reg-result', 'error', err.message);
-    }
-  });
-}
-
-// ----- Voter login -----
-function bindVoterLogin() {
-  const form = document.getElementById('form-voter-login');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    try {
-      const r = await api('voter/login', {
-        method: 'POST',
-        body: { voterId: fd.get('voterId'), password: fd.get('password') }
-      });
-      state.voter = {
-        id: r.voterId,
-        name: r.name,
-        hasVoted: r.hasVoted,
-        password: fd.get('password'),
-      };
-      go('voter-dashboard');
-    } catch (err) {
-      setBox('voter-login-result', 'error', err.message);
-    }
-  });
-}
-
-// ----- Voter dashboard -----
-async function bindVoterDashboard() {
-  const badge = document.getElementById('voter-badge');
-  badge.textContent = state.voter.name + ' (' + state.voter.id + ')';
-
-  const logout = app.querySelector('[data-action="logout"]');
-  logout.addEventListener('click', () => { state.voter = null; go('home'); });
-
-  try {
-    const data = await api('candidates');
-    const banner = document.getElementById('election-status-box');
-    if (!data.electionOpen) {
-      banner.innerHTML = '<div class="election-banner closed">⚠️ Election is currently closed. You cannot vote at this time.</div>';
-    } else if (state.voter.hasVoted) {
-      banner.innerHTML = '<div class="election-banner info">✓ You have already cast your vote. Thank you for participating!</div>';
-    } else {
-      banner.innerHTML = '<div class="election-banner open">✓ Election is open. Tap a candidate to vote.</div>';
-    }
-    const grid = document.getElementById('candidate-grid');
-    if (!data.candidates || data.candidates.length === 0) {
-      grid.innerHTML = '<div class="empty">No candidates have been added yet. Please check back later.</div>';
-      return;
-    }
-    grid.innerHTML = '';
-    data.candidates.forEach(c => {
-      const card = document.createElement('div');
-      card.className = 'candidate-card';
-      card.innerHTML = `
-        <div class="symbol">${escapeHtml(c.symbol || '🗳️')}</div>
-        <div class="name">${escapeHtml(c.name)}</div>
-        <div class="party">${escapeHtml(c.party)}</div>
-        <div class="position">${escapeHtml(c.position || '')}</div>
-      `;
-      card.addEventListener('click', () => {
-        if (!data.electionOpen) {
-          setBox('vote-result', 'error', 'Election is closed. Voting is disabled.');
-          return;
-        }
-        if (state.voter.hasVoted) {
-          setBox('vote-result', 'error', 'You have already voted.');
-          return;
-        }
-        confirmVote(c, card);
-      });
-      grid.appendChild(card);
-    });
-  } catch (err) {
-    setBox('vote-result', 'error', 'Failed to load candidates: ' + err.message);
-  }
-}
-
-function confirmVote(candidate, cardEl) {
-  if (state.selectedCandidate === candidate.id) {
-    castVote(candidate);
-    return;
-  }
-  state.selectedCandidate = candidate.id;
-  app.querySelectorAll('.candidate-card').forEach(el => el.classList.remove('selected'));
-  cardEl.classList.add('selected');
-  setBox('vote-result', 'info',
-    'You selected: ' + candidate.name + ' (' + candidate.party + '). ' +
-    'Tap again to confirm and cast your vote. This action cannot be undone.');
-}
-
-async function castVote(candidate) {
-  setBox('vote-result', 'info', 'Encrypting your ballot and submitting...');
-  const ballot = encryptBallot(candidate.id, state.voter.id);
-  try {
-    const r = await api('vote', {
-      method: 'POST',
-      body: {
-        voterId: state.voter.id,
-        password: state.voter.password,
-        ballot: ballot,
-      }
-    });
-    state.voter.hasVoted = true;
-    setBox('vote-result', 'success',
-      '✓ Vote recorded! Receipt code: ' + r.receipt + ' (timestamp: ' + r.timestamp + ')');
-    app.querySelectorAll('.candidate-card').forEach(el => el.classList.remove('selected'));
-    state.selectedCandidate = null;
-    // Update banner
-    const banner = document.getElementById('election-status-box');
-    banner.innerHTML = '<div class="election-banner info">✓ You have already cast your vote. Thank you for participating!</div>';
-  } catch (err) {
-    setBox('vote-result', 'error', err.message);
-  }
-}
-
-// ----- Admin login -----
-function bindAdminLogin() {
-  const form = document.getElementById('form-admin-login');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    try {
-      const r = await api('admin/login', {
-        method: 'POST',
-        body: { username: fd.get('username'), password: fd.get('password') }
-      });
-      state.admin = { username: r.username };
-      go('admin-dashboard');
-    } catch (err) {
-      setBox('admin-login-result', 'error', err.message);
-    }
-  });
-}
-
-// ----- Admin dashboard -----
-function bindAdminDashboard() {
-  const badge = document.getElementById('admin-badge');
-  badge.textContent = 'Admin: ' + state.admin.username;
-
-  app.querySelector('[data-action="logout"]').addEventListener('click', () => {
-    state.admin = null; go('home');
-  });
-
-  // Tab switching
-  app.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      app.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      app.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('tab-' + tab.getAttribute('data-tab')).classList.add('active');
-    });
-  });
-
-  bindAdminCandidates();
-  bindAdminVoters();
-  loadAdminResults();
-  loadElectionState();
-  loadAuditLog();
-  bindAdminPassword();
-}
-
-async function bindAdminCandidates() {
-  const form = document.getElementById('form-add-candidate');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    try {
-      await api('admin/candidates', {
-        method: 'POST',
-        body: {
-          name: fd.get('name'),
-          party: fd.get('party'),
-          symbol: fd.get('symbol') || '🗳️',
-          position: fd.get('position') || 'President',
-        }
-      });
-      form.reset();
-      await loadCandidateList();
-    } catch (err) {
-      alert('Error: ' + err.message);
-    }
-  });
-  await loadCandidateList();
-}
-
-async function loadCandidateList() {
-  const wrap = document.getElementById('candidate-list');
-  try {
-    const data = await api('candidates');
-    if (!data.candidates || data.candidates.length === 0) {
-      wrap.innerHTML = '<div class="empty">No candidates yet.</div>';
-      return;
-    }
-    let html = '<table><thead><tr><th>ID</th><th>Name</th><th>Party</th><th>Symbol</th><th>Position</th><th>Votes</th><th></th></tr></thead><tbody>';
-    data.candidates.forEach(c => {
-      html += `<tr>
-        <td>${escapeHtml(c.id)}</td>
-        <td>${escapeHtml(c.name)}</td>
-        <td>${escapeHtml(c.party)}</td>
-        <td>${escapeHtml(c.symbol || '')}</td>
-        <td>${escapeHtml(c.position || '')}</td>
-        <td>${c.votes}</td>
-        <td><button class="btn btn-link btn-danger" data-remove="${c.id}">Remove</button></td>
-      </tr>`;
-    });
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
-    wrap.querySelectorAll('[data-remove]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Remove candidate ' + btn.getAttribute('data-remove') + '?')) return;
-        try {
-          await api('admin/candidates/remove', {
-            method: 'POST',
-            body: { candidateId: btn.getAttribute('data-remove') }
-          });
-          await loadCandidateList();
-        } catch (err) { alert(err.message); }
-      });
-    });
-  } catch (err) {
-    wrap.innerHTML = '<div class="empty">Failed to load: ' + escapeHtml(err.message) + '</div>';
-  }
-}
-
-async function bindAdminVoters() {
-  const form = document.getElementById('form-add-voter');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    try {
-      const r = await api('admin/voters', {
-        method: 'POST',
-        body: {
-          name: fd.get('name'),
-          nationalId: fd.get('nationalId') || '',
-          password: fd.get('password'),
-        }
-      });
-      form.reset();
-      alert('Voter added. Voter ID: ' + r.voterId);
-      await loadVoterList();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-  await loadVoterList();
-}
-
-async function loadVoterList() {
-  const wrap = document.getElementById('voter-list');
-  try {
-    const data = await api('admin/voters');
-    if (!data.voters || data.voters.length === 0) {
-      wrap.innerHTML = '<div class="empty">No voters registered.</div>';
-      return;
-    }
-    let html = '<table><thead><tr><th>ID</th><th>Name</th><th>National ID</th><th>Voted?</th></tr></thead><tbody>';
-    data.voters.forEach(v => {
-      html += `<tr>
-        <td>${escapeHtml(v.id)}</td>
-        <td>${escapeHtml(v.name)}</td>
-        <td>${escapeHtml(v.nationalId || '—')}</td>
-        <td>${v.hasVoted ? '✓ Yes' : '— No'}</td>
-      </tr>`;
-    });
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
-  } catch (err) {
-    wrap.innerHTML = '<div class="empty">Failed to load: ' + escapeHtml(err.message) + '</div>';
-  }
-}
-
-async function loadAdminResults() {
-  const panel = document.getElementById('results-panel');
-  if (!panel) return;
-  try {
-    const data = await api('results');
-    renderResults(panel, data);
-  } catch (err) {
-    panel.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>';
-  }
-}
-
-function renderResults(container, data) {
-  if (!data.results || data.results.length === 0) {
-    container.innerHTML = '<div class="empty">No votes have been cast yet.</div>';
-    return;
-  }
-  const leader = data.leader ? '<h3>Current leader: ' + escapeHtml(data.leader) + '</h3>' : '';
-  let html = leader + '<p class="muted">Total votes cast: <strong>' + data.totalVotes + '</strong></p>';
-  html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Candidate</th><th>Party</th><th>Votes</th><th>Share</th></tr></thead><tbody>';
-  data.results.forEach((c, i) => {
-    const pct = c.percent.toFixed(1);
-    html += `<tr>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(c.symbol || '🗳️')} ${escapeHtml(c.name)}</td>
-      <td>${escapeHtml(c.party)}</td>
-      <td>${c.votes}</td>
-      <td>
-        ${pct}%
-        <div class="vote-bar"><span style="width:${pct}%"></span></div>
-      </td>
-    </tr>`;
-  });
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
-}
-
-async function loadElectionState() {
-  const box = document.getElementById('election-state-box');
-  if (!box) return;
-  try {
-    const data = await api('election/status');
-    box.innerHTML = '<div class="election-banner ' + (data.electionOpen ? 'open' : 'closed') + '">' +
-      (data.electionOpen ? '● Election is OPEN — voting is allowed.' : '● Election is CLOSED — voting is disabled.') +
-      '</div>';
-  } catch (err) {
-    box.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>';
-  }
-}
-
-async function loadAuditLog() {
-  const wrap = document.getElementById('audit-list');
-  if (!wrap) return;
-  try {
-    const data = await api('admin/audit');
-    if (!data.entries || data.entries.length === 0) {
-      wrap.innerHTML = '<div class="empty">No audit entries yet.</div>';
-      return;
-    }
-    let html = data.entries.map(e =>
-      `<div class="audit-row">
-        <span class="ts">${escapeHtml(e.timestamp)}</span>
-        <span class="actor">${escapeHtml(e.actor)}</span>
-        <span class="action">${escapeHtml(e.action)}</span>
-        <span class="detail">${escapeHtml(e.detail)}</span>
-      </div>`
-    ).join('');
-    wrap.innerHTML = html;
-  } catch (err) {
-    wrap.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>';
-  }
-}
-
-function bindAdminPassword() {
-  const form = document.getElementById('form-change-pwd');
-  if (!form) return;
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    try {
-      await api('admin/password', {
-        method: 'POST',
-        body: {
-          username: state.admin.username,
-          oldPassword: fd.get('oldPassword'),
-          newPassword: fd.get('newPassword'),
-        }
-      });
-      form.reset();
-      setBox('pwd-result', 'success', 'Password updated successfully.');
-    } catch (err) {
-      setBox('pwd-result', 'error', err.message);
-    }
-  });
-}
-
-// Wire up admin action buttons (refresh, open/close election)
-document.addEventListener('click', async (e) => {
-  const t = e.target;
-  if (!t.matches('[data-action]')) return;
-  const action = t.getAttribute('data-action');
-  if (action === 'refresh-results') {
-    const panel = document.getElementById('results-panel') || document.getElementById('results-page');
-    if (panel) {
-      panel.innerHTML = '<div class="empty">Loading...</div>';
-      try {
-        const data = await api('results');
-        renderResults(panel, data);
-      } catch (err) { panel.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>'; }
-    }
-  } else if (action === 'refresh-audit') {
-    await loadAuditLog();
-  } else if (action === 'open-election') {
-    try {
-      await api('election/status', { method: 'POST', body: { open: true } });
-      await loadElectionState();
-    } catch (err) { alert(err.message); }
-  } else if (action === 'close-election') {
-    if (!confirm('Close the election? No further votes will be accepted.')) return;
-    try {
-      await api('election/status', { method: 'POST', body: { open: false } });
-      await loadElectionState();
-    } catch (err) { alert(err.message); }
-  }
-});
-
-// ----- Results page (public) -----
-async function bindResultsPage() {
-  const panel = document.getElementById('results-page');
-  panel.innerHTML = '<div class="empty">Loading...</div>';
-  try {
-    const data = await api('results');
-    renderResults(panel, data);
-  } catch (err) {
-    panel.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>';
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Utils
+// Utilities
 // ---------------------------------------------------------------------------
 
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function toast(message, type) {
+  const region = document.getElementById('toast-region');
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + (type || 'info');
+  el.setAttribute('role', 'status');
+  el.textContent = message;
+  region.appendChild(el);
+  setTimeout(() => { el.classList.add('toast-out'); }, 3500);
+  setTimeout(() => { el.remove(); }, 4200);
+}
+
+function fmtStatus(status) {
+  const map = { draft: 'Draft', open: 'Open', closed: 'Closed',
+                published: 'Published', archived: 'Archived' };
+  return map[status] || status;
+}
+
+function roleLabel(role) {
+  const map = { platform_admin: 'Platform admin', org_admin: 'Org admin',
+                observer: 'Observer', voter: 'Voter' };
+  return map[role] || role;
+}
+
+// ---------------------------------------------------------------------------
+// Router (hash-based)
+// ---------------------------------------------------------------------------
+
+const routes = [
+  { name: 'home',       pattern: /^#?\/?$/ },
+  { name: 'login',      pattern: /^#\/login$/ },
+  { name: 'register',   pattern: /^#\/register$/ },
+  { name: 'elections',  pattern: /^#\/elections$/ },
+  { name: 'election',   pattern: /^#\/election\/(\d+)$/, params: ['id'] },
+  { name: 'results',    pattern: /^#\/results\/(\d+)$/, params: ['id'] },
+  { name: 'admin',      pattern: /^#\/admin$/ },
+  { name: 'adminElection', pattern: /^#\/admin\/election\/(\d+)$/, params: ['id'] },
+  { name: 'observer',   pattern: /^#\/observer$/ },
+  { name: 'settings',   pattern: /^#\/settings$/ },
+];
+
+function navigate() {
+  const hash = location.hash || '#/';
+  for (const r of routes) {
+    const m = hash.match(r.pattern);
+    if (m) {
+      state.view = r.name;
+      state.params = {};
+      if (r.params) r.params.forEach((p, i) => { state.params[p] = m[i + 1]; });
+      state.selectedCandidate = null;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+  }
+  state.view = 'notfound';
+  render();
+}
+
+window.addEventListener('hashchange', navigate);
+
+function go(path) { location.hash = path; }
+
+// ---------------------------------------------------------------------------
+// Shell rendering
+// ---------------------------------------------------------------------------
+
+const app = document.getElementById('app');
+
+function navHtml() {
+  const u = state.user;
+  const links = [['#/', 'Home']];
+  if (u) links.push(['#/elections', 'Elections']);
+  if (u && u.role === 'platform_admin') links.push(['#/admin', 'Administration']);
+  if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.push(['#/admin', 'Administration']);
+  if (u && u.role === 'observer') links.push(['#/observer', 'Observer view']);
+  if (u) links.push(['#/settings', 'Settings']);
+  let html = '<nav class="topnav" aria-label="Main navigation">';
+  html += '<a class="brand" href="#/">🗳️ OpenVote</a>';
+  html += '<div class="nav-links">';
+  for (const [href, label] of links) html += `<a href="${href}">${label}</a>`;
+  html += '</div>';
+  html += '<div class="nav-user">';
+  if (u) {
+    html += `<span class="badge">${escapeHtml(u.displayName)} · ${roleLabel(u.role)}</span>`;
+    html += '<button class="btn btn-link" id="btn-logout">Log out</button>';
+  } else {
+    html += '<a class="btn btn-secondary" href="#/login">Log in</a>';
+    html += '<a class="btn btn-primary" href="#/register">Register</a>';
+  }
+  html += '</div></nav>';
+  return html;
+}
+
+function render() {
+  app.innerHTML = navHtml() + '<div id="view"></div>';
+  const logout = document.getElementById('btn-logout');
+  if (logout) {
+    logout.addEventListener('click', async () => {
+      try { await api('auth/logout', { method: 'POST' }); } catch (e) { /* ignore */ }
+      state.user = null;
+      toast('You have been logged out.');
+      go('#/');
+      render();
+    });
+  }
+  const view = document.getElementById('view');
+  const renderers = {
+    home: renderHome,
+    login: renderLogin,
+    register: renderRegister,
+    elections: renderElections,
+    election: renderElectionDetail,
+    results: renderResults,
+    admin: renderAdmin,
+    adminElection: renderAdminElection,
+    observer: renderObserver,
+    settings: renderSettings,
+    notfound: renderNotFound,
+  };
+  (renderers[state.view] || renderNotFound)(view);
+}
+
+function renderNotFound(view) {
+  view.innerHTML = `
+    <section class="card">
+      <h2>Page not found</h2>
+      <p class="muted">The page you requested does not exist.</p>
+      <a class="btn btn-primary" href="#/">Back to home</a>
+    </section>`;
+}
+
+// ---------------------------------------------------------------------------
+// Views: home
+// ---------------------------------------------------------------------------
+
+async function renderHome(view) {
+  const u = state.user;
+  let electionsHtml = '';
+  // Public discovery: elections of organizations that allow self-registration
+  // are listed for logged-in users via /api/elections.
+  if (u) {
+    electionsHtml = `
+      <section class="card">
+        <h2>Open elections</h2>
+        <div id="home-elections" class="election-list"><div class="empty">Loading…</div></div>
+        <div class="btn-row">
+          <a class="btn btn-secondary" href="#/elections">My elections →</a>
+          ${u.role === 'platform_admin' || u.role === 'org_admin' ? '<a class="btn btn-primary" href="#/admin">Administration →</a>' : ''}
+          ${u.role === 'observer' ? '<a class="btn btn-secondary" href="#/observer">Observer view →</a>' : ''}
+        </div>
+      </section>`;
+  }
+  view.innerHTML = `
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="hero-badges"><span>Neutral</span><span>Auditable</span><span>Privacy-conscious</span></div>
+        <h1>🗳️ OpenVote</h1>
+        <p class="subtitle">A voting platform for organizations, clubs and communities —
+        designed for fairness, accessibility and a reviewable audit trail.</p>
+        <div class="hero-actions">
+          ${!u ? `
+          <a class="btn btn-primary btn-lg" href="#/register">Register to vote</a>
+          <a class="btn btn-secondary btn-lg" href="#/login">Log in</a>` : `
+          <a class="btn btn-primary btn-lg" href="#/elections">Go to my elections</a>`}
+        </div>
+        <p class="muted small">This platform is for organizational and community elections.
+        It is not certified for legally binding public elections.</p>
+      </div>
+    </header>
+    ${electionsHtml}`;
+  if (u) {
+    try {
+      const data = await api('elections');
+      const box = document.getElementById('home-elections');
+      const open = (data.elections || []).filter(e => e.status === 'open');
+      if (open.length === 0) {
+        box.innerHTML = '<div class="empty">No elections are open for voting right now.</div>';
+      } else {
+        box.innerHTML = open.map(e => electionRowHtml(e, state.user)).join('');
+        bindElectionRows(box);
+      }
+    } catch (e) { /* silent on home */ }
+  }
+}
+
+function electionRowHtml(e, user) {
+  const badgeClass = { open: 'success', draft: 'muted-badge', closed: 'warn',
+                       published: 'info', archived: 'muted-badge' }[e.status] || 'muted-badge';
+  let voterInfo = '';
+  if (user && user.role === 'voter') {
+    if (e.hasVoted) voterInfo = '<span class="pill pill-info">You have voted</span>';
+    else if (e.status === 'open') voterInfo = e.eligible
+      ? '<span class="pill pill-success">Eligible</span>'
+      : '<span class="pill pill-muted">Not on the voter list</span>';
+  }
+  const link = (user && (user.role === 'platform_admin' || user.role === 'org_admin'))
+    ? `#/admin/election/${e.id}` : `#/election/${e.id}`;
+  return `
+    <div class="election-row">
+      <div class="election-row-main">
+        <a href="${link}" class="election-title">${escapeHtml(e.name)}</a>
+        <div class="muted small">Organization #${e.orgId} · created ${escapeHtml((e.createdAt || '').slice(0, 10))}</div>
+      </div>
+      <div class="election-row-side">
+        <span class="pill pill-${badgeClass}">${fmtStatus(e.status)}</span>
+        ${voterInfo}
+        <a class="btn btn-link" href="#/results/${e.id}">Results</a>
+      </div>
+    </div>`;
+}
+
+function bindElectionRows(box) {
+  box.querySelectorAll('a.election-title').forEach(a => {
+    a.addEventListener('click', () => go(a.getAttribute('href')));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Views: login / register
+// ---------------------------------------------------------------------------
+
+function renderLogin(view) {
+  view.innerHTML = `
+    <section class="card narrow">
+      <h2>Log in</h2>
+      <p class="muted">Use your account username and password.</p>
+      <form id="form-login" class="stack-form">
+        <label>Username
+          <input type="text" name="username" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <div class="error-box" id="login-error" hidden></div>
+        <button type="submit" class="btn btn-primary">Log in</button>
+        <a class="btn btn-link" href="#/register">Need an account? Register →</a>
+      </form>
+    </section>`;
+  const form = document.getElementById('form-login');
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const errBox = document.getElementById('login-error');
+    errBox.hidden = true;
+    try {
+      const r = await api('auth/login', {
+        method: 'POST',
+        body: { username: fd.get('username'), password: fd.get('password') }
+      });
+      state.user = r.user;
+      toast('Welcome, ' + r.user.displayName + '!');
+      go('#/elections');
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    }
+  });
+}
+
+function renderRegister(view) {
+  view.innerHTML = `
+    <section class="card narrow">
+      <h2>Register to vote</h2>
+      <p class="muted">Create a voter account. Choose a username you will remember —
+      you will log in with it.</p>
+      <form id="form-register" class="stack-form">
+        <label>Username
+          <input type="text" name="username" autocomplete="username"
+                 minlength="3" maxlength="32" required>
+        </label>
+        <label>Display name
+          <input type="text" name="displayName" maxlength="100">
+        </label>
+        <label>Password (minimum 8 characters)
+          <input type="password" name="password" minlength="8" autocomplete="new-password" required>
+        </label>
+        <div class="error-box" id="reg-error" hidden></div>
+        <button type="submit" class="btn btn-primary">Create account</button>
+        <a class="btn btn-link" href="#/login">Already registered? Log in →</a>
+      </form>
+    </section>`;
+  const form = document.getElementById('form-register');
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const errBox = document.getElementById('reg-error');
+    errBox.hidden = true;
+    try {
+      await api('auth/register', {
+        method: 'POST',
+        body: {
+          username: fd.get('username'),
+          displayName: fd.get('displayName') || fd.get('username'),
+          password: fd.get('password'),
+        }
+      });
+      toast('Account created. Please log in.');
+      go('#/login');
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Views: elections list (voter dashboard)
+// ---------------------------------------------------------------------------
+
+async function renderElections(view) {
+  if (!state.user) { go('#/login'); return; }
+  view.innerHTML = `
+    <section class="card">
+      <header class="page-head-inline">
+        <h2>My elections</h2>
+      </header>
+      <p class="muted">Elections you can view. Only elections that are
+      <strong>open</strong> accept ballots, and results appear only after they
+      are published by the administrators.</p>
+      <div id="election-list" class="election-list"><div class="empty">Loading…</div></div>
+    </section>`;
+  try {
+    const data = await api('elections');
+    const box = document.getElementById('election-list');
+    const list = data.elections || [];
+    if (list.length === 0) {
+      box.innerHTML = '<div class="empty">No elections are available for your account yet. You will see an election here once an organization adds you to its voter list.</div>';
+      return;
+    }
+    box.innerHTML = list.map(e => electionRowHtml(e, state.user)).join('');
+    bindElectionRows(box);
+  } catch (err) {
+    document.getElementById('election-list').innerHTML =
+      `<div class="empty">Failed to load: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Views: election detail + ballot
+// ---------------------------------------------------------------------------
+
+async function renderElectionDetail(view) {
+  if (!state.user) { go('#/login'); return; }
+  view.innerHTML = '<section class="card"><div class="empty">Loading…</div></section>';
+  let e;
+  try {
+    e = await api('elections/' + state.params.id);
+  } catch (err) {
+    view.innerHTML = `<section class="card"><h2>Election unavailable</h2>
+      <p class="muted">${escapeHtml(err.message)}</p>
+      <a class="btn btn-secondary" href="#/elections">← Back to elections</a></section>`;
+    return;
+  }
+  state.election = e;
+  const isVoter = state.user.role === 'voter';
+  const canVoteNow = isVoter && e.status === 'open' && e.eligible && !e.hasVoted;
+
+  const statusPill = `<span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>`;
+
+  let ballotHtml = '';
+  if (isVoter) {
+    if (e.hasVoted) {
+      ballotHtml = `<div class="banner banner-info">✓ You have already voted in this election. Your ballot has been recorded and can no longer be changed.</div>`;
+    } else if (e.status === 'open' && !e.eligible) {
+      ballotHtml = `<div class="banner banner-warn">You are not on the voter list for this election.</div>`;
+    } else if (e.status === 'open' && e.eligible) {
+      ballotHtml = `
+        <h3>Cast your vote</h3>
+        <p class="muted">Select one option. No option is preselected. You will be asked to confirm before your ballot is recorded.</p>
+        <div class="candidate-grid" id="ballot-grid" role="radiogroup" aria-label="Ballot options"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-cast" disabled>Cast vote</button>
+        </div>
+        <div class="error-box" id="vote-error" hidden></div>`;
+    } else if (e.status === 'draft') {
+      ballotHtml = `<div class="banner banner-muted">This election is being prepared and is not accepting ballots yet.</div>`;
+    } else {
+      ballotHtml = `<div class="banner banner-muted">Voting has ended for this election.</div>`;
+    }
+  }
+
+  const cands = e.candidates || [];
+  const candList = cands.length === 0
+    ? '<div class="empty">No ballot options have been published yet.</div>'
+    : cands.map(c => `
+      <div class="candidate-card" data-cid="${c.id}" role="radio" aria-checked="false" tabindex="0">
+        <div class="candidate-name">${escapeHtml(c.name)}</div>
+        ${c.party ? `<div class="candidate-party">${escapeHtml(c.party)}</div>` : ''}
+        ${c.description ? `<div class="candidate-desc">${escapeHtml(c.description)}</div>` : ''}
+      </div>`).join('');
+
+  view.innerHTML = `
+    <section class="card">
+      <header class="page-head-inline">
+        <h2>${escapeHtml(e.name)}</h2>
+        ${statusPill}
+      </header>
+      <p class="muted">${escapeHtml(e.description || '')}</p>
+      <div class="meta-grid">
+        <div><span class="meta-label">Voting window</span>
+          ${e.startAt || e.endAt ? `${escapeHtml(e.startAt || 'now')} → ${escapeHtml(e.endAt || 'no end')}` : 'Not restricted'}</div>
+        <div><span class="meta-label">Participation</span>
+          ${e.participationCount >= 0 ? e.participationCount + ' ballots so far' : 'Not public while voting is active'}</div>
+        <div><span class="meta-label">Results</span>
+          ${e.status === 'published' || e.status === 'archived' ? '<a href="#/results/' + e.id + '">Published results →</a>' : 'Available after publication'}</div>
+      </div>
+      <h3>Ballot options</h3>
+      <div class="candidate-grid static">${candList}</div>
+      ${ballotHtml}
+    </section>`;
+
+  if (canVoteNow) {
+    const grid = document.getElementById('ballot-grid');
+    const staticGrid = view.querySelector('.candidate-grid.static');
+    // Move candidates into the selectable grid.
+    if (staticGrid) grid.innerHTML = staticGrid.innerHTML;
+    const castBtn = document.getElementById('btn-cast');
+    const select = (card) => {
+      grid.querySelectorAll('.candidate-card').forEach(el => {
+        el.classList.remove('selected');
+        el.setAttribute('aria-checked', 'false');
+      });
+      card.classList.add('selected');
+      card.setAttribute('aria-checked', 'true');
+      state.selectedCandidate = Number(card.getAttribute('data-cid'));
+      castBtn.disabled = false;
+      toast('Selected: ' + card.querySelector('.candidate-name').textContent + '. Press “Cast vote” to confirm.');
+    };
+    grid.querySelectorAll('.candidate-card').forEach(card => {
+      card.addEventListener('click', () => select(card));
+      card.addEventListener('keydown', (ev) => {
+        if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); select(card); }
+      });
+    });
+    castBtn.addEventListener('click', async () => {
+      if (!state.selectedCandidate) return;
+      const choiceName = grid.querySelector('.candidate-card.selected .candidate-name').textContent;
+      if (!window.confirm('Confirm your vote for “' + choiceName + '”?\n\nThis cannot be undone and cannot be changed afterwards.')) {
+        return;
+      }
+      castBtn.disabled = true;
+      try {
+        const r = await api('elections/' + e.id + '/vote', {
+          method: 'POST',
+          body: { candidateId: state.selectedCandidate }
+        });
+        view.innerHTML = `
+          <section class="card narrow center">
+            <div class="big-icon">✅</div>
+            <h2>Your vote has been recorded</h2>
+            <p>Thank you for participating. Your ballot is anonymous to the
+            application: no record links your account to your choice.</p>
+            <div class="receipt-box">
+              <span class="meta-label">Receipt code</span>
+              <code id="receipt-code">${escapeHtml(r.receipt)}</code>
+            </div>
+            <p class="muted small">Save this receipt code. It confirms your ballot
+            was accepted but does not reveal your choice.</p>
+            <div class="btn-row center">
+              <a class="btn btn-secondary" href="#/elections">Back to elections</a>
+              <a class="btn btn-link" href="#/results/${e.id}">Results</a>
+            </div>
+          </section>`;
+      } catch (err) {
+        const errBox = document.getElementById('vote-error');
+        errBox.textContent = err.message;
+        errBox.hidden = false;
+        castBtn.disabled = false;
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Views: results
+// ---------------------------------------------------------------------------
+
+async function renderResults(view) {
+  view.innerHTML = '<section class="card"><div class="empty">Loading…</div></section>';
+  let r;
+  try {
+    r = await api('elections/' + state.params.id + '/results');
+  } catch (err) {
+    view.innerHTML = `
+      <section class="card narrow">
+        <h2>Results</h2>
+        <div class="banner banner-muted">${escapeHtml(err.message)}</div>
+        <p class="muted small">Vote totals are hidden until the administrators
+        publish the results. This prevents influencing voters while the election
+        is running.</p>
+        <a class="btn btn-secondary" href="#/elections">← Back</a>
+      </section>`;
+    return;
+  }
+  const total = r.results.reduce((s, c) => s + c.votes, 0);
+  const rows = r.results.map(c => {
+    const pct = total > 0 ? (c.votes * 100.0 / total) : 0;
+    return `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.party || '')}</td>
+        <td>${c.votes}</td>
+        <td>${pct.toFixed(1)}%
+          <div class="vote-bar"><span style="width:${pct.toFixed(1)}%"></span></div>
+        </td>
+      </tr>`;
+  }).join('');
+  view.innerHTML = `
+    <section class="card">
+      <header class="page-head-inline">
+        <h2>Results — ${escapeHtml(r.electionName)}</h2>
+        <span class="pill pill-${r.published ? 'info' : 'warn'}">${r.published ? 'Published' : 'Live (configured)'}</span>
+      </header>
+      <div class="meta-grid">
+        <div><span class="meta-label">Total ballots</span>${r.totalBallots}</div>
+        <div><span class="meta-label">Participants</span>${r.totalParticipations}</div>
+        <div><span class="meta-label">Integrity check</span>${r.integrityOk ? '✓ ballots match participants' : '⚠ mismatch detected'}</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Option</th><th>Party</th><th>Votes</th><th>Share</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <a class="btn btn-secondary" href="/api/elections/${r.electionId}/results.csv">Download CSV report</a>
+        <a class="btn btn-link" href="#/elections">← Back</a>
+      </div>
+    </section>`;
+}
+
+// ---------------------------------------------------------------------------
+// Views: admin dashboard
+// ---------------------------------------------------------------------------
+
+async function renderAdmin(view) {
+  if (!state.user || (state.user.role !== 'platform_admin' && state.user.role !== 'org_admin')) {
+    go('#/elections'); return;
+  }
+  view.innerHTML = `
+    <section class="card">
+      <header class="page-head-inline"><h2>Administration</h2></header>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="elections" role="tab">Elections</button>
+        ${state.user.role === 'platform_admin' ? '<button class="tab" data-tab="orgs" role="tab">Organizations</button>' : ''}
+        <button class="tab" data-tab="users" role="tab">Users</button>
+        <button class="tab" data-tab="audit" role="tab">Audit log</button>
+      </nav>
+      <div id="tab-elections" class="tab-panel active">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-new-election">+ New election</button>
+        </div>
+        <form id="form-new-election" class="stack-form panel" hidden>
+          ${state.user.role === 'platform_admin' ? `
+          <label>Organization
+            <select name="orgId" id="ne-org" required></select>
+          </label>` : ''}
+          <label>Election name
+            <input type="text" name="name" maxlength="200" required>
+          </label>
+          <label>Description
+            <textarea name="description" rows="2" maxlength="2000"></textarea>
+          </label>
+          <label class="check-label">
+            <input type="checkbox" name="showLiveResults">
+            Show live vote totals while the election is open (deliberate configuration)
+          </label>
+          <div class="form-row">
+            <label>Start (ISO UTC, optional)<input type="text" name="startAt" placeholder="2026-01-01T08:00:00Z"></label>
+            <label>End (ISO UTC, optional)<input type="text" name="endAt" placeholder="2026-01-07T20:00:00Z"></label>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary">Create election</button>
+            <button type="button" class="btn btn-link" id="ne-cancel">Cancel</button>
+          </div>
+          <div class="error-box" id="ne-error" hidden></div>
+        </form>
+        <div id="admin-election-list" class="election-list"><div class="empty">Loading…</div></div>
+      </div>
+      ${state.user.role === 'platform_admin' ? `
+      <div id="tab-orgs" class="tab-panel">
+        <div class="btn-row"><button class="btn btn-primary" id="btn-new-org">+ New organization</button></div>
+        <form id="form-new-org" class="stack-form panel" hidden>
+          <label>Name<input type="text" name="name" maxlength="100" required></label>
+          <label>Slug (URL-safe identifier)<input type="text" name="slug" maxlength="32" required></label>
+          <label class="check-label"><input type="checkbox" name="allowSelfRegistration" checked>
+            Allow public self-registration into this organization</label>
+          <div class="error-box" id="no-error" hidden></div>
+          <div class="btn-row"><button type="submit" class="btn btn-primary">Create</button>
+          <button type="button" class="btn btn-link" id="no-cancel">Cancel</button></div>
+        </form>
+        <div id="org-list" class="table-wrap"><div class="empty">Loading…</div></div>
+      </div>` : ''}
+      <div id="tab-users" class="tab-panel">
+        <div class="btn-row"><button class="btn btn-primary" id="btn-new-user">+ New user</button></div>
+        <form id="form-new-user" class="stack-form panel" hidden>
+          <label>Username<input type="text" name="username" maxlength="32" required></label>
+          <label>Display name<input type="text" name="displayName" maxlength="100"></label>
+          <label>Role
+            <select name="role">
+              <option value="voter">Voter</option>
+              <option value="org_admin">Organization admin</option>
+              <option value="observer">Observer</option>
+              ${state.user.role === 'platform_admin' ? '<option value="platform_admin">Platform admin</option>' : ''}
+            </select>
+          </label>
+          ${state.user.role === 'platform_admin' ? `
+          <label>Organization
+            <select name="orgId" id="nu-org"></select>
+          </label>` : ''}
+          <label>Password<input type="password" name="password" minlength="8" required></label>
+          <div class="error-box" id="nu-error" hidden></div>
+          <div class="btn-row"><button type="submit" class="btn btn-primary">Create user</button>
+          <button type="button" class="btn btn-link" id="nu-cancel">Cancel</button></div>
+        </form>
+        <div id="user-list" class="table-wrap"><div class="empty">Loading…</div></div>
+      </div>
+      <div id="tab-audit" class="tab-panel">
+        <div class="btn-row"><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
+        <div id="audit-list" class="table-wrap"><div class="empty">Loading…</div></div>
+      </div>
+    </section>`;
+
+  bindTabs(view);
+
+  // ---- tabs helpers ----
+  function bindTabs(view) {
+    view.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        view.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        view.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        view.querySelector('#tab-' + tab.getAttribute('data-tab')).classList.add('active');
+      });
+    });
+  }
+
+  // ---- org dropdowns (platform admin) ----
+  async function loadOrgSelects() {
+    if (state.user.role !== 'platform_admin') return;
+    const data = await api('orgs');
+    state.orgs = data.orgs || [];
+    for (const selId of ['ne-org', 'nu-org']) {
+      const sel = document.getElementById(selId);
+      if (sel) {
+        sel.innerHTML = state.orgs.map(o =>
+          `<option value="${o.id}">${escapeHtml(o.name)} (${escapeHtml(o.slug)})</option>`).join('');
+      }
+    }
+  }
+  await loadOrgSelects();
+
+  // ---- elections list ----
+  const listEl = document.getElementById('admin-election-list');
+  async function loadElections() {
+    try {
+      const data = await api('elections');
+      const list = (data.elections || []).filter(e =>
+        state.user.role === 'platform_admin' || e.orgId === state.user.orgId);
+      listEl.innerHTML = list.length === 0
+        ? '<div class="empty">No elections yet. Create one to get started.</div>'
+        : list.map(e => `
+          <div class="election-row">
+            <div class="election-row-main">
+              <a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a>
+              <div class="muted small">Organization #${e.orgId}</div>
+            </div>
+            <div class="election-row-side">
+              <span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>
+              <a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a>
+            </div>
+          </div>`).join('');
+    } catch (err) {
+      listEl.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+    }
+  }
+  await loadElections();
+
+  // ---- new election ----
+  const neForm = document.getElementById('form-new-election');
+  document.getElementById('btn-new-election').addEventListener('click', () => {
+    neForm.hidden = !neForm.hidden;
+  });
+  document.getElementById('ne-cancel').addEventListener('click', () => { neForm.hidden = true; });
+  neForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(neForm);
+    const errBox = document.getElementById('ne-error');
+    errBox.hidden = true;
+    const body = {
+      name: fd.get('name'),
+      description: fd.get('description') || '',
+      showLiveResults: fd.get('showLiveResults') === 'on',
+      startAt: (fd.get('startAt') || '').trim(),
+      endAt: (fd.get('endAt') || '').trim(),
+    };
+    if (state.user.role === 'platform_admin') body.orgId = Number(fd.get('orgId'));
+    else body.orgId = state.user.orgId;
+    try {
+      const r = await api('elections', { method: 'POST', body });
+      toast('Election created.');
+      neForm.reset(); neForm.hidden = true;
+      go('#/admin/election/' + r.election.id);
+    } catch (err) {
+      errBox.textContent = err.message; errBox.hidden = false;
+    }
+  });
+
+  // ---- organizations (platform admin) ----
+  if (state.user.role === 'platform_admin') {
+    const orgList = document.getElementById('org-list');
+    const noForm = document.getElementById('form-new-org');
+    document.getElementById('btn-new-org').addEventListener('click', () => { noForm.hidden = !noForm.hidden; });
+    document.getElementById('no-cancel').addEventListener('click', () => { noForm.hidden = true; });
+    noForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(noForm);
+      const errBox = document.getElementById('no-error');
+      errBox.hidden = true;
+      try {
+        await api('orgs', {
+          method: 'POST',
+          body: {
+            name: fd.get('name'), slug: fd.get('slug'),
+            allowSelfRegistration: fd.get('allowSelfRegistration') === 'on'
+          }
+        });
+        toast('Organization created.');
+        noForm.reset(); noForm.hidden = true;
+        await loadOrgSelects(); await loadOrgs();
+      } catch (err) {
+        errBox.textContent = err.message; errBox.hidden = false;
+      }
+    });
+    async function loadOrgs() {
+      const data = await api('orgs');
+      const orgs = data.orgs || [];
+      orgList.innerHTML = orgs.length === 0 ? '<div class="empty">No organizations yet.</div>' :
+        `<table><thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Self-registration</th></tr></thead><tbody>` +
+        orgs.map(o => `<tr><td>${o.id}</td><td>${escapeHtml(o.name)}</td><td>${escapeHtml(o.slug)}</td><td>${o.allowSelfRegistration ? 'Yes' : 'No'}</td></tr>`).join('') +
+        '</tbody></table>';
+    }
+    await loadOrgs();
+  }
+
+  // ---- users ----
+  const userList = document.getElementById('user-list');
+  const nuForm = document.getElementById('form-new-user');
+  document.getElementById('btn-new-user').addEventListener('click', () => { nuForm.hidden = !nuForm.hidden; });
+  document.getElementById('nu-cancel').addEventListener('click', () => { nuForm.hidden = true; });
+  nuForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(nuForm);
+    const errBox = document.getElementById('nu-error');
+    errBox.hidden = true;
+    const body = {
+      username: fd.get('username'),
+      displayName: fd.get('displayName') || fd.get('username'),
+      role: fd.get('role'),
+      password: fd.get('password'),
+    };
+    if (state.user.role === 'platform_admin') body.orgId = Number(fd.get('orgId') || 0);
+    try {
+      await api('users', { method: 'POST', body });
+      toast('User created.');
+      nuForm.reset(); nuForm.hidden = true;
+      await loadUsers();
+    } catch (err) {
+      errBox.textContent = err.message; errBox.hidden = false;
+    }
+  });
+  async function loadUsers() {
+    try {
+      const data = await api('users');
+      const users = data.users || [];
+      userList.innerHTML = users.length === 0 ? '<div class="empty">No users.</div>' :
+        `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th></th></tr></thead><tbody>` +
+        users.map(u => `<tr>
+          <td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td>
+          <td>${roleLabel(u.role)}</td><td>${u.orgId || '—'}</td>
+          <td>${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td>
+          <td>${u.id !== state.user.id ? `<button class="btn btn-link btn-danger" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable' : 'Disable'}</button>` : ''}</td>
+        </tr>`).join('') + '</tbody></table>';
+      userList.querySelectorAll('[data-disable]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const disable = btn.textContent.trim() === 'Disable';
+          if (!window.confirm((disable ? 'Disable' : 'Enable') + ' account ' + btn.getAttribute('data-name') + '?')) return;
+          try {
+            await api('users/' + btn.getAttribute('data-disable') + '/disable', {
+              method: 'POST', body: { disabled: disable }
+            });
+            await loadUsers();
+          } catch (err) { toast(err.message, 'error'); }
+        });
+      });
+    } catch (err) {
+      userList.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+    }
+  }
+  await loadUsers();
+
+  // ---- audit ----
+  const auditList = document.getElementById('audit-list');
+  async function loadAudit() {
+    try {
+      const data = await api('audit');
+      const entries = data.entries || [];
+      auditList.innerHTML = entries.length === 0 ? '<div class="empty">No audit events yet.</div>' :
+        `<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Election</th><th>Detail</th></tr></thead><tbody>` +
+        entries.map(e => `<tr><td class="mono">${escapeHtml(e.ts)}</td><td>${escapeHtml(e.actor)}</td><td>${escapeHtml(e.action)}</td><td>${e.electionId || '—'}</td><td>${escapeHtml(e.detail || '')}</td></tr>`).join('') +
+        '</tbody></table>';
+    } catch (err) {
+      auditList.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+    }
+  }
+  document.getElementById('btn-refresh-audit').addEventListener('click', loadAudit);
+  await loadAudit();
+}
+
+// ---------------------------------------------------------------------------
+// Views: admin election management
+// ---------------------------------------------------------------------------
+
+async function renderAdminElection(view) {
+  if (!state.user || (state.user.role !== 'platform_admin' && state.user.role !== 'org_admin')) {
+    go('#/elections'); return;
+  }
+  view.innerHTML = '<section class="card"><div class="empty">Loading…</div></section>';
+  let e;
+  try {
+    e = await api('elections/' + state.params.id);
+    if (!(state.user.role === 'platform_admin' || e.orgId === state.user.orgId)) {
+      throw new Error('You do not administer this election');
+    }
+  } catch (err) {
+    view.innerHTML = `<section class="card"><h2>Election unavailable</h2>
+      <p class="muted">${escapeHtml(err.message)}</p><a class="btn btn-secondary" href="#/admin">← Back</a></section>`;
+    return;
+  }
+
+  const lifecycleButtons = [];
+  if (e.status === 'draft') lifecycleButtons.push(['open', 'Open election', 'btn-primary', 'Open the election and accept ballots?']);
+  if (e.status === 'open') lifecycleButtons.push(['closed', 'Close election', 'btn-danger', 'Close the election? No further ballots will be accepted.']);
+  if (e.status === 'closed') lifecycleButtons.push(['published', 'Publish results', 'btn-primary', 'Run the tally and publish the results? This makes them publicly visible.']);
+  if (e.status === 'published') lifecycleButtons.push(['archived', 'Archive election', 'btn-secondary', 'Archive this election?']);
+
+  view.innerHTML = `
+    <section class="card">
+      <header class="page-head-inline">
+        <h2>${escapeHtml(e.name)}</h2>
+        <span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>
+        <a class="btn btn-link" href="#/admin">← All elections</a>
+      </header>
+      <p class="muted">${escapeHtml(e.description || '')}</p>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="lifecycle" role="tab">Lifecycle</button>
+        <button class="tab" data-tab="config" role="tab">Configuration</button>
+        <button class="tab" data-tab="candidates" role="tab">Candidates</button>
+        <button class="tab" data-tab="eligibility" role="tab">Voter list</button>
+        <button class="tab" data-tab="admresults" role="tab">Results</button>
+      </nav>
+
+      <div id="tab-lifecycle" class="tab-panel active">
+        <h3>Lifecycle</h3>
+        <p class="muted small">Lifecycle: draft → open → closed → published → archived.
+        Configuration can only be edited in draft. Results can only be published
+        from a closed election after a successful integrity check.</p>
+        <div class="btn-row" id="lifecycle-buttons">
+          ${lifecycleButtons.map(([s, label, cls, confirmMsg]) =>
+            `<button class="btn ${cls}" data-transition="${s}" data-confirm="${escapeHtml(confirmMsg)}">${label}</button>`).join('')}
+          ${lifecycleButtons.length === 0 ? '<div class="empty">No further transitions.</div>' : ''}
+        </div>
+        <div class="error-box" id="lifecycle-error" hidden></div>
+      </div>
+
+      <div id="tab-config" class="tab-panel">
+        <h3>Configuration (draft only)</h3>
+        <form id="form-election-config" class="stack-form">
+          <label>Name<input type="text" name="name" value="${escapeHtml(e.name)}" maxlength="200" required></label>
+          <label>Description<textarea name="description" rows="2" maxlength="2000">${escapeHtml(e.description || '')}</textarea></label>
+          <label class="check-label">
+            <input type="checkbox" name="showLiveResults" ${e.showLiveResults ? 'checked' : ''}>
+            Show live vote totals while the election is open
+          </label>
+          <div class="form-row">
+            <label>Start (ISO UTC)<input type="text" name="startAt" value="${escapeHtml(e.startAt || '')}" placeholder="2026-01-01T08:00:00Z"></label>
+            <label>End (ISO UTC)<input type="text" name="endAt" value="${escapeHtml(e.endAt || '')}" placeholder="2026-01-07T20:00:00Z"></label>
+          </div>
+          <div class="btn-row"><button type="submit" class="btn btn-primary">Save configuration</button></div>
+          <div class="error-box" id="cfg-error" hidden></div>
+        </form>
+      </div>
+
+      <div id="tab-candidates" class="tab-panel">
+        <h3>Candidates / ballot options</h3>
+        ${e.status === 'draft' ? `
+        <form id="form-add-candidate" class="stack-form panel">
+          <div class="form-row">
+            <label>Name<input type="text" name="name" maxlength="200" required></label>
+            <label>Party / affiliation<input type="text" name="party" maxlength="200"></label>
+          </div>
+          <label>Description<input type="text" name="description" maxlength="2000"></label>
+          <div class="btn-row"><button type="submit" class="btn btn-primary">Add option</button></div>
+          <div class="error-box" id="cand-error" hidden></div>
+        </form>` : '<div class="banner banner-muted">Candidates can only be changed while the election is a draft.</div>'}
+        <div id="candidate-list" class="table-wrap"><div class="empty">Loading…</div></div>
+      </div>
+
+      <div id="tab-eligibility" class="tab-panel">
+        <h3>Voter list</h3>
+        <p class="muted small">Only users on this list can cast a ballot.
+        Eligibility and ballots are stored separately: the voter list never
+        records any choice.</p>
+        <form id="form-eligibility" class="inline-form panel">
+          <input type="text" name="username" placeholder="username" required>
+          <button type="submit" class="btn btn-primary">Add to voter list</button>
+        </form>
+        <div class="error-box" id="elig-error" hidden></div>
+        <div id="eligibility-list" class="table-wrap"><div class="empty">Loading…</div></div>
+      </div>
+
+      <div id="tab-admresults" class="tab-panel">
+        <h3>Results</h3>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="btn-run-tally">Run tally</button>
+          <a class="btn btn-secondary" href="#/results/${e.id}">Open results page</a>
+        </div>
+        <div id="tally-output" class="table-wrap"><div class="empty">No tally has been run in this session.</div></div>
+      </div>
+    </section>`;
+
+  bindTabs(view);
+  function bindTabs(view) {
+    view.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        view.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        view.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        view.querySelector('#tab-' + tab.getAttribute('data-tab')).classList.add('active');
+      });
+    });
+  }
+
+  // Lifecycle transitions
+  view.querySelectorAll('[data-transition]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!window.confirm(btn.getAttribute('data-confirm'))) return;
+      const errBox = document.getElementById('lifecycle-error');
+      errBox.hidden = true;
+      try {
+        await api('elections/' + e.id + '/status', {
+          method: 'POST', body: { status: btn.getAttribute('data-transition') }
+        });
+        toast('Election updated.');
+        renderAdminElection(view);
+      } catch (err) {
+        errBox.textContent = err.message; errBox.hidden = false;
+      }
+    });
+  });
+
+  // Config
+  const cfgForm = document.getElementById('form-election-config');
+  cfgForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(cfgForm);
+    const errBox = document.getElementById('cfg-error');
+    errBox.hidden = true;
+    try {
+      await api('elections/' + e.id, {
+        method: 'POST',
+        body: {
+          name: fd.get('name'),
+          description: fd.get('description') || '',
+          showLiveResults: fd.get('showLiveResults') === 'on',
+          startAt: (fd.get('startAt') || '').trim(),
+          endAt: (fd.get('endAt') || '').trim(),
+        }
+      });
+      toast('Configuration saved.');
+    } catch (err) {
+      errBox.textContent = err.message; errBox.hidden = false;
+    }
+  });
+
+  // Candidates
+  const candList = document.getElementById('candidate-list');
+  async function loadCandidates() {
+    const data = await api('elections/' + e.id + '/candidates');
+    const cands = data.candidates || [];
+    candList.innerHTML = cands.length === 0 ? '<div class="empty">No ballot options yet.</div>' :
+      `<table><thead><tr><th>#</th><th>Name</th><th>Party</th><th>Description</th>${e.status === 'draft' ? '<th></th>' : ''}</tr></thead><tbody>` +
+      cands.map(c => `<tr><td>${c.position}</td><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.party || '—')}</td><td>${escapeHtml(c.description || '—')}</td>` +
+      (e.status === 'draft' ? `<td><button class="btn btn-link btn-danger" data-remove="${c.id}" data-name="${escapeHtml(c.name)}">Remove</button></td>` : '') + '</tr>').join('') +
+      '</tbody></table>';
+    candList.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm('Remove option ' + btn.getAttribute('data-name') + '?')) return;
+        try {
+          await api('elections/' + e.id + '/candidates/remove', {
+            method: 'POST', body: { candidateId: Number(btn.getAttribute('data-remove')) }
+          });
+          await loadCandidates();
+        } catch (err) { toast(err.message, 'error'); }
+      });
+    });
+  }
+  const candForm = document.getElementById('form-add-candidate');
+  if (candForm) {
+    candForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(candForm);
+      const errBox = document.getElementById('cand-error');
+      errBox.hidden = true;
+      try {
+        await api('elections/' + e.id + '/candidates', {
+          method: 'POST',
+          body: { name: fd.get('name'), party: fd.get('party') || '',
+                  description: fd.get('description') || '' }
+        });
+        candForm.reset();
+        await loadCandidates();
+      } catch (err) {
+        errBox.textContent = err.message; errBox.hidden = false;
+      }
+    });
+  }
+  await loadCandidates();
+
+  // Eligibility
+  const eligList = document.getElementById('eligibility-list');
+  async function loadEligibility() {
+    const data = await api('elections/' + e.id + '/eligibility');
+    const users = data.eligible || [];
+    eligList.innerHTML = users.length === 0 ? '<div class="empty">No voters on the list yet.</div>' :
+      `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th></th></tr></thead><tbody>` +
+      users.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td>
+        <td><button class="btn btn-link btn-danger" data-revoke="${u.id}">Remove</button></td></tr>`).join('') +
+      '</tbody></table>';
+    eligList.querySelectorAll('[data-revoke]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm('Remove this voter from the list?')) return;
+        try {
+          await api('elections/' + e.id + '/eligibility', {
+            method: 'POST', body: { userId: Number(btn.getAttribute('data-revoke')), action: 'revoke' }
+          });
+          await loadEligibility();
+        } catch (err) { toast(err.message, 'error'); }
+      });
+    });
+  }
+  const eligForm = document.getElementById('form-eligibility');
+  eligForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(eligForm);
+    const errBox = document.getElementById('elig-error');
+    errBox.hidden = true;
+    try {
+      await api('elections/' + e.id + '/eligibility', {
+        method: 'POST', body: { username: fd.get('username'), action: 'grant' }
+      });
+      eligForm.reset();
+      await loadEligibility();
+    } catch (err) {
+      errBox.textContent = err.message; errBox.hidden = false;
+    }
+  });
+  await loadEligibility();
+
+  // Tally
+  document.getElementById('btn-run-tally').addEventListener('click', async () => {
+    const out = document.getElementById('tally-output');
+    out.innerHTML = '<div class="empty">Running tally…</div>';
+    try {
+      const data = await api('elections/' + e.id + '/results');
+      out.innerHTML = `
+        <table><thead><tr><th>Option</th><th>Votes</th></tr></thead><tbody>
+        ${data.results.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${c.votes}</td></tr>`).join('')}
+        </tbody></table>
+        <p class="muted small">Ballots: ${data.totalBallots} · Participants: ${data.totalParticipations} ·
+        Integrity: ${data.integrityOk ? 'OK' : 'MISMATCH'}</p>`;
+    } catch (err) {
+      out.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Views: observer
+// ---------------------------------------------------------------------------
+
+async function renderObserver(view) {
+  if (!state.user || state.user.role !== 'observer') { go('#/elections'); return; }
+  view.innerHTML = `
+    <section class="card">
+      <header class="page-head-inline"><h2>Observer view</h2></header>
+      <p class="muted small">Read-only access to your organization's elections
+      and audit trail. Observers cannot change any election data.</p>
+      <h3>Elections</h3>
+      <div id="observer-elections" class="election-list"><div class="empty">Loading…</div></div>
+      <h3>Audit trail</h3>
+      <div id="observer-audit" class="table-wrap"><div class="empty">Loading…</div></div>
+    </section>`;
+  try {
+    const data = await api('elections');
+    const box = document.getElementById('observer-elections');
+    const list = data.elections || [];
+    box.innerHTML = list.length === 0 ? '<div class="empty">No elections in your organization yet.</div>' :
+      list.map(e => `
+        <div class="election-row">
+          <div class="election-row-main">
+            <a href="#/results/${e.id}" class="election-title">${escapeHtml(e.name)}</a>
+            <div class="muted small">${escapeHtml(e.description || '')}</div>
+          </div>
+          <div class="election-row-side">
+            <span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>
+            <a class="btn btn-link" href="#/results/${e.id}">Results</a>
+          </div>
+        </div>`).join('');
+    const audit = await api('audit');
+    const aBox = document.getElementById('observer-audit');
+    const entries = audit.entries || [];
+    aBox.innerHTML = entries.length === 0 ? '<div class="empty">No audit events yet.</div>' :
+      `<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Election</th><th>Detail</th></tr></thead><tbody>` +
+      entries.map(ev => `<tr><td class="mono">${escapeHtml(ev.ts)}</td><td>${escapeHtml(ev.actor)}</td><td>${escapeHtml(ev.action)}</td><td>${ev.electionId || '—'}</td><td>${escapeHtml(ev.detail || '')}</td></tr>`).join('') +
+      '</tbody></table>';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Views: settings
+// ---------------------------------------------------------------------------
+
+function renderSettings(view) {
+  if (!state.user) { go('#/login'); return; }
+  view.innerHTML = `
+    <section class="card narrow">
+      <h2>Account settings</h2>
+      <div class="meta-grid">
+        <div><span class="meta-label">Username</span>${escapeHtml(state.user.username)}</div>
+        <div><span class="meta-label">Display name</span>${escapeHtml(state.user.displayName)}</div>
+        <div><span class="meta-label">Role</span>${roleLabel(state.user.role)}</div>
+      </div>
+      <h3>Change password</h3>
+      <p class="muted small">Changing your password signs you out everywhere.</p>
+      <form id="form-password" class="stack-form">
+        <label>Current password<input type="password" name="currentPassword" autocomplete="current-password" required></label>
+        <label>New password (min 8 chars)<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required></label>
+        <div class="error-box" id="pwd-error" hidden></div>
+        <button type="submit" class="btn btn-primary">Update password</button>
+      </form>
+    </section>`;
+  const form = document.getElementById('form-password');
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const errBox = document.getElementById('pwd-error');
+    errBox.hidden = true;
+    try {
+      await api('auth/password', {
+        method: 'POST',
+        body: { currentPassword: fd.get('currentPassword'), newPassword: fd.get('newPassword') }
+      });
+      state.user = null;
+      toast('Password updated. Please log in again.');
+      go('#/login');
+    } catch (err) {
+      errBox.textContent = err.message; errBox.hidden = false;
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
-render();
+(async function boot() {
+  // Rehydrate the session from the HttpOnly cookie.
+  try {
+    const r = await api('me');
+    state.user = r.user;
+  } catch (e) {
+    state.user = null;
+  }
+  navigate();
+})();
 
 })();
