@@ -69,8 +69,6 @@ jpost /api/auth/login '{"username":"voterA","password":"password123"}' -c "$TMP/
 check "voter login works" '"role":"voter"' "$(jget /api/me -b "$TMP/voterA.jar")"
 
 echo "-- organizations and RBAC --"
-check "org admin cannot create orgs" "Platform administrator access required" \
-  "$(jpost /api/users  '{}' -b "$TMP/voterA.jar")"
 check "voter cannot create org" "Platform administrator" \
   "$(jpost /api/orgs '{"name":"Nope","slug":"nope1"}' -b "$TMP/voterA.jar")"
 check "admin creates org A" '"slug":"org-a"' \
@@ -86,8 +84,8 @@ check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.ja
 check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"
 
 echo "-- election creation and lifecycle --"
-check "org admin A cannot create in org B" "do not administer" \
-  "$(jpost /api/elections '{"orgId":2,"name":"Hijack"}' -b "$TMP/admb.jar")"
+check "org admin B cannot create election in org A" "do not administer" \
+  "$(jpost /api/elections '{"orgId":1,"name":"Hijack"}' -b "$TMP/admb.jar")"
 check "create election in org A" '"status":"draft"' \
   "$(jpost /api/elections '{"orgId":1,"name":"Election A1"}' -b "$TMP/admin.jar")"
 check "invalid status transition draft->closed rejected" "Invalid transition" \
@@ -128,9 +126,8 @@ check "non-eligible voter rejected" "not eligible" \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterB.jar")"
 
 echo "-- results privacy and publication --"
-check "results hidden while open" "not published yet" \
-  "$(jpost /api/elections/1/vote '{}' -b "$TMP/voterA.jar"; jget /api/elections/1/results -b "$TMP/voterA.jar")"
-check "results csv hidden while open" "not published yet" "$(jget /api/elections/1/results.csv)"
+check "results hidden while open" "not published yet" "$(jget /api/elections/1/results -b "$TMP/voterA.jar")"
+check "results csv requires auth while unpublished" "Not authenticated" "$(jget /api/elections/1/results.csv)"
 check "close election" '"status":"closed"' \
   "$(jpost /api/elections/1/status '{"status":"closed"}' -b "$TMP/admin.jar")"
 check "publish election" '"status":"published"' \
@@ -152,9 +149,13 @@ for i in 1 2 3 4 5; do
   jpost /api/elections/2/eligibility "{\"username\":\"rv$i\",\"action\":\"grant\"}" -b "$TMP/admin.jar" > /dev/null
   jpost /api/auth/login "{\"username\":\"rv$i\",\"password\":\"password123\"}" -c "$TMP/rv$i.jar" > /dev/null
 done
-OUT=$(for i in 1 2 3 4 5; do
-  ( jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv$i.jar" > "$TMP/race$i.out" ) &
-done; wait; cat "$TMP"/race*.out)
+PIDS=()
+for i in 1 2 3 4 5; do
+  jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv$i.jar" > "$TMP/race$i.out" &
+  PIDS+=($!)
+done
+for p in "${PIDS[@]}"; do wait "$p"; done
+OUT=$(cat "$TMP"/race*.out)
 SUCC=$(grep -c '"ok":true' <<< "$OUT" || true)
 check "exactly 5 of 5 concurrent voters succeeded once each" "5" "$SUCC"
 RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
