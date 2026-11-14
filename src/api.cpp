@@ -731,6 +731,14 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
         auto tally = store.latestTally(id);
         if (!tally) {
+            // A permitted reader may trigger the (idempotent) tally
+            // computation; it is only run when someone is actually allowed
+            // to see the results.
+            bool maySee = published || liveAllowed ||
+                          (userOpt && canObserveElection(*userOpt, *e));
+            if (maySee) tally = store.tallyElection(id);
+        }
+        if (!tally) {
             return fail(404, "No tally has been run for this election yet");
         }
 
@@ -778,6 +786,13 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         }
 
         auto tally = store.latestTally(id);
+        if (!tally) {
+            bool published = e->resultsPublic && (e->status == "published" || e->status == "archived");
+            bool liveAllowed = e->showLiveResults && (e->status == "open" || e->status == "closed");
+            bool maySee = published || liveAllowed ||
+                          (userOpt && canObserveElection(*userOpt, *e));
+            if (maySee) tally = store.tallyElection(id);
+        }
         if (!tally) return fail(404, "No tally has been run for this election yet");
 
         std::ostringstream out;

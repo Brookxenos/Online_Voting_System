@@ -752,6 +752,9 @@ long long Store::importOrg(const std::string& name, const std::string& slug) {
 void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
     // Import runs once, only into a fresh database, and only if the legacy
     // files exist. Nothing is ever deleted; the CSV files stay in place.
+    // Files that exist but contain no data rows (header only / empty) are
+    // skipped: they produce no users, no organization, no election and no
+    // migration marker, so a later populated CSV set is still picked up.
     auto markers = db_.query("SELECT 1 AS one FROM migration_markers WHERE name='legacy_csv'");
     auto userCount = db_.query("SELECT COUNT(*) AS n FROM users");
     bool dbHasUsers = !userCount.empty() && std::stoll(userCount[0].at("n")) > 0;
@@ -763,6 +766,60 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
     std::ifstream votesFile(dataDir + "/votes.csv");
     if (!votersFile && !adminsFile && !candFile) return; // nothing to import
 
+    // --- Parse everything into memory first so empty files import nothing ---
+    struct LegacyCandidate { std::string legacyId; std::string name; std::string party;
+                             std::string symbol; std::string position; };
+    std::vector<LegacyCandidate> legacyCandidates;
+    if (candFile) {
+        std::string line;
+        std::getline(candFile, line); // header
+        while (std::getline(candFile, line)) {
+            if (line.empty()) continue;
+            auto f = splitCsv(line);
+            if (f.size() < 6) continue;
+            legacyCandidates.push_back({
+                unescapeCsv(f[0]), unescapeCsv(f[1]), unescapeCsv(f[2]),
+                unescapeCsv(f[3]), unescapeCsv(f[4])
+            });
+        }
+    }
+
+    struct LegacyAdmin { std::string username; std::string hash; };
+    std::vector<LegacyAdmin> legacyAdmins;
+    if (adminsFile) {
+        std::string line;
+        std::getline(adminsFile, line); // header
+        while (std::getline(adminsFile, line)) {
+            if (line.empty()) continue;
+            auto f = splitCsv(line);
+            if (f.size() < 2) continue;
+            legacyAdmins.push_back({ unescapeCsv(f[0]), unescapeCsv(f[1]) });
+        }
+    }
+
+    struct LegacyVoter { std::string username; std::string displayName; std::string hash;
+                         std::string nationalId; bool hasVoted; };
+    std::vector<LegacyVoter> legacyVoters;
+    if (votersFile) {
+        std::string line;
+        std::getline(votersFile, line); // header
+        while (std::getline(votersFile, line)) {
+            if (line.empty()) continue;
+            auto f = splitCsv(line);
+            if (f.size() < 5) continue;
+            legacyVoters.push_back({
+                unescapeCsv(f[0]), unescapeCsv(f[1]), unescapeCsv(f[2]),
+                unescapeCsv(f[3]),
+                unescapeCsv(f[4]) == "1" || unescapeCsv(f[4]) == "true"
+            });
+        }
+    }
+
+    long long importable = (long long)legacyCandidates.size() +
+                           (long long)legacyAdmins.size() +
+                           (long long)legacyVoters.size();
+    if (importable == 0) return; // only headers/empty rows: nothing to migrate
+
     addAudit("system", "LEGACY_IMPORT_BEGIN", 0,
              "importing historical CSV data; historical records are identity-linked and not anonymous");
 
@@ -771,48 +828,34 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
     // Admins -> platform_admin with legacy-format password hashes.
     // (Verification of the old SHA-256 scheme happens on first login, after
     // which the hash is upgraded to Argon2id.)
-    if (adminsFile) {
-        std::string line;
-        std::getline(adminsFile, line); // header
-        while (std::getline(adminsFile, line)) {
-            if (line.empty()) continue;
-            auto f = splitCsv(line);
-            if (f.size() < 2) continue;
-            User u;
-            u.username = unescapeCsv(f[0]);
-            u.displayName = u.username;
-            u.role = "platform_admin";
-            // Old format "<salt>$<hash>" -> tagged "sha256$<salt>$<hash>".
-            u.passwordHash = "sha256$" + unescapeCsv(f[1]);
-            if (createUser(u) != CreateUserResult::Ok) {
-                addAudit("system", "LEGACY_IMPORT_SKIP_ADMIN", 0, "username " + u.username);
-            }
+    for (const auto& la : legacyAdmins) {
+        User u;
+        u.username = la.username;
+        u.displayName = la.username;
+        u.role = "platform_admin";
+        // Old format "<salt>$<hash>" -> tagged "sha256$<salt>$<hash>".
+        u.passwordHash = "sha256$" + la.hash;
+        if (createUser(u) != CreateUserResult::Ok) {
+            addAudit("system", "LEGACY_IMPORT_SKIP_ADMIN", 0, "username " + u.username);
         }
     }
 
     // Voters -> voter role in the import organization.
     std::map<std::string, long long> voterIds;      // legacy "V001" -> new user id
     std::map<std::string, bool> voterHasVoted;
-    if (votersFile) {
-        std::string line;
-        std::getline(votersFile, line); // header
-        while (std::getline(votersFile, line)) {
-            if (line.empty()) continue;
-            auto f = splitCsv(line);
-            if (f.size() < 5) continue;
-            User u;
-            u.username = unescapeCsv(f[0]);               // legacy voter ID as username
-            u.displayName = unescapeCsv(f[1]);
-            u.role = "voter";
-            u.orgId = orgId;
-            u.passwordHash = "sha256$" + unescapeCsv(f[2]);
-            u.nationalId = unescapeCsv(f[3]);
-            voterHasVoted[u.username] = (unescapeCsv(f[4]) == "1" || unescapeCsv(f[4]) == "true");
-            if (createUser(u) == CreateUserResult::Ok) {
-                voterIds[u.username] = u.id;
-            } else {
-                addAudit("system", "LEGACY_IMPORT_SKIP_VOTER", 0, "username " + u.username);
-            }
+    for (const auto& lv : legacyVoters) {
+        User u;
+        u.username = lv.username;                    // legacy voter ID as username
+        u.displayName = lv.displayName;
+        u.role = "voter";
+        u.orgId = orgId;
+        u.passwordHash = "sha256$" + lv.hash;
+        u.nationalId = lv.nationalId;
+        voterHasVoted[u.username] = lv.hasVoted;
+        if (createUser(u) == CreateUserResult::Ok) {
+            voterIds[u.username] = u.id;
+        } else {
+            addAudit("system", "LEGACY_IMPORT_SKIP_VOTER", 0, "username " + u.username);
         }
     }
 
@@ -820,22 +863,8 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
     // records are preserved and consistent, and can never be mixed with new
     // ballots. Candidate vote counts from the CSV are NOT trusted; the actual
     // votes.csv rows are imported as ballots instead (discrepancies audited).
-    if (candFile) {
-        struct LegacyCandidate { std::string legacyId; std::string name; std::string party;
-                                 std::string symbol; std::string position; };
-        std::vector<LegacyCandidate> imported;
-        std::string line;
-        std::getline(candFile, line); // header
-        while (std::getline(candFile, line)) {
-            if (line.empty()) continue;
-            auto f = splitCsv(line);
-            if (f.size() < 6) continue;
-            imported.push_back({
-                unescapeCsv(f[0]), unescapeCsv(f[1]), unescapeCsv(f[2]),
-                unescapeCsv(f[3]), unescapeCsv(f[4])
-            });
-        }
-
+    // No election is created when the CSV had no candidate rows.
+    if (!legacyCandidates.empty()) {
         Election e;
         e.orgId = orgId;
         e.name = "Imported legacy election";
@@ -848,7 +877,7 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
             long long legacyElectionId = e.id;
             std::map<std::string, long long> candIds; // legacy candidate id -> new id
             long long pos = 0;
-            for (const auto& lc : imported) {
+            for (const auto& lc : legacyCandidates) {
                 Candidate c;
                 c.electionId = legacyElectionId;
                 c.name = lc.name;
@@ -900,6 +929,8 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
         }
     }
 
+    // Only mark the migration as complete when something was actually
+    // imported; otherwise a later populated CSV set is still picked up.
     db_.exec("INSERT INTO migration_markers(name,applied_at) VALUES('legacy_csv',?)", {nowIso()});
     addAudit("system", "LEGACY_IMPORT_COMPLETE", 0, "");
 }
