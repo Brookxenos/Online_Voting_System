@@ -539,6 +539,13 @@ bool Store::isEligible(long long electionId, long long userId) {
     return !rows.empty();
 }
 
+bool Store::hasParticipation(long long electionId, long long userId) {
+    auto rows = db_.query(
+        "SELECT 1 AS one FROM participation WHERE election_id=? AND user_id=?",
+        {std::to_string(electionId), std::to_string(userId)});
+    return !rows.empty();
+}
+
 // ---------------------------------------------------------------------------
 // Voting — the transactional core
 // ---------------------------------------------------------------------------

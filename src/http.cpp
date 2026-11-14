@@ -291,20 +291,6 @@ std::vector<std::string> HttpServer::splitPath(const std::string& path) {
     return segs;
 }
 
-bool HttpServer::matchRoute(const Route& r, const Request& req) const {
-    auto segs = splitPath(req.path);
-    if (segs.size() != r.segments.size()) return false;
-    for (size_t i = 0; i < segs.size(); ++i) {
-        const std::string& pat = r.segments[i];
-        if (pat.rfind(':', 0) == 0) {
-            req.params[pat.substr(1)] = segs[i]; // non-const map access below
-            continue;
-        }
-        if (pat != segs[i]) return false;
-    }
-    return true;
-}
-
 HttpServer::Response HttpServer::dispatch(Request& req) {
     // Path-parameter matching needs a non-const params map.
     for (const auto& r : routes_) {

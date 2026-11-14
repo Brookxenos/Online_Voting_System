@@ -82,7 +82,6 @@ private:
     bool recvRequest(int fd, std::string& out, std::string& clientIp);
     Response dispatch(Request& req);
     Response serveStatic(const std::string& relPath);
-    bool matchRoute(const Route& r, const Request& req) const;
     static std::vector<std::string> splitPath(const std::string& path);
 };
 

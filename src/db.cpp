@@ -22,6 +22,14 @@ int sqlite3_exec(sqlite3*, const char *sql, void (*cb)(void*,int,char**,char**),
 int sqlite3_prepare_v2(sqlite3*, const char *zSql, int nByte, sqlite3_stmt **ppStmt, const char **pzTail);
 int sqlite3_bind_text(sqlite3_stmt*, int, const char*, int, void(*)(void*));
 int sqlite3_bind_null(sqlite3_stmt*, int);
+static void bindParams(sqlite3_stmt* stmt, const std::vector<DbValue>& binds) {
+    for (size_t i = 0; i < binds.size(); ++i) {
+        const DbValue& b = binds[i];
+        int idx = (int)(i + 1);
+        if (b.isNull) sqlite3_bind_null(stmt, idx);
+        else sqlite3_bind_text(stmt, idx, b.val.c_str(), (int)b.val.size(), SQLITE_TRANSIENT);
+    }
+}
 int sqlite3_step(sqlite3_stmt*);
 int sqlite3_finalize(sqlite3_stmt*);
 int sqlite3_column_count(sqlite3_stmt*);
@@ -72,19 +80,13 @@ void Database::exec(const std::string& sql) {
     }
 }
 
-void Database::exec(const std::string& sql, const std::vector<std::string>& binds) {
+void Database::exec(const std::string& sql, const std::vector<DbValue>& binds) {
     std::lock_guard<std::recursive_mutex> lk(mtx_);
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2((sqlite3*)db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error(std::string("SQL prepare error: ") + sqlite3_errmsg((sqlite3*)db_) + " — " + sql);
     }
-    for (size_t i = 0; i < binds.size(); ++i) {
-        const std::string& b = binds[i];
-        if (b.empty() && sql.size() > 0) {
-            // Ambiguity: empty string is a legal value, so never treat it as NULL.
-        }
-        sqlite3_bind_text(stmt, (int)(i + 1), b.c_str(), (int)b.size(), SQLITE_TRANSIENT);
-    }
+    bindParams(stmt, binds);
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
@@ -93,17 +95,14 @@ void Database::exec(const std::string& sql, const std::vector<std::string>& bind
 }
 
 std::vector<Database::Row> Database::query(const std::string& sql,
-                                           const std::vector<std::string>& binds) {
+                                           const std::vector<DbValue>& binds) {
     std::lock_guard<std::recursive_mutex> lk(mtx_);
     std::vector<Row> out;
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2((sqlite3*)db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error(std::string("SQL prepare error: ") + sqlite3_errmsg((sqlite3*)db_) + " — " + sql);
     }
-    for (size_t i = 0; i < binds.size(); ++i) {
-        const std::string& b = binds[i];
-        sqlite3_bind_text(stmt, (int)(i + 1), b.c_str(), (int)b.size(), SQLITE_TRANSIENT);
-    }
+    bindParams(stmt, binds);
     int cols = sqlite3_column_count(stmt);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         Row row;

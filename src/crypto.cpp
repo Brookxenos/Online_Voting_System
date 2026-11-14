@@ -23,13 +23,15 @@ int sodium_init(void);
 void randombytes_buf(void * const buf, const size_t size);
 
 // --- Argon2id password hashing ----------------------------------------------
-// crypto_pwhash_STRBYTES = 128; the *_str functions use the library's
-// recommended, encoded parameters (Argon2id) and self-describing strings.
-#define CRYPTO_PWHASH_STRBYTES        128
-#define CRYPTO_PWHASH_ALG_ARGON2ID13  2
-int crypto_pwhash_str(char out[CRYPTO_PWHASH_STRBYTES],
-                      const char * const passwd,
-                      unsigned long long passwdlen);
+// crypto_pwhash_STRBYTES = 128. Hashing uses crypto_pwhash_str_alg with the
+// library's recommended interactive parameters; verification uses the
+// self-describing crypto_pwhash_str_verify.
+#define CRYPTO_PWHASH_STRBYTES          128
+#define CRYPTO_PWHASH_ALG_ARGON2ID13    2
+int crypto_pwhash_str_alg(char out[CRYPTO_PWHASH_STRBYTES],
+                          const char * const passwd,
+                          unsigned long long passwdlen,
+                          unsigned long long opslimit, size_t memlimit, int alg);
 int crypto_pwhash_str_verify(const char str[CRYPTO_PWHASH_STRBYTES],
                              const char * const passwd,
                              unsigned long long passwdlen);
@@ -58,8 +60,12 @@ void init() {
 
 std::string hashPassword(const std::string& password) {
     init();
+    // Argon2id with libsodium's interactive limits (2 passes, 64 MiB).
     char encoded[CRYPTO_PWHASH_STRBYTES];
-    if (crypto_pwhash_str(encoded, password.c_str(), password.size()) != 0) {
+    std::memset(encoded, 0, sizeof(encoded));
+    if (crypto_pwhash_str_alg(encoded, password.c_str(), password.size(),
+                              /*opslimit*/ 2, /*memlimit*/ 64ULL << 20,
+                              CRYPTO_PWHASH_ALG_ARGON2ID13) != 0) {
         throw std::runtime_error("password hashing failed");
     }
     return std::string(encoded);

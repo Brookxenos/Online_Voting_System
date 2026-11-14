@@ -20,6 +20,17 @@
 #include <map>
 #include <mutex>
 
+// A bind value: either a text string or SQL NULL.
+struct DbValue {
+    std::string val;
+    bool isNull = false;
+    DbValue() : isNull(true) {}
+    DbValue(const std::string& v) : val(v) {}
+    DbValue(const char* v) : val(v) {}
+    DbValue(long long n) : val(std::to_string(n)) {}
+    static DbValue null() { return DbValue(); }
+};
+
 class Database {
 public:
     explicit Database(const std::string& dbFile);
@@ -29,13 +40,13 @@ public:
     void exec(const std::string& sql);
 
     // Execute with bound parameters ('?' placeholders).
-    void exec(const std::string& sql, const std::vector<std::string>& binds);
+    void exec(const std::string& sql, const std::vector<DbValue>& binds);
 
     // Run a query with bound parameters. Values are returned as text
     // (SQLite text conversion); NULL becomes the empty string.
     using Row = std::map<std::string, std::string>;
     std::vector<Row> query(const std::string& sql,
-                           const std::vector<std::string>& binds = {});
+                           const std::vector<DbValue>& binds = {});
 
     // Returns the rowid of the most recent successful INSERT.
     long long lastInsertId();

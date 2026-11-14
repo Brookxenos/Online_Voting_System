@@ -174,21 +174,17 @@ bool canAdminElection(const User& u, const Election& e) {
 }
 
 bool canObserveElection(const User& u, const Election& e) {
-    return canAdminElection(u) || (u.role == "observer" && u.orgId == e.orgId);
+    return canAdminElection(u, e) || (u.role == "observer" && u.orgId == e.orgId);
 }
 
 bool userCanViewElection(const User& u, Store& store, const Election& e) {
-    if (canAdminElection(u)) return true;
+    if (canAdminElection(u, e)) return true;
     if (u.role == "observer" && u.orgId == e.orgId) return true;
     if (u.role == "voter") {
         // Eligible users can always view.
         if (store.isEligible(e.id, u.id)) return true;
         // Participants can view after voting.
-        if (store.participationCount(e.id) > 0 && e.status != "draft") {
-            // participation check by user
-            auto org = store.getOrganization(e.orgId);
-            // fallthrough to visibility rules below
-        }
+        if (store.hasParticipation(e.id, u.id)) return true;
         // Non-draft elections of self-registration orgs are publicly viewable.
         if (e.status != "draft") {
             auto org = store.getOrganization(e.orgId);
@@ -423,12 +419,10 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         json::Array arr;
         for (const auto& e : store.listElectionsVisibleTo(*user)) {
             json::Object jo = electionJson(e).asObject();
-            // Include whether this voter can participate right now.
+            // Per-voter participation status (identity side only — never the choice).
             if (user->role == "voter") {
-                bool eligible = store.isEligible(e.id, user->id);
-                auto already = store.participationCount(e.id) > 0; // aggregate only
-                jo["eligible"] = eligible;
-                (void)already;
+                jo["eligible"] = store.isEligible(e.id, user->id);
+                jo["hasVoted"] = store.hasParticipation(e.id, user->id);
             }
             arr.push_back(json::Value(jo));
         }
@@ -499,6 +493,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
         if (user->role == "voter") {
             o["eligible"] = store.isEligible(id, user->id);
+            o["hasVoted"] = store.hasParticipation(id, user->id);
         }
         return ok(o);
     });
