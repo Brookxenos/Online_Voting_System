@@ -55,12 +55,23 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Add mobile press feedback and feature icon motion
+
+- **Status:** Implemented; browser review unavailable.
+- **Summary:** Added an active touch style for the four actions on devices without hover. Added smooth card/icon transitions and short lock, eye and people icon animations on hover, focus, and touch press.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected feature icon markup and existing hover/reduced-motion rules; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only interaction update.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable; touch active states are brief and last only while pressed.
+- **Next exact task:** Review icon motion and touch feedback on a mobile device; confirm reduced-motion behavior.
+
 ### 2026-11-15 --- Codex --- Remove Get started from the home hero
 
 - **Status:** Implemented.
 - **Summary:** Removed the unauthenticated home hero’s Get started action, leaving Discover how it works there. The navbar Get started action remains.
 - **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
-- **Commands run:** `node --check web/app.js` and `git diff --check` (result below).
+- **Commands run:** `node --check web/app.js` and `git diff --check` (passed).
 - **Build/tests:** Not run; small frontend markup change.
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review unavailable.

@@ -1643,3 +1643,63 @@ input,select,textarea { max-width:100%; }
     transition:none;
   }
 }
+
+/* Touch devices get the same visible feedback through the pressed state. */
+@media(hover:none) {
+  .topnav .nav-signin:active,.topnav .nav-start:active,
+  .hero .hero-discover-link:active,.hero-actions .btn-primary:active {
+    transform:translateY(-1px) scale(1.02);
+    border-color:#41EAD4;
+    background:rgba(65,234,212,.16);
+    box-shadow:0 5px 14px rgba(8,126,139,.42),inset 0 1px 0 rgba(255,255,255,.16);
+    color:#FFFFFF !important;
+  }
+  .feature-card:active { transform:translateY(-2px); border-color:#78CDD7; box-shadow:var(--shadow-soft); }
+  .feature-card:active .feature-icon { transform:translateY(-3px) scale(1.06); box-shadow:0 6px 16px rgba(8,126,139,.25); }
+}
+
+.feature-icon {
+  transition:transform .28s ease,background-color .28s ease,box-shadow .28s ease,color .28s ease;
+}
+.feature-icon svg {
+  transition:transform .28s ease,filter .28s ease;
+  transform-origin:center;
+}
+.feature-card:hover .feature-icon,
+.feature-card:focus-within .feature-icon {
+  transform:translateY(-3px) scale(1.06);
+  background:rgba(65,234,212,.2);
+  box-shadow:0 6px 16px rgba(8,126,139,.22);
+}
+.feature-card:hover .icon-lock svg,.feature-card:focus-within .icon-lock svg { animation:feature-lock-pop .52s ease both; }
+.feature-card:hover .icon-eye svg,.feature-card:focus-within .icon-eye svg { animation:feature-eye-open .48s ease both; }
+.feature-card:hover .icon-people svg,.feature-card:focus-within .icon-people svg { animation:feature-people-rise .52s ease both; }
+@keyframes feature-lock-pop {
+  0% { transform:scale(.88) rotate(-7deg); }
+  65% { transform:scale(1.1) rotate(2deg); }
+  100% { transform:scale(1) rotate(0); }
+}
+@keyframes feature-eye-open {
+  0% { transform:scaleY(.72); }
+  70% { transform:scaleY(1.12); }
+  100% { transform:scaleY(1); }
+}
+@keyframes feature-people-rise {
+  0% { transform:translateY(3px) scale(.9); }
+  70% { transform:translateY(-2px) scale(1.08); }
+  100% { transform:translateY(0) scale(1); }
+}
+@media(max-width:760px) {
+  .feature-card:active .icon-lock svg { animation:feature-lock-pop .52s ease both; }
+  .feature-card:active .icon-eye svg { animation:feature-eye-open .48s ease both; }
+  .feature-card:active .icon-people svg { animation:feature-people-rise .52s ease both; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .feature-icon,.feature-icon svg,.feature-card:hover .feature-icon,
+  .feature-card:focus-within .feature-icon,.topnav .nav-signin:active,.topnav .nav-start:active,
+  .hero .hero-discover-link:active,.hero-actions .btn-primary:active {
+    animation:none !important;
+    transition:none !important;
+    transform:none !important;
+  }
+}
