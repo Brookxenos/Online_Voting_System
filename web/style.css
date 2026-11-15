@@ -1155,7 +1155,7 @@ input,select,textarea,.btn,a { transition-duration:.22s; }
   color:var(--brand-dark);
 }
 .nav-settings-icon { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
-.settings-card { max-width:900px; }
+.settings-card { width:min(100%,900px);max-width:900px;margin-inline:auto; }
 .settings-hero {
   display:flex;
   align-items:center;
@@ -1181,6 +1181,11 @@ input,select,textarea,.btn,a { transition-duration:.22s; }
 .profile-details-grid strong { display:block; overflow-wrap:anywhere; color:var(--brand-ink); font-size:.96rem; font-weight:650; }
 .settings-notice { margin:0 0 17px; padding:12px 14px; border-left:3px solid var(--brand-teal); border-radius:0 10px 10px 0; background:rgba(13,115,119,.08); color:#3d5250; font-size:.87rem; }
 .settings-card .stack-form { max-width:520px; }
+.settings-card .profile-name-form { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;max-width:650px;margin-top:18px; }
+.settings-card .profile-name-form label { min-width:0; }
+.settings-card .profile-name-form input { width:100%;min-width:0; }
+.settings-card .profile-name-form .error-box { grid-column:1 / -1; }
+.settings-card .profile-name-form .settings-action { grid-column:2;grid-row:1; }
 .settings-card .stack-form .settings-action { align-self:flex-start; min-width:180px; }
 .settings-card .settings-action {
   display:inline-flex;
@@ -1219,6 +1224,9 @@ input,select,textarea,.btn,a { transition-duration:.22s; }
   .settings-logo { flex-basis:auto; width:min(185px,70%); }
   .settings-card .settings-back { margin-left:0; }
   .settings-card .stack-form .settings-action { align-self:stretch;width:100%; }
+  .settings-card .profile-name-form { grid-template-columns:minmax(0,1fr); }
+  .settings-card .profile-name-form .settings-action { grid-column:1;grid-row:auto; }
+  .settings-card { padding:clamp(18px,5vw,28px); }
 }
 
 /* ElectraVote palette update: Color Hunt 000000 / 0F6292 / 16FF00 / FFED00 */
