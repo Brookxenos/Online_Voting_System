@@ -543,3 +543,16 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Other decorative/button gradient declarations remain outside these surfaces.
 - **Next exact task:** Review in browser and identify any other surfaces that should be solid.
+
+### 2026-11-15 --- Codex --- Apply unified ElectraVote dark palette
+
+- **Status:** Styling implemented; automated smoke run was blocked by sandbox socket restrictions.
+- **Summary:** Applied shared dark slate/cyan/teal tokens and consistent styling for navigation, cards, forms, buttons, tables, status badges, focus states, and responsive mobile navigation. Updated browser theme color.
+- **Files changed:** `web/style.css`, `web/index.html`, `PROGRESS_LOG.md`.
+- **Decisions:** Kept existing HTML/JS routes and interactions; retained subtle palette-derived gradients as allowed in the current design prompt. White is used for primary text, as permitted.
+- **Commands run:** `make` (no work needed); `make test` (server could not bind socket: Operation not permitted); `git diff --check` (passed).
+- **Build result:** Existing C++ server build current; no source changes.
+- **Tests and results:** Smoke suite did not execute beyond startup because sandbox denied local socket binding.
+- **Security/privacy implications:** No backend, authentication, ballot, or data changes.
+- **Known gaps:** Browser visual and responsive review remains pending. Several historical CSS declarations remain earlier in the stylesheet but the final unified theme rules override them.
+- **Next exact task:** Review frontend in a browser at desktop and mobile widths; rerun `make test` in an environment that permits local socket binding.

@@ -1343,3 +1343,71 @@ body {
 .pill-warn { color:#92400e; background:rgba(255,237,0,.28); border-color:rgba(146,64,14,.2); }
 .input:focus,input:focus,select:focus,textarea:focus { border-color:var(--brand-teal); box-shadow:0 0 0 4px rgba(13,115,119,.14); }
 a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline-color:var(--brand-teal); }
+
+/* ElectraVote unified dark civic-tech theme */
+:root {
+  color-scheme: dark;
+  --brand-ink:#0B0C10;
+  --brand-dark:#1F2833;
+  --brand-blue:#45A29E;
+  --brand-green:#66FCF1;
+  --brand-yellow:#66FCF1;
+  --brand-teal:#45A29E;
+  --brand-flash:#66FCF1;
+  --bg:#0B0C10;
+  --bg-2:#1F2833;
+  --surface:#1F2833;
+  --surface-strong:#1F2833;
+  --surface-2:#1F2833;
+  --primary:#45A29E;
+  --primary-dark:#1F2833;
+  --primary-soft:rgba(69,162,158,.16);
+  --secondary:#66FCF1;
+  --secondary-soft:rgba(102,252,241,.14);
+  --text:#FFFFFF;
+  --text-muted:#C5C6C7;
+  --success:#66FCF1;
+  --success-soft:rgba(102,252,241,.14);
+  --danger:#C5C6C7;
+  --danger-soft:rgba(197,198,199,.14);
+  --border:rgba(197,198,199,.2);
+  --shadow:0 18px 42px rgba(11,12,16,.42);
+  --shadow-soft:0 10px 24px rgba(11,12,16,.28);
+}
+html,body { min-height:100%; background:#0B0C10; color:#FFFFFF; }
+body { background:radial-gradient(ellipse at top right,rgba(69,162,158,.12),transparent 36rem),#0B0C10; }
+#app { color:#FFFFFF; }
+.topnav,.nav-links,.mobile-nav { background:#1F2833; color:#FFFFFF; border-color:var(--border); }
+.topnav { box-shadow:0 8px 28px rgba(11,12,16,.3); }
+.topnav a,.topnav .nav-links a,.topnav .btn-link { color:#FFFFFF; }
+.topnav .nav-links a:hover,.topnav .nav-links a[aria-current="page"] { color:#66FCF1; background:rgba(102,252,241,.1); }
+.hero,.card,.feature-card,.ballot-card,.election-card,.candidate-card,.panel,.modal,
+.settings-section,.settings-hero,.profile-brand-panel,.closing-cta,.toast,.dropdown-menu,
+table,.table-wrap { background:#1F2833; color:#FFFFFF; border-color:var(--border); }
+.hero { background:radial-gradient(ellipse at 85% 15%,rgba(102,252,241,.12),transparent 24rem),#1F2833; }
+h1,h2,h3,h4,h5,h6,.brand,.card h2,.feature-card h3,.election-title { color:#FFFFFF; }
+p,.muted,.subtitle,.description,.form-hint,.settings-description,.text-muted { color:#C5C6C7; }
+.hero h1 em,.section-heading h2 em,.hero-kicker,.section-kicker,.feature-icon,.security-mark { color:#66FCF1; }
+.btn-primary,.btn-primary:visited,.ballot-submit { background:#45A29E; border-color:#45A29E; color:#0B0C10; }
+.btn-primary:hover,.ballot-submit:hover { background:#66FCF1; border-color:#66FCF1; color:#0B0C10; }
+.btn-secondary { background:#1F2833; border-color:#45A29E; color:#FFFFFF; }
+.btn-secondary:hover,.btn-outline:hover { background:rgba(102,252,241,.12); border-color:#66FCF1; color:#66FCF1; }
+.btn-outline { background:transparent; border-color:#45A29E; color:#FFFFFF; }
+.btn-danger { background:#1F2833; border-color:#C5C6C7; color:#FFFFFF; }
+.btn-danger:hover { background:rgba(197,198,199,.14); border-color:#FFFFFF; color:#FFFFFF; }
+input,select,textarea,.input { background:#0B0C10; color:#FFFFFF; border-color:rgba(197,198,199,.35); }
+input::placeholder,textarea::placeholder { color:#C5C6C7; }
+input:focus,select:focus,textarea:focus,.input:focus { border-color:#66FCF1; box-shadow:0 0 0 3px rgba(102,252,241,.18); }
+table th,table td { border-color:var(--border); color:#FFFFFF; }
+tbody tr:hover,.tab:hover { background:rgba(102,252,241,.08); }
+.pill-success,.pill-info,.banner-info { background:rgba(102,252,241,.12); color:#66FCF1; border-color:rgba(102,252,241,.35); }
+.pill-warn,.banner-warn,.toast-error { background:rgba(197,198,199,.12); color:#FFFFFF; border-color:rgba(197,198,199,.35); }
+.banner-muted,.pill-muted { background:#1F2833; color:#C5C6C7; }
+.candidate-card[aria-checked="true"],.ballot-option.chosen { background:rgba(69,162,158,.16); border-color:#66FCF1; }
+a { color:#66FCF1; }
+a:hover { color:#45A29E; }
+:focus-visible { outline:2px solid #66FCF1; outline-offset:3px; }
+@media (max-width:700px) {
+  body { padding-left:16px; padding-right:16px; }
+  .topnav { background:#1F2833; }
+}
