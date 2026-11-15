@@ -55,6 +55,18 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Match profile action buttons and add a back link
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Updated signed-in profile navigation and settings actions only: added icons and consistent outlined teal button styling to Elections, Settings, and Log out; added a “Back to elections” link; and restyled Update password with a lock icon. Added mobile sizing for the settings actions. Public home page remains unchanged.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Interpreted “profile page” as the Account settings/Profile & Security page and linked Back to elections because that is the authenticated user's main destination. Home page styles remain untouched.
+- **Commands run:** Inspected the settings renderer, signed-in navigation, and home button styles; `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Build/tests:** Not run; scoped profile UI presentation update.
+- **Security/privacy implications:** Password submission and route permissions unchanged.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the account settings page actions at desktop and mobile widths.
+
 ### 2026-11-15 --- Codex --- Remove dark strip from signed-in navbar only
 
 - **Status:** Implemented; home navbar unaffected.

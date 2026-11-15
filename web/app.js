@@ -155,13 +155,16 @@ function navHtml() {
     const settingsIcon = href === '#/settings'
       ? '<svg class="nav-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>'
       : '';
-    html += `<a href="${href}"${href === '#/settings' ? ' class="nav-settings"' : ''}${active ? ' aria-current="page"' : ''}>${settingsIcon}<span>${label}</span></a>`;
+    const electionIcon = href === '#/elections'
+      ? '<svg class="nav-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M8.5 10h7M8.5 14h7M8.5 18h4"/></svg>'
+      : '';
+    html += `<a href="${href}"${href === '#/settings' ? ' class="nav-settings"' : ''}${active ? ' aria-current="page"' : ''}>${electionIcon}${settingsIcon}<span>${label}</span></a>`;
   }
   if (links.length) html += '</div>';
   html += '<div class="nav-user">';
   if (u && !homeNav) {
     html += `<span class="badge">${escapeHtml(u.displayName)} · ${roleLabel(u.role)}</span>`;
-    html += '<button class="btn btn-link" id="btn-logout">Log out</button>';
+    html += '<button class="btn btn-link nav-profile-action" id="btn-logout"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4M7 10h8"/></svg><span>Log out</span></button>';
   } else {
     html += '<a class="btn btn-link nav-signin" href="#/login">Sign in</a>';
     html += `<a class="btn btn-primary nav-start" href="#/register">Get started ${arrowIcon()}</a>`;
@@ -1263,6 +1266,7 @@ function renderSettings(view) {
       <header class="settings-hero">
         <img src="/assets/electravote-logo.png" alt="ElectraVote" class="settings-logo">
         <div><span class="settings-eyebrow">PROFILE & SECURITY</span><h2>Account settings</h2><p>Manage your profile details and keep your account secure.</p></div>
+        <a class="btn settings-action settings-back" href="#/elections"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10H4.5M9 5l-5 5 5 5"/></svg><span>Back to elections</span></a>
       </header>
       <section class="settings-section" aria-labelledby="profile-details-title">
         <div class="settings-section-heading"><div><h3 id="profile-details-title">Profile details</h3><p>Your account information and access level.</p></div><span class="profile-initial" aria-hidden="true">${escapeHtml((state.user.displayName || state.user.username || 'V').trim().charAt(0).toUpperCase())}</span></div>
@@ -1279,7 +1283,7 @@ function renderSettings(view) {
         <label>Current password<input type="password" name="currentPassword" autocomplete="current-password" required></label>
         <label>New password (min 8 chars)<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required></label>
         <div class="error-box" id="pwd-error" hidden></div>
-        <button type="submit" class="btn btn-primary">Update password</button>
+        <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8.5" width="12" height="9" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v2"/></svg><span>Update password</span></button>
       </form>
       </section>
     </section>`;
