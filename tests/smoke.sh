@@ -11,8 +11,9 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${OV_TEST_PORT:-18099}"
 BASE="localhost:$PORT"
 TMP="$(mktemp -d /tmp/opencode/ovtest.XXXXXX)" || exit 1
-mkdir -p "$TMP/web" "$TMP/data"
-cp "$HERE/web/index.html" "$HERE/web/app.js" "$HERE/web/style.css" "$TMP/web/"
+mkdir -p "$TMP/web/assets" "$TMP/data"
+cp "$HERE/web/index.html" "$HERE/web/app.js" "$HERE/web/style.css" "$HERE/web/favicon.png" "$TMP/web/"
+cp "$HERE"/web/assets/* "$TMP/web/assets/"
 
 PASS=0; FAIL=0
 SERVER_PID=""
@@ -50,6 +51,8 @@ fi
 
 echo "-- static and auth --"
 check "serves index.html" "<title>ElectraVote" "$(jget /)"
+check "serves ElectraVote logo asset" "Content-Type: image/png" "$(curl -s "$BASE/assets/electravote-logo.png" -D - -o /dev/null | tr -d '\r')"
+check "serves ElectraVote favicon" "Content-Type: image/png" "$(curl -s "$BASE/favicon.png" -D - -o /dev/null | tr -d '\r')"
 check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"
 check "wrong password rejected (uniform message)" "Invalid username or password" \
   "$(jpost /api/auth/login '{"username":"admin","password":"nope-nope"}')"

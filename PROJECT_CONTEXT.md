@@ -345,8 +345,9 @@ security property merely because code was added.
 
 ## 14. Decision log
 
-Confirmed by project owner: - General-purpose voting platform. - Retain
-C++17 backend and HTML/CSS/vanilla JavaScript frontend. - Improve
+Confirmed by project owner: - ElectraVote as the product name. -
+General-purpose voting platform. - Retain C++17 backend and
+HTML/CSS/vanilla JavaScript frontend. - Improve
 existing project incrementally. - Aim for inclusive, neutral,
 privacy-preserving, transparent and auditable design.
 

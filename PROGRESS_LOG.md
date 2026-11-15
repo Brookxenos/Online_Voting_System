@@ -1,4 +1,4 @@
-# OpenVote --- Development Progress Log
+# ElectraVote --- Development Progress Log
 
 > Every AI agent must update this file at the end of each work session.
 > Keep entries concise, factual and chronological. Never mark work
@@ -8,9 +8,9 @@
 
 -   **Overall status:** Core demo implementation completed; run guide
     corrected; manual browser walkthrough still pending.
--   **Current approved direction:** General-purpose voting platform;
-    retain C++17 and HTML/CSS/vanilla JavaScript; improve the existing
-    project incrementally.
+-   **Current approved direction:** ElectraVote brand; general-purpose
+    voting platform; retain C++17 and HTML/CSS/vanilla JavaScript; improve
+    the existing project incrementally.
 -   **Current phase:** Post-implementation review --- documentation
     alignment and frontend walkthrough.
 -   **Production status:** Educational/demo project only. Not certified
@@ -18,6 +18,7 @@
 
 ## Confirmed decisions
 
+-   Use ElectraVote as the product name.
 -   Keep the existing language/framework direction.
 -   Prefer a modular monolith.
 -   Design for multiple organizations and independent elections.
@@ -28,7 +29,6 @@
 
 ## Proposed decisions awaiting confirmation
 
--   Final product name.
 -   PostgreSQL as the target database.
 -   Exact security libraries and versions.
 -   Exact anonymous credential / end-to-end verification protocol.
@@ -73,19 +73,20 @@
     UI name. Kept internal database/file names unchanged. Original supplied
     image in Downloads was not modified; the web asset removes its black
     background and crops transparent padding.
--   **Commands run:** `node --check web/app.js`; `git diff --check`; `make`;
-    `make test`.
+-   **Commands run:** `node --check web/app.js`; `bash -n tests/smoke.sh`;
+    `git diff --check`; `make`; `make test`.
 -   **Build result:** `make` succeeded; target was already up to date.
--   **Tests and results:** `make test` passed: 53 passed, 0 failed. Updated
+-   **Tests and results:** `make test` passed: 55 passed, 0 failed,
+    including logo and favicon static-asset responses. Updated
     the static-page title expectation to ElectraVote after the first run
     caught the intentionally changed title; all checks passed on rerun.
 -   **Security/privacy implications:** UI-only. No API, database, role,
     authentication, eligibility, ballot or result logic changed. No
     production security claim was added.
 -   **Known issues:** Responsive browser review was unavailable because the
-    browser access host was unavailable. The user's existing
-    `data/openvote.db-shm` and `data/openvote.db-wal` are modified in the
-    working tree; they were not intentionally edited.
+    browser access host was unavailable. `data/openvote.db-shm` and
+    `data/openvote.db-wal` were already modified at session start and were
+    not intentionally edited; preserve them and inspect before any cleanup.
 -   **Next exact task:** Review the navbar and landing page visually at
     mobile, tablet and desktop widths, then tune any overflow or contrast
     issues found.
