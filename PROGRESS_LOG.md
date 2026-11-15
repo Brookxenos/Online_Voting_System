@@ -55,6 +55,30 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Restore teal palette and simplify home navigation
+
+-   **Status:** Implemented; browser review remains pending.
+-   **Summary:** Restored the previous `#212121`, `#323232`, `#0D7377`,
+    `#14FFEC` brand palette and matching logo colors. Kept ElectraVote
+    branding and the animated landing hero. On the home route, removed
+    Elections/Settings/role navigation links and display the Sign in and
+    Get started actions; role navigation and account/logout controls remain
+    on authenticated non-home routes.
+-   **Files changed:** `web/app.js`, `web/style.css`,
+    `web/assets/electravote-logo.png`, `web/assets/electravote-icon.png`,
+    `web/favicon.png`, `PROGRESS_LOG.md`.
+-   **Decisions:** Interpreted the requested removal as home navbar links;
+    the elections page, settings page, and home hero animation remain.
+-   **Commands run:** `node --check web/app.js`; `git diff --check`; `make`;
+    `make test`.
+-   **Build result:** `make` succeeded; target was already up to date.
+-   **Tests and results:** `make test` passed: 55 passed, 0 failed.
+-   **Security/privacy implications:** No backend, authentication, role
+    authorization, or voting behavior changed.
+-   **Known issues:** Browser preview remains unavailable in this session.
+-   **Next exact task:** Review home navigation and color appearance in a
+    browser when access is available.
+
 ### 2026-11-15 --- Codex --- Apply black-blue-neon palette
 
 -   **Status:** Implemented; browser review remains pending.

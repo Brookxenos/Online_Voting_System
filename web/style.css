@@ -1275,3 +1275,76 @@ body {
 .ballot-title,.ballot-option b,.feature-card h3,.page-head-inline h2,.card h2 { color:#000; }
 input:focus,select:focus,textarea:focus { border-color:var(--brand-blue); box-shadow:0 0 0 4px rgba(15,98,146,.14); }
 a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline-color:var(--brand-blue); }
+
+/* Restore the previous OpenVote teal palette while keeping ElectraVote branding. */
+:root {
+  --brand-ink:#212121;
+  --brand-dark:#323232;
+  --brand-blue:#0D7377;
+  --brand-green:#14FFEC;
+  --brand-yellow:#14FFEC;
+  --brand-teal:#0D7377;
+  --brand-flash:#14FFEC;
+  --primary:#0D7377;
+  --primary-dark:#0D7377;
+  --primary-soft:rgba(13,115,119,.12);
+  --secondary:#323232;
+  --text:#212121;
+  --text-muted:#626d6c;
+  --success:#0D7377;
+  --success-soft:rgba(13,115,119,.1);
+  --danger:#dc2626;
+  --danger-soft:rgba(220,38,38,.12);
+  --border:rgba(50,50,50,.14);
+}
+body {
+  background:
+    radial-gradient(ellipse at 79% 8%,rgba(20,255,236,.08),transparent 29rem),
+    radial-gradient(ellipse at 4% 32%,rgba(13,115,119,.12),transparent 34rem),
+    linear-gradient(135deg,#E7E7E7 0%,#f6f6f6 49%,rgba(13,115,119,.1) 100%);
+}
+.hero {
+  background:
+    radial-gradient(ellipse at 83% 22%,rgba(20,255,236,.16),transparent 23rem),
+    linear-gradient(115deg,#fff 0%,#E7E7E7 56%,rgba(13,115,119,.1) 100%);
+  border-color:rgba(13,115,119,.18);
+}
+.hero h1 em,.section-heading h2 em,.hero-kicker,.section-kicker,
+.election-title:hover,.btn-link { color:var(--brand-teal); }
+.kicker-dot,.mini-check,.ballot-live i { background:var(--brand-teal); }
+.ballot-option.chosen,.candidate-card[aria-checked="true"] { border-color:var(--brand-teal); background:rgba(13,115,119,.08); }
+.selected-tag,.ballot-foot span:first-child { color:var(--brand-teal); }
+.chosen .option-ring { border-color:var(--brand-teal); background:var(--brand-teal); }
+.art-orbit { border-color:rgba(13,115,119,.2); }
+.orbit-two { border-top-color:var(--brand-flash); }
+.ballot-submit { background:linear-gradient(110deg,#0D7377,#323232); }
+.ballot-submit b { color:var(--brand-flash); }
+.feature-icon { background:rgba(13,115,119,.1); color:var(--brand-teal); }
+.closing-cta,.settings-hero,.profile-brand-panel {
+  border-color:rgba(13,115,119,.2);
+  background:linear-gradient(115deg,rgba(13,115,119,.11),rgba(20,255,236,.1) 56%,rgba(231,231,231,.72));
+}
+.topnav .nav-links a:hover,.topnav .nav-links a[aria-current="page"] { color:var(--brand-teal); background:rgba(13,115,119,.1); }
+.topnav .nav-links a.nav-settings { border-color:rgba(13,115,119,.28); background:rgba(13,115,119,.08); }
+.topnav .nav-links a.nav-settings:hover,.topnav .nav-links a.nav-settings[aria-current="page"] { border-color:var(--brand-teal); background:rgba(20,255,236,.22); }
+.btn-primary,.btn-primary:visited {
+  color:#fff;
+  background:linear-gradient(115deg,#0D7377 0%,#0D7377 82%,#323232 100%);
+  border-color:#0D7377;
+  box-shadow:0 5px 14px rgba(13,115,119,.28),inset 0 1px 0 rgba(20,255,236,.42);
+}
+.btn-primary:hover { color:#fff; background:linear-gradient(115deg,#323232,#0D7377 78%); box-shadow:0 9px 22px rgba(13,115,119,.34),inset 0 1px 0 var(--brand-flash); }
+.btn-secondary { color:#fff; background:linear-gradient(115deg,#323232,#0D7377); border-color:#323232; }
+.btn-danger { color:#fff; background:linear-gradient(115deg,#b91c1c,#dc2626); border-color:#dc2626; }
+.btn-danger:hover { color:#fff; background:#b91c1c; border-color:#b91c1c; }
+.btn-outline { color:#323232; border-color:rgba(13,115,119,.45); }
+.btn-outline:hover { color:var(--brand-teal); border-color:var(--brand-teal); }
+.settings-eyebrow,.settings-section-heading h3 { color:var(--brand-teal); }
+.profile-initial { color:#212121; background:rgba(20,255,236,.45); box-shadow:none; }
+.security-mark { color:var(--brand-teal); background:rgba(13,115,119,.1); }
+.settings-notice { color:#323232; border-left-color:var(--brand-teal); background:rgba(13,115,119,.08); }
+.vote-bar>span { background:var(--brand-teal); }
+.pill-success,.pill-info { color:#075f61; background:rgba(13,115,119,.1); border-color:rgba(13,115,119,.25); }
+.pill-warn { color:#92400e; background:rgba(255,237,0,.28); border-color:rgba(146,64,14,.2); }
+.input:focus,input:focus,select:focus,textarea:focus { border-color:var(--brand-teal); box-shadow:0 0 0 4px rgba(13,115,119,.14); }
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline-color:var(--brand-teal); }
