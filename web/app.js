@@ -148,7 +148,10 @@ function navHtml() {
     const active = state.view === route ||
       (route === 'admin' && state.view === 'adminElection') ||
       (route === 'elections' && state.view === 'election');
-    html += `<a href="${href}"${active ? ' aria-current="page"' : ''}>${label}</a>`;
+    const settingsIcon = href === '#/settings'
+      ? '<svg class="nav-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>'
+      : '';
+    html += `<a href="${href}"${href === '#/settings' ? ' class="nav-settings"' : ''}${active ? ' aria-current="page"' : ''}>${settingsIcon}<span>${label}</span></a>`;
   }
   html += '</div>';
   html += '<div class="nav-user">';
@@ -1218,22 +1221,29 @@ async function renderObserver(view) {
 function renderSettings(view) {
   if (!state.user) { go('#/login'); return; }
   view.innerHTML = `
-    <section class="card narrow">
-      <div class="profile-brand-panel"><img src="/assets/electravote-logo.png" alt="ElectraVote" class="profile-brand-logo"><div><strong>Your ElectraVote profile</strong><span>Account and sign-in details</span></div></div>
-      <h2>Account settings</h2>
-      <div class="meta-grid">
-        <div><span class="meta-label">Username</span>${escapeHtml(state.user.username)}</div>
-        <div><span class="meta-label">Display name</span>${escapeHtml(state.user.displayName)}</div>
-        <div><span class="meta-label">Role</span>${roleLabel(state.user.role)}</div>
-      </div>
-      <h3>Change password</h3>
-      <p class="muted small">Changing your password signs you out everywhere.</p>
+    <section class="card settings-card">
+      <header class="settings-hero">
+        <img src="/assets/electravote-logo.png" alt="ElectraVote" class="settings-logo">
+        <div><span class="settings-eyebrow">PROFILE & SECURITY</span><h2>Account settings</h2><p>Manage your profile details and keep your account secure.</p></div>
+      </header>
+      <section class="settings-section" aria-labelledby="profile-details-title">
+        <div class="settings-section-heading"><div><h3 id="profile-details-title">Profile details</h3><p>Your account information and access level.</p></div><span class="profile-initial" aria-hidden="true">${escapeHtml((state.user.displayName || state.user.username || 'V').trim().charAt(0).toUpperCase())}</span></div>
+        <div class="profile-details-grid">
+          <div><span class="meta-label">Display name</span><strong>${escapeHtml(state.user.displayName || 'Not set')}</strong></div>
+          <div><span class="meta-label">Username</span><strong>${escapeHtml(state.user.username)}</strong></div>
+          <div><span class="meta-label">Account type</span><strong>${escapeHtml(roleLabel(state.user.role))}</strong></div>
+        </div>
+      </section>
+      <section class="settings-section security-section" aria-labelledby="security-title">
+        <div class="settings-section-heading"><div><h3 id="security-title">Password and security</h3><p>Update your password to protect your account.</p></div><span class="security-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span></div>
+        <p class="settings-notice">Changing your password signs you out everywhere.</p>
       <form id="form-password" class="stack-form">
         <label>Current password<input type="password" name="currentPassword" autocomplete="current-password" required></label>
         <label>New password (min 8 chars)<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required></label>
         <div class="error-box" id="pwd-error" hidden></div>
         <button type="submit" class="btn btn-primary">Update password</button>
       </form>
+      </section>
     </section>`;
   const form = document.getElementById('form-password');
   form.addEventListener('submit', async (ev) => {

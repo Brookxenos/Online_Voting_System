@@ -55,6 +55,30 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- ElectraVote palette and logo consistency
+
+-   **Status:** Implemented; browser viewport review remains pending.
+-   **Summary:** Reapplied the requested Color Hunt palette tokens
+    (`#212121`, `#323232`, `#0D7377`, `#14FFEC`) across shared controls and
+    motion accents. Replaced the text-only animation label and footer name
+    with the ElectraVote logo, and added the logo to voter account settings.
+    Added a brief page entrance and smoother control transitions while
+    retaining reduced-motion handling.
+-   **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+-   **Decisions:** Used existing transparent logo assets and left
+    authentication, password changes, voting, and data behavior unchanged.
+-   **Commands run:** `node --check web/app.js`; `bash -n tests/smoke.sh`;
+    `git diff --check`; `make`; `make test`.
+-   **Build result:** `make` succeeded; target was already up to date.
+-   **Tests and results:** `make test` passed: 55 passed, 0 failed,
+    including static logo/favicon delivery and existing voting workflows.
+-   **Security/privacy implications:** UI-only changes; no security or
+    privacy properties were added or changed.
+-   **Known issues:** Browser visual review is still unavailable in this
+    environment; responsive layouts have not been confirmed in a browser.
+-   **Next exact task:** Review branded landing, ballot illustration,
+    footer, and voter settings at mobile and desktop widths.
+
 ### 2026-11-15 --- Codex --- ElectraVote brand and navigation refinement
 
 -   **Status:** Implemented; browser visual review remains pending.
