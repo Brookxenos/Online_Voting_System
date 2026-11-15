@@ -55,12 +55,56 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Remove arrow from the sign-in submit button
+
+- **Status:** Implemented.
+- **Summary:** Removed the directional arrow from the login form’s Sign in button; other action arrows remain unchanged.
+- **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` and `git diff --check` (result below).
+- **Build/tests:** Not run; small frontend markup change.
+- **Security/privacy implications:** Authentication behavior unchanged.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the sign-in form visually when browser access is available.
+
+### 2026-11-15 --- Codex --- Replace sign-in image and lower the welcome heading
+
+- **Status:** Implemented; visual browser review unavailable.
+- **Summary:** Replaced the sign-in panel image contents with `/home/brook/Downloads/Curly-Haired Woman Holding VOTE Sign.png`. Moved “Your voice matters.” lower in the panel and added a dark bottom gradient so it remains legible over the photo.
+- **Files changed:** `web/assets/vote-teal-studio-backdrop.png`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected source image dimensions and composition; copied it over the previously used sign-in image asset; `git diff --check` (passed).
+- **Build/tests:** Not run; image and CSS presentation change.
+- **Security/privacy implications:** Authentication flow unchanged; supplied image remains a static asset.
+- **Known gaps:** Browser visual review unavailable; mobile crop positioning may need adjustment.
+- **Next exact task:** Review image crop and lower heading placement on desktop and mobile.
+
+### 2026-11-15 --- Codex --- Use the specified VOTE teal backdrop image
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Copied `/home/brook/Downloads/VOTE! Against a Teal Studio Backdrop.png` into `web/assets` and switched the sign-in welcome panel to that image.
+- **Files changed:** `web/app.js`, `web/assets/vote-teal-studio-backdrop.png`, `PROGRESS_LOG.md`.
+- **Commands run:** Checked source image dimensions (1024x1536 RGB), copied it into served frontend assets; `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; image asset and login presentation update.
+- **Security/privacy implications:** Authentication flow unchanged; the image is served as a static asset.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the sign-in image crop and panel text at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Use the solid teal image and center the sign-in message
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Replaced the sign-in photo with the user-supplied teal image. Removed all welcome-panel copy except “ELECTRAVOTE · PARTICIPANT ACCESS” and “Your voice matters.”; centered the label and heading. Kept the panel in the existing sans-serif font.
+- **Files changed:** `web/app.js`, `web/style.css`, `web/assets/login-panel-background.png`, `PROGRESS_LOG.md`.
+- **Commands run:** Checked supplied image dimensions/color; copied it into frontend assets; `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; sign-in visual update only.
+- **Security/privacy implications:** Authentication flow unchanged; the image is a static asset.
+- **Known gaps:** Browser access unavailable, so responsive panel alignment needs visual review.
+- **Next exact task:** Review the centered label and heading at desktop and mobile widths.
+
 ### 2026-11-15 --- Codex --- Use the supplied voter photo in the sign-in panel
 
 - **Status:** Implemented; visual browser review unavailable.
 - **Summary:** Replaced the lock illustration in the sign-in welcome panel with the user-supplied voter photo. Added a dark gradient overlay for legible white copy and revised the message to “Your voice matters” with concise community participation text.
 - **Files changed:** `web/app.js`, `web/style.css`, `web/assets/login-voter-photo.jpg`, `PROGRESS_LOG.md`.
-- **Commands run:** Checked the supplied image dimensions (4000x6000 RGB), copied it into frontend assets, `node --check web/app.js` and `git diff --check` (result below).
+- **Commands run:** Checked the supplied image dimensions (4000x6000 RGB), copied it into frontend assets, `node --check web/app.js` and `git diff --check` (passed).
 - **Build/tests:** Not run; sign-in presentation change.
 - **Security/privacy implications:** No authentication flow changed. The supplied image is served as a static frontend asset.
 - **Known gaps:** Browser access host unavailable, so image crop and text overlay need visual review on desktop/mobile.
@@ -72,7 +116,7 @@
 - **Summary:** Replaced the narrow plain login card with a responsive two-panel sign-in surface, a teal welcome panel, a dedicated form panel, clearer field styling, and consistent submit/register actions. Preserved the existing API submission and authentication flow.
 - **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
 - **Decisions:** Used a compact single-column layout below 760px and tighter spacing below 390px. Kept the current logo and Arial sans-serif stack.
-- **Commands run:** Inspected login markup and form styles; `node --check web/app.js` and `git diff --check` (result below).
+- **Commands run:** Inspected login markup and form styles; `node --check web/app.js` and `git diff --check` (passed).
 - **Build/tests:** Not run; frontend presentation change only.
 - **Security/privacy implications:** No auth behavior changed. Error output remains in the existing alert region; no credentials are logged or stored in frontend code.
 - **Known gaps:** Browser access host unavailable, so visual review at device widths remains pending.

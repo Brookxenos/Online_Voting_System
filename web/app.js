@@ -311,13 +311,11 @@ function renderLogin(view) {
   view.innerHTML = `
     <section class="login-layout" aria-labelledby="login-title">
       <aside class="login-aside">
-        <img class="login-photo" src="/assets/login-voter-photo.jpg" alt="A voter holding a sign that reads Vote">
+        <img class="login-photo" src="/assets/vote-teal-studio-backdrop.png" alt="A voter holding a sign that says Vote against a teal studio backdrop">
         <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
         <div class="login-aside-copy">
           <h2>Your voice matters.</h2>
-          <p>Sign in to take part in the decisions shaping your community.</p>
         </div>
-        <p class="login-aside-foot">Every vote begins with a voice.</p>
       </aside>
       <div class="login-panel">
         <header class="login-heading">
@@ -333,7 +331,7 @@ function renderLogin(view) {
             <input id="login-password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
           </label>
           <div class="error-box" id="login-error" role="alert" aria-live="polite" hidden></div>
-          <button type="submit" class="btn btn-primary login-submit">Sign in ${arrowIcon()}</button>
+          <button type="submit" class="btn btn-primary login-submit">Sign in</button>
           <p class="login-register-prompt">New to ElectraVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
         </form>
       </div>
