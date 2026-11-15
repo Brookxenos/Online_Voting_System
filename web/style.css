@@ -1769,7 +1769,11 @@ input,select,textarea { max-width:100%; }
 .login-heading h1 { margin:9px 0 7px;color:#173D40;font-size:clamp(2rem,4vw,2.7rem);line-height:1.1;letter-spacing:-.04em; }
 .login-heading p { margin:0;color:#596B6C;font-size:.96rem;line-height:1.55; }
 .login-form { display:flex;flex-direction:column;gap:20px;width:100%;max-width:410px; }
+.registration-form { max-width:460px;gap:14px; }
 .login-form label { gap:8px;color:#253F41;font-size:.88rem;font-weight:700; }
+.register-label-row { display:flex;align-items:baseline;justify-content:space-between;gap:8px; }
+.register-optional,.register-field-hint { color:#708081;font-size:.76rem;font-weight:500; }
+.registration-form input[aria-invalid="true"] { border-color:#B33A3A;box-shadow:0 0 0 3px rgba(179,58,58,.13); }
 .login-form input { min-height:52px;padding:13px 15px;border:1px solid #C8D9D8;border-radius:11px;background:#FBFDFC;color:#193B3D;font-size:1rem;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease; }
 .login-form input::placeholder { color:#859494; }
 .login-form input:hover { border-color:#78A9A8; }
@@ -1789,6 +1793,7 @@ input,select,textarea { max-width:100%; }
   .login-aside-copy h2 { font-size:clamp(1.8rem,7vw,2.35rem); }
   .login-panel { padding:clamp(24px,7vw,38px); }
   .login-heading { margin-bottom:24px; }
+  .registration-form { gap:15px; }
 }
 @media(max-width:390px) {
   .login-layout { margin:12px auto;border-radius:16px; }

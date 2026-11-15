@@ -55,6 +55,18 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Redesign registration and confirm passwords
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Replaced the plain registration card with the responsive sign-in visual system, added clearer account setup headings and field hints, and added a required confirm-password field. The form checks for a match before calling the existing registration API and submits only username, display name and password.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Reused the voter image panel and responsive auth layout for consistency. Confirmation is client-side only and is not sent to the backend.
+- **Commands run:** Inspected current registration renderer and API payload; `node --check web/app.js` and `git diff --check` (result below).
+- **Build/tests:** Not run; frontend registration UI/validation change.
+- **Security/privacy implications:** Confirm-password value is only used for comparison in the browser and is not transmitted or logged. Existing backend registration behavior remains.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the registration page at desktop, tablet and mobile widths, including mismatch validation.
+
 ### 2026-11-15 --- Codex --- Remove arrow from the sign-in submit button
 
 - **Status:** Implemented.

@@ -359,25 +359,36 @@ function renderLogin(view) {
 
 function renderRegister(view) {
   view.innerHTML = `
-    <section class="card narrow">
-      <h2>Register to vote</h2>
-      <p class="muted">Create a voter account. Choose a username you will remember —
-      you will log in with it.</p>
-      <form id="form-register" class="stack-form">
-        <label>Username
-          <input type="text" name="username" autocomplete="username"
-                 minlength="3" maxlength="32" required>
-        </label>
-        <label>Display name
-          <input type="text" name="displayName" maxlength="100">
-        </label>
-        <label>Password (minimum 8 characters)
-          <input type="password" name="password" minlength="8" autocomplete="new-password" required>
-        </label>
-        <div class="error-box" id="reg-error" hidden></div>
-        <button type="submit" class="btn btn-primary">Create account</button>
-        <a class="btn btn-link" href="#/login">Already registered? Log in ${arrowIcon()}</a>
-      </form>
+    <section class="login-layout registration-layout" aria-labelledby="register-title">
+      <aside class="login-aside">
+        <img class="login-photo" src="/assets/vote-teal-studio-backdrop.png" alt="">
+        <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
+        <div class="login-aside-copy"><h2>Your voice matters.</h2></div>
+      </aside>
+      <div class="login-panel">
+        <header class="login-heading">
+          <span class="login-kicker">ACCOUNT SETUP</span>
+          <h1 id="register-title">Create your account</h1>
+          <p>Set up your details to take part in community elections.</p>
+        </header>
+        <form id="form-register" class="stack-form login-form registration-form">
+          <label for="register-username">Username
+            <input id="register-username" type="text" name="username" autocomplete="username" minlength="3" maxlength="32" placeholder="Choose a username" required>
+          </label>
+          <label for="register-display-name"><span class="register-label-row"><span>Display name</span><span class="register-optional">Optional</span></span>
+            <input id="register-display-name" type="text" name="displayName" maxlength="100" autocomplete="name" placeholder="How your name will appear">
+          </label>
+          <label for="register-password"><span class="register-label-row"><span>Password</span><span class="register-field-hint">At least 8 characters</span></span>
+            <input id="register-password" type="password" name="password" minlength="8" autocomplete="new-password" placeholder="Create a password" required>
+          </label>
+          <label for="register-confirm-password">Confirm password
+            <input id="register-confirm-password" type="password" name="confirmPassword" minlength="8" autocomplete="new-password" placeholder="Enter your password again" required>
+          </label>
+          <div class="error-box" id="reg-error" role="alert" aria-live="polite" hidden></div>
+          <button type="submit" class="btn btn-primary login-submit">Create account</button>
+          <p class="login-register-prompt">Already have an account? <a href="#/login">Sign in ${arrowIcon()}</a></p>
+        </form>
+      </div>
     </section>`;
   const form = document.getElementById('form-register');
   form.addEventListener('submit', async (ev) => {
@@ -385,13 +396,24 @@ function renderRegister(view) {
     const fd = new FormData(form);
     const errBox = document.getElementById('reg-error');
     errBox.hidden = true;
+    const password = fd.get('password');
+    const confirmPassword = fd.get('confirmPassword');
+    const confirmInput = document.getElementById('register-confirm-password');
+    if (password !== confirmPassword) {
+      errBox.textContent = 'The passwords do not match. Please check both fields.';
+      errBox.hidden = false;
+      confirmInput.setAttribute('aria-invalid', 'true');
+      confirmInput.focus();
+      return;
+    }
+    confirmInput.removeAttribute('aria-invalid');
     try {
       await api('auth/register', {
         method: 'POST',
         body: {
           username: fd.get('username'),
           displayName: fd.get('displayName') || fd.get('username'),
-          password: fd.get('password'),
+          password,
         }
       });
       toast('Account created. Please log in.');
