@@ -531,3 +531,15 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Older superseded stylesheet declarations remain earlier in the file; the final active theme rules override them.
 - **Next exact task:** Review the updated page in a browser.
+
+### 2026-11-15 --- Codex --- Remove active background gradients
+
+- **Status:** Completed; active theme surfaces use solid palette colors.
+- **Summary:** Replaced page, hero, CTA, settings, and profile gradient backgrounds with solid `#1F2833` or `#C5C6C7` fills.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed); inspected final active background rules.
+- **Build result:** Not run; CSS-only change.
+- **Tests and results:** Not run.
+- **Security/privacy implications:** None.
+- **Known gaps:** Other decorative/button gradient declarations remain outside these surfaces.
+- **Next exact task:** Review in browser and identify any other surfaces that should be solid.
