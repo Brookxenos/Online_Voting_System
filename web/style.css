@@ -1088,9 +1088,9 @@ input, select, textarea { background:rgba(255,255,255,.88); }
   --secondary: var(--brand-dark);
 }
 .ballot-logo { display:block; width:120px; height:auto; }
-.footer-brand { display:inline-flex; align-items:center; margin-right:auto; text-decoration:none; }
+.footer-brand { display:inline-flex; flex:0 0 auto; align-items:center; margin-right:auto; padding:4px; border-radius:10px; background:rgba(255,255,255,.72); text-decoration:none; }
 .footer-brand:before { content:none; }
-.footer-brand-image { display:block; width:142px; height:auto; }
+.footer-brand-image { display:block; flex:none; width:160px; max-width:min(42vw,160px); height:auto; object-fit:contain; }
 .profile-brand-panel {
   display:flex;
   align-items:center;
@@ -1687,6 +1687,14 @@ input,select,textarea { max-width:100%; }
 
 /* Animate the existing logo image without altering its artwork or lettering. */
 .topnav .brand-image {
+  display:block;
+  flex:0 0 auto;
+  max-width:100%;
+  height:auto;
+  object-fit:contain;
+  opacity:1;
+  visibility:visible;
+  animation:brand-arrive .5s ease-out both;
   transform-origin:left center;
   transition:transform .3s cubic-bezier(.2,.75,.25,1),filter .3s ease;
 }
@@ -1699,9 +1707,15 @@ input,select,textarea { max-width:100%; }
 @media(prefers-reduced-motion:reduce) {
   .topnav .brand-image,.topnav .brand:hover .brand-image,
   .topnav .brand:focus-visible .brand-image,.topnav .brand:active .brand-image {
+    animation:none;
     transition:none;
     transform:none;
+    opacity:1;
   }
+}
+@keyframes brand-arrive {
+  from { opacity:.72;transform:translateY(3px) scale(.985); }
+  to { opacity:1;transform:translateY(0) scale(1); }
 }
 
 /* Touch devices get the same visible feedback through the pressed state. */
@@ -1805,6 +1819,7 @@ input,select,textarea { max-width:100%; }
 .login-aside-copy { position:relative;z-index:1;align-self:center;max-width:360px;margin-top:auto;margin-bottom:clamp(18px,4vh,42px);padding:0;text-align:center; }
 .login-aside-copy h2 { margin:0;color:#FFFFFA;font-size:clamp(2rem,4vw,3rem);line-height:1.05;letter-spacing:-.045em; }
 .login-panel { display:flex;flex-direction:column;justify-content:center;min-width:0;padding:clamp(28px,6vw,68px); }
+.login-brand-image { display:block;flex:0 0 auto;width:min(170px,55%);height:auto;margin:0 0 24px;object-fit:contain; }
 .login-heading { margin:0 0 30px; }
 .login-kicker { color:#0D7377;text-transform:uppercase; }
 .login-heading h1 { margin:9px 0 7px;color:#173D40;font-size:clamp(2rem,4vw,2.7rem);line-height:1.1;letter-spacing:-.04em; }
@@ -1823,6 +1838,7 @@ input,select,textarea { max-width:100%; }
 .login-submit:hover { transform:translateY(-2px);background:#0D7377;border-color:#0D7377;color:#FFFFFA;box-shadow:0 9px 20px rgba(8,126,139,.27); }
 .login-submit:active { transform:translateY(0);box-shadow:0 2px 6px rgba(8,126,139,.2); }
 .login-submit:focus-visible { outline:3px solid #78CDD7;outline-offset:3px; }
+.login-submit:disabled { cursor:wait;opacity:.82;transform:none; }
 .login-register-prompt { display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:2px 0 0;color:#5C6D6E;font-size:.9rem; }
 .login-register-prompt a { display:inline-flex;align-items:center;min-height:40px;color:#087E8B;font-weight:700;text-decoration:none; }
 .login-register-prompt a:hover { color:#0D5C63;text-decoration:underline;text-underline-offset:3px; }
@@ -1843,6 +1859,10 @@ input,select,textarea { max-width:100%; }
   .login-aside-copy { max-width:100%;margin-top:auto;margin-bottom:10px;padding:0; }
   .login-panel { padding:22px 18px 24px; }
   .login-form { gap:17px; }
+}
+@media(max-width:620px) {
+  .footer-brand-image { width:min(160px,55vw); }
+  .login-brand-image { width:min(150px,58%);margin-bottom:19px; }
 }
 @media(prefers-reduced-motion:reduce) {
   .login-form input,.login-submit { transition:none; }

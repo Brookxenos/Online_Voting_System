@@ -55,6 +55,17 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Fix logo visibility and sign-in feedback
+
+- **Status:** Implemented; browser review unavailable.
+- **Summary:** Pointed the favicon to the existing icon asset, made the footer wordmark resist flex shrink and retain a light contrast surface, and added the dark wordmark to the sign-in form panel. Added a short reduced-motion-aware entrance for the navbar logo. Sign-in now disables duplicate submissions and shows “Signing in…” while the existing API request is pending, restoring the button on errors.
+- **Files changed:** `web/index.html`, `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Build/tests:** Not run; frontend-only update.
+- **Security/privacy implications:** Authentication endpoint and credential handling unchanged; password stays in the existing POST request only.
+- **Known gaps:** Browser access host unavailable, so no visual or live sign-in walkthrough.
+- **Next exact task:** Review the footer logo at desktop/mobile and submit a valid and invalid sign-in once the browser is available.
+
 ### 2026-11-15 --- Codex --- Add responsive display-name editor to profile
 
 - **Status:** Implemented.
