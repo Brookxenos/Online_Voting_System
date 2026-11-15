@@ -1278,36 +1278,36 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline-color:va
 
 /* Restore the previous OpenVote teal palette while keeping ElectraVote branding. */
 :root {
-  --brand-ink:#212121;
-  --brand-dark:#323232;
-  --brand-blue:#0D7377;
-  --brand-green:#14FFEC;
-  --brand-yellow:#14FFEC;
-  --brand-teal:#0D7377;
-  --brand-flash:#14FFEC;
-  --primary:#0D7377;
-  --primary-dark:#0D7377;
-  --primary-soft:rgba(13,115,119,.12);
-  --secondary:#323232;
-  --text:#212121;
-  --text-muted:#626d6c;
-  --success:#0D7377;
-  --success-soft:rgba(13,115,119,.1);
-  --danger:#dc2626;
-  --danger-soft:rgba(220,38,38,.12);
-  --border:rgba(50,50,50,.14);
+  --brand-ink:#0B0C10;
+  --brand-dark:#1F2833;
+  --brand-blue:#45A29E;
+  --brand-green:#66FCF1;
+  --brand-yellow:#66FCF1;
+  --brand-teal:#45A29E;
+  --brand-flash:#66FCF1;
+  --primary:#45A29E;
+  --primary-dark:#1F2833;
+  --primary-soft:rgba(69,162,158,.16);
+  --secondary:#1F2833;
+  --text:#0B0C10;
+  --text-muted:#1F2833;
+  --success:#45A29E;
+  --success-soft:rgba(69,162,158,.16);
+  --danger:#1F2833;
+  --danger-soft:rgba(31,40,51,.16);
+  --border:rgba(31,40,51,.3);
 }
 body {
   background:
-    radial-gradient(ellipse at 79% 8%,rgba(20,255,236,.08),transparent 29rem),
-    radial-gradient(ellipse at 4% 32%,rgba(13,115,119,.12),transparent 34rem),
-    linear-gradient(135deg,#0D7377 0%,#c4c4c4 52%,rgba(13,115,119,.24) 100%);
+    radial-gradient(ellipse at 79% 8%,rgba(102,252,241,.16),transparent 29rem),
+    radial-gradient(ellipse at 4% 32%,rgba(69,162,158,.22),transparent 34rem),
+    linear-gradient(135deg,#0B0C10 0%,#1F2833 36%,#C5C6C7 68%,#45A29E 100%);
 }
 .hero {
   background:
-    radial-gradient(ellipse at 83% 22%,rgba(20,255,236,.16),transparent 23rem),
-    linear-gradient(115deg,#0D7377 0%,#c4c4c4 56%,rgba(13,115,119,.2) 100%);
-  border-color:rgba(13,115,119,.18);
+    radial-gradient(ellipse at 83% 22%,rgba(102,252,241,.24),transparent 23rem),
+    linear-gradient(115deg,#1F2833 0%,#C5C6C7 56%,#45A29E 100%);
+  border-color:#45A29E;
 }
 .hero h1 em,.section-heading h2 em,.hero-kicker,.section-kicker,
 .election-title:hover,.btn-link { color:var(--brand-teal); }
@@ -1321,8 +1321,8 @@ body {
 .ballot-submit b { color:var(--brand-flash); }
 .feature-icon { background:rgba(13,115,119,.1); color:var(--brand-teal); }
 .closing-cta,.settings-hero,.profile-brand-panel {
-  border-color:rgba(13,115,119,.2);
-  background:linear-gradient(115deg,rgba(13,115,119,.11),rgba(20,255,236,.1) 56%,rgba(231,231,231,.72));
+  border-color:#45A29E;
+  background:linear-gradient(115deg,rgba(69,162,158,.18),rgba(102,252,241,.18) 56%,#C5C6C7);
 }
 .topnav .nav-links a:hover,.topnav .nav-links a[aria-current="page"] { color:var(--brand-teal); background:rgba(13,115,119,.1); }
 .topnav .nav-links a.nav-settings { border-color:rgba(13,115,119,.28); background:rgba(13,115,119,.08); }

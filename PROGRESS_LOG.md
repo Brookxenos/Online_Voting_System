@@ -518,3 +518,16 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Other component surfaces retain their existing colors.
 - **Next exact task:** Review the page in a browser and adjust gradient balance if needed.
+
+### 2026-11-15 --- Codex --- Apply supplied five-color palette
+
+- **Status:** Completed; active brand tokens and main gradients now use only the supplied palette.
+- **Summary:** Updated the final active color tokens and page, hero, CTA, settings, and profile gradients to `#0B0C10`, `#1F2833`, `#C5C6C7`, `#66FCF1`, and `#45A29E`.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Interpreted “only” as the requested palette for the active theme and its primary backgrounds; no new colors introduced.
+- **Commands run:** `git diff --check` (passed); inspected active CSS rules.
+- **Build result:** Not run; CSS-only change.
+- **Tests and results:** Not run; no tests requested.
+- **Security/privacy implications:** None.
+- **Known gaps:** Older superseded stylesheet declarations remain earlier in the file; the final active theme rules override them.
+- **Next exact task:** Review the updated page in a browser.
