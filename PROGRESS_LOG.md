@@ -55,6 +55,163 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Remove Get started from the home hero
+
+- **Status:** Implemented.
+- **Summary:** Removed the unauthenticated home hero’s Get started action, leaving Discover how it works there. The navbar Get started action remains.
+- **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` and `git diff --check` (result below).
+- **Build/tests:** Not run; small frontend markup change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the home hero action layout in browser.
+
+### 2026-11-15 --- Codex --- Refine hover feedback for the four actions
+
+- **Status:** Implemented.
+- **Summary:** Replaced the hover-only outline glow with a more legible translucent mint fill, brighter border, slight lift/scale and soft shadow. Applied consistently to Sign in, both Get started actions and Discover how it works.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only interaction styling.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Check hover appearance at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Add a visible resting border and soften hover glow
+
+- **Status:** Implemented.
+- **Summary:** Added a light teal outline and subtle shadow to the four buttons in their resting state. Replaced the strong multi-ring hover with a brighter single border and restrained glow.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only appearance refinement.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the resting border and hover visibility in browser.
+
+### 2026-11-15 --- Codex --- Strengthen the visible action hover ring
+
+- **Status:** Implemented.
+- **Summary:** Added a brighter teal border and layered shadow ring to the hover state of all four text-only actions. Default styling remains text-only.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only hover adjustment.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Confirm hover ring visibility and fit in the browser.
+
+### 2026-11-15 --- Codex --- Return the four actions to text-only styling
+
+- **Status:** Implemented.
+- **Summary:** Removed fill, border and rounded box from Sign in, both Get started actions and Discover how it works. Retained the hover lift and arrow movement, using `#087E8B` with mint in the text glow; kept white default text for contrast on teal surfaces.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Interpreted “remove the button style” as text-only action links while preserving the requested hover behavior and the 44px minimum tap target.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only appearance change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Confirm the text-only action appearance in browser at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Set buttons to #1985A1 with an enhanced hover
+
+- **Status:** Implemented.
+- **Summary:** Set the shared button fill to `#1985A1`. Added a mint border glow, layered shadow, slight lift/scale and directional arrow shift on hover; disabled transform and transition for reduced-motion users.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only styling change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review resting and hover button effects across desktop and mobile.
+
+### 2026-11-15 --- Codex --- Use one solid color across the action buttons
+
+- **Status:** Implemented.
+- **Summary:** Replaced the base and hover gradients with the same solid `#41EAD4` fill on all four buttons. Hover remains visible through the lift, shadow and border treatment.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only styling update.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review buttons in browser at desktop and mobile sizes.
+
+### 2026-11-15 --- Codex --- Set button color to #41EAD4 and remove Sign in arrow
+
+- **Status:** Implemented.
+- **Summary:** Changed the shared four-button treatment to mint `#41EAD4` with dark readable text and matching teal shadow/hover states; removed the arrow icon from Sign in only.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; frontend styling and markup change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review color contrast and button alignment at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Refine button style to the indigo reference
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Updated the four shared actions to a compact rounded rectangle with the reference's indigo-violet fill, a fine lighter border and soft shadow; adjusted hover and focus colors to match.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Sampled the supplied reference image's dominant button color; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only visual change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser host unavailable for visual review.
+- **Next exact task:** Review all four actions on desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Apply purple pill button reference
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Updated Sign in, both Get started actions and Discover how it works to use a rounded purple gradient, white text, and a soft purple shadow based on the supplied reference. Kept existing arrow icons, hover lift, and mobile sizing.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only style change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser preview remains unavailable.
+- **Next exact task:** Review the four purple pill buttons at desktop and phone widths.
+
+### 2026-11-15 --- Codex --- Restore normal resting and raised hover states
+
+- **Status:** Implemented.
+- **Summary:** Returned the four action buttons to the regular darker teal style at rest and restored the brighter, raised treatment for hover.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only interaction styling.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the four button states in a browser.
+
+### 2026-11-15 --- Codex --- Swap default and hover button treatments
+
+- **Status:** Implemented.
+- **Summary:** Moved the brighter, lifted button appearance to the default state and the darker, lower-shadow appearance to hover for all four primary actions.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only interaction styling.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review pending because browser access is unavailable.
+- **Next exact task:** Review the resting and hovered button states in a browser.
+
+### 2026-11-15 --- Codex --- Restyle four primary navigation actions from reference
+
+- **Status:** Implemented; visual browser review unavailable.
+- **Summary:** Replaced the text-only styling on Sign in, both Get started actions and Discover how it works with a shared raised teal button style inspired by the supplied rounded, bordered, shadowed reference. Added the common directional icon to Sign in and tuned padding at narrow widths.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Used the reference’s shape, contrast and depth while keeping ElectraVote’s existing teal palette instead of introducing its purple color.
+- **Commands run:** Inspected current action markup and responsive style overrides; `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; frontend presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser host unavailable, so visual review remains pending.
+- **Next exact task:** Review all four actions at desktop and phone widths once browser access is available.
+
+### 2026-11-15 --- Codex --- Make action links text-only and strengthen mobile layout
+
+- **Status:** Implemented; visual browser review unavailable.
+- **Summary:** Removed filled, outlined and pill treatments from Sign in, both Get started actions and Discover how it works. Kept 44px minimum tap targets and added a subtle text shadow with a teal hover glow. Reworked the small-screen navigation into a compact grid, stacked the hero at tablet/mobile widths, let actions wrap, and tightened the ballot illustration and feature layout for narrow screens.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Interpreted “shadow kind style” as a subtle text shadow and hover glow while keeping the actions text-only. Preserved the current teal palette, sans-serif type and image-based logo.
+- **Commands run:** Read the frontend design skill and reviewed responsive CSS and app markup. Browser inventory reported unavailable. `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only responsive and presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Could not inspect mobile rendering because the browser access host is unavailable.
+- **Next exact task:** Review at 320px, 390px, tablet and desktop widths when browser access is available.
+
 ### 2026-11-15 --- Codex --- Remove Sign in hover underline
 
 - **Status:** Implemented.
