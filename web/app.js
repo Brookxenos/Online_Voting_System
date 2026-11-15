@@ -314,6 +314,7 @@ function renderLogin(view) {
         </div>
       </aside>
       <div class="login-panel">
+        <img class="login-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote">
         <header class="login-heading">
           <span class="login-kicker">ACCOUNT ACCESS</span>
           <h1 id="login-title">Sign in</h1>
@@ -333,11 +334,16 @@ function renderLogin(view) {
       </div>
     </section>`;
   const form = document.getElementById('form-login');
+  const submitButton = form.querySelector('button[type="submit"]');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    if (submitButton.disabled) return;
     const fd = new FormData(form);
     const errBox = document.getElementById('login-error');
     errBox.hidden = true;
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy', 'true');
+    submitButton.textContent = 'Signing in…';
     try {
       const r = await api('auth/login', {
         method: 'POST',
@@ -349,6 +355,9 @@ function renderLogin(view) {
     } catch (err) {
       errBox.textContent = err.message;
       errBox.hidden = false;
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.textContent = 'Sign in';
     }
   });
 }
