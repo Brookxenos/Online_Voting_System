@@ -55,6 +55,31 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Apply black-blue-neon palette
+
+-   **Status:** Implemented; browser review remains pending.
+-   **Summary:** Replaced the active brand token colors with Color Hunt's
+    `#000000`, `#0F6292`, `#16FF00`, and `#FFED00`. Updated page and hero
+    gradients, buttons, selected states, status badges, focus outlines,
+    settings accents, and the ElectraVote logo assets. Green and yellow are
+    used as limited indicators and highlights.
+-   **Files changed:** `web/style.css`, `web/assets/electravote-logo.png`,
+    `web/assets/electravote-icon.png`, `web/favicon.png`,
+    `PROGRESS_LOG.md`.
+-   **Decisions:** Kept light gray/white surfaces for readable content and
+    used the palette colors for branding and interaction. No app flow or
+    backend behavior changed.
+-   **Commands run:** `node --check web/app.js`; `git diff --check`; `make`;
+    `make test`.
+-   **Build result:** `make` succeeded; target was already up to date.
+-   **Tests and results:** `make test` passed: 55 passed, 0 failed,
+    including logo and favicon static delivery.
+-   **Security/privacy implications:** Visual-only palette and asset edits.
+-   **Known issues:** Browser viewport review is unavailable in this
+    environment.
+-   **Next exact task:** Check contrast and palette balance in a browser at
+    desktop and mobile sizes.
+
 ### 2026-11-15 --- Codex --- Make voter settings visible and modernize profile
 
 -   **Status:** Implemented; visual browser review remains pending.
