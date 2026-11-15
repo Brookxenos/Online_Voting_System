@@ -1268,6 +1268,11 @@ function renderSettings(view) {
           <div><span class="meta-label">Username</span><strong>${escapeHtml(state.user.username)}</strong></div>
           <div><span class="meta-label">Account type</span><strong>${escapeHtml(roleLabel(state.user.role))}</strong></div>
         </div>
+        <form id="form-profile-name" class="stack-form profile-name-form">
+          <label for="profile-display-name">Edit display name<input id="profile-display-name" type="text" name="displayName" maxlength="100" autocomplete="name" value="${escapeHtml(state.user.displayName || '')}" required></label>
+          <div class="error-box" id="profile-name-error" hidden></div>
+          <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3 14.8-.7 3 3-.7L16.8 7.6a2.1 2.1 0 0 0-3-3L3 14.8Z"/><path d="m12.5 5.9 3 3"/></svg><span>Save name</span></button>
+        </form>
       </section>
       <section class="settings-section security-section" aria-labelledby="security-title">
         <div class="settings-section-heading"><div><h3 id="security-title">Password and security</h3><p>Update your password to protect your account.</p></div><span class="security-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span></div>
@@ -1281,6 +1286,22 @@ function renderSettings(view) {
       </section>
     </section>`;
   const form = document.getElementById('form-password');
+  const nameForm = document.getElementById('form-profile-name');
+  nameForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const displayName = new FormData(nameForm).get('displayName').trim();
+    const errBox = document.getElementById('profile-name-error');
+    errBox.hidden = true;
+    try {
+      const result = await api('me/profile', { method: 'POST', body: { displayName } });
+      state.user = result.user;
+      render();
+      toast('Display name updated.');
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    }
+  });
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(form);

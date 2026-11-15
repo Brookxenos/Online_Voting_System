@@ -330,6 +330,21 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
+    server.addRoute("POST", "/api/me/profile", [&](const HttpServer::Request& req) {
+        auto user = currentUser(req, store);
+        if (!user) return fail(401, "Not authenticated");
+        json::Value body;
+        HttpServer::Response err;
+        if (!parseBody(req, body, err)) return err;
+        const std::string displayName = trimStr(body.getString("displayName"));
+        if (!validTextField(displayName, 1, 100)) {
+            return fail(400, "Display name must be between 1 and 100 characters");
+        }
+        store.updateDisplayName(user->id, displayName);
+        user->displayName = displayName;
+        return ok({{"user", userJson(*user)}});
+    });
+
     server.addRoute("POST", "/api/auth/password", [&](const HttpServer::Request& req) {
         auto user = currentUser(req, store);
         if (!user) return fail(401, "Not authenticated");

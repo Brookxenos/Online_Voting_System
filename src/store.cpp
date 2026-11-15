@@ -290,6 +290,11 @@ std::vector<User> Store::listUsers(std::optional<long long> orgId) {
     return out;
 }
 
+void Store::updateDisplayName(long long userId, const std::string& displayName) {
+    db_.exec("UPDATE users SET display_name=? WHERE id=?",
+             {displayName, std::to_string(userId)});
+}
+
 void Store::updatePasswordHash(long long userId, const std::string& hash) {
     db_.exec("UPDATE users SET password_hash=? WHERE id=?", {hash, std::to_string(userId)});
 }

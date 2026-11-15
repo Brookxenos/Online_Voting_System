@@ -41,6 +41,7 @@ public:
     std::optional<User> findUserByUsername(const std::string& username);
     std::optional<User> findUserById(long long id);
     std::vector<User> listUsers(std::optional<long long> orgId = std::nullopt);
+    void updateDisplayName(long long userId, const std::string& displayName);
     void updatePasswordHash(long long userId, const std::string& hash);
     void setUserDisabled(long long userId, bool disabled);
 
