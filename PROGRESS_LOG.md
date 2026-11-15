@@ -55,6 +55,18 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Add responsive display-name editor to profile
+
+- **Status:** Implemented.
+- **Summary:** Added a self-service display-name editor backed by an authenticated `/api/me/profile` route and a prepared SQL update. The settings card is centered, and the editor switches from a two-column layout to a stacked, full-width mobile layout.
+- **Files changed:** `web/app.js`, `web/style.css`, `src/api.cpp`, `src/store.cpp`, `src/store.h`, `PROGRESS_LOG.md`.
+- **Decisions:** Kept username and account type read-only; the form edits only the public display name. API input is trimmed and validated to 1–100 characters.
+- **Commands run:** `make` (succeeded); `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Tests:** Not run.
+- **Security/privacy implications:** The profile route requires the current authenticated session; no password or authorization fields are editable.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the profile editor at desktop, tablet, and narrow mobile widths.
+
 ### 2026-11-15 --- Codex --- Simplify signed-in navigation for mobile
 
 - **Status:** Implemented; browser visual review unavailable.

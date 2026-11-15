@@ -1289,7 +1289,7 @@ function renderSettings(view) {
   const nameForm = document.getElementById('form-profile-name');
   nameForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const displayName = new FormData(nameForm).get('displayName').trim();
+    const displayName = String(new FormData(nameForm).get('displayName') || '').trim();
     const errBox = document.getElementById('profile-name-error');
     errBox.hidden = true;
     try {
