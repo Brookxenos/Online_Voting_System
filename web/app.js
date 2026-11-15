@@ -140,10 +140,8 @@ function navHtml() {
   const u = state.user;
   const homeNav = state.view === 'home';
   const links = [];
-  if (u && !homeNav) links.push(['#/elections', 'Elections']);
   if (u && !homeNav && (u.role === 'org_admin' || u.role === 'platform_admin')) links.push(['#/admin', 'Administration']);
   if (u && !homeNav && u.role === 'observer') links.push(['#/observer', 'Observer view']);
-  if (u && !homeNav) links.push(['#/settings', 'Settings']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
   html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-image" src="/assets/electravote-logo-light.png" alt="ElectraVote"></a>';
   if (links.length) html += '<div class="nav-links">';
@@ -152,18 +150,13 @@ function navHtml() {
     const active = state.view === route ||
       (route === 'admin' && state.view === 'adminElection') ||
       (route === 'elections' && state.view === 'election');
-    const settingsIcon = href === '#/settings'
-      ? '<svg class="nav-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>'
-      : '';
-    const electionIcon = href === '#/elections'
-      ? '<svg class="nav-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M8.5 10h7M8.5 14h7M8.5 18h4"/></svg>'
-      : '';
-    html += `<a href="${href}"${href === '#/settings' ? ' class="nav-settings"' : ''}${active ? ' aria-current="page"' : ''}>${electionIcon}${settingsIcon}<span>${label}</span></a>`;
+    html += `<a href="${href}"${active ? ' aria-current="page"' : ''}><span>${label}</span></a>`;
   }
   if (links.length) html += '</div>';
   html += '<div class="nav-user">';
   if (u && !homeNav) {
-    html += `<span class="badge">${escapeHtml(u.displayName)} · ${roleLabel(u.role)}</span>`;
+    html += '<a class="btn nav-home" href="#/" aria-label="Back to home"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m2.5 9 7.5-6 7.5 6M4.5 8v9h4v-5h3v5h4V8"/></svg><span>Home</span></a>';
+    html += `<a class="btn nav-profile-action" href="#/settings" aria-label="Profile: ${escapeHtml(u.displayName)}"${state.view === 'settings' ? ' aria-current="page"' : ''}><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.2" r="3.1"/><path d="M3.8 17a6.2 6.2 0 0 1 12.4 0"/></svg><span>Profile</span></a>`;
     html += '<button class="btn btn-link nav-profile-action" id="btn-logout"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4M7 10h8"/></svg><span>Log out</span></button>';
   } else {
     html += '<a class="btn btn-link nav-signin" href="#/login">Sign in</a>';

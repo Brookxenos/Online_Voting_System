@@ -55,6 +55,17 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Simplify signed-in navigation for mobile
+
+- **Status:** Implemented; browser visual review unavailable.
+- **Summary:** Removed Elections from the signed-in navbar, added a Home button styled to match the site's outlined CTA buttons, and replaced the voter identity badge with a Profile link and person icon. The Profile link opens Account settings. Kept the home page navigation unchanged and added narrow-screen spacing and reduced-motion handling.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Build/tests:** Not run; navbar presentation update.
+- **Security/privacy implications:** No authentication or permissions changed; the profile name is now available as the Profile link's accessible label.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review signed-in navbar at desktop, tablet, and 320px mobile widths.
+
 ### 2026-11-15 --- Codex --- Match profile action buttons and add a back link
 
 - **Status:** Implemented; browser visual review unavailable.
