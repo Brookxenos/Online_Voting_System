@@ -134,16 +134,22 @@ const app = document.getElementById('app');
 
 function navHtml() {
   const u = state.user;
-  const links = [['#/', 'Home']];
+  const links = [];
   if (u) links.push(['#/elections', 'Elections']);
   if (u && u.role === 'platform_admin') links.push(['#/admin', 'Administration']);
   if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.push(['#/admin', 'Administration']);
   if (u && u.role === 'observer') links.push(['#/observer', 'Observer view']);
   if (u) links.push(['#/settings', 'Settings']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
-  html += '<a class="brand" href="#/">🗳️ OpenVote</a>';
+  html += '<a class="brand" href="#/" aria-label="OpenVote home"><svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="2" y="2" width="36" height="36" rx="12" fill="currentColor"/><path d="m10 20 6.2 6.2L30 12.5" fill="none" stroke="#14FFEC" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 31h20" stroke="currentColor" stroke-width="2"/></svg><span>OpenVote</span><span class="brand-tagline">Every Voice Matters. Every Vote Counts.</span></a>';
   html += '<div class="nav-links">';
-  for (const [href, label] of links) html += `<a href="${href}">${label}</a>`;
+  for (const [href, label] of links) {
+    const route = href.slice(1).split('/')[1] || 'home';
+    const active = state.view === route ||
+      (route === 'admin' && state.view === 'adminElection') ||
+      (route === 'elections' && state.view === 'election');
+    html += `<a href="${href}"${active ? ' aria-current="page"' : ''}>${label}</a>`;
+  }
   html += '</div>';
   html += '<div class="nav-user">';
   if (u) {
@@ -219,21 +225,30 @@ async function renderHome(view) {
   view.innerHTML = `
     <header class="hero">
       <div class="hero-inner">
-        <div class="hero-badges"><span>Neutral</span><span>Auditable</span><span>Privacy-conscious</span></div>
-        <h1>🗳️ OpenVote</h1>
-        <p class="subtitle">A voting platform for organizations, clubs and communities —
-        designed for fairness, accessibility and a reviewable audit trail.</p>
+        <p class="hero-kicker"><span class="kicker-dot"></span> THE FUTURE OF DIGITAL DEMOCRACY</p>
+        <h1>Every Voice Matters.<br><em>Every Vote Counts.</em></h1>
+        <p class="subtitle">Experience a clearer way to participate in democracy. Explore elections, understand your options, and make your voice count in your community.</p>
         <div class="hero-actions">
-          ${!u ? `
-          <a class="btn btn-primary btn-lg" href="#/register">Register to vote</a>
-          <a class="btn btn-secondary btn-lg" href="#/login">Log in</a>` : `
-          <a class="btn btn-primary btn-lg" href="#/elections">Go to my elections</a>`}
+          ${!u ? '<a class="btn btn-primary btn-lg" href="#/register">Get started <span aria-hidden="true">→</span></a><a class="btn btn-outline btn-lg" href="#how-it-works">Discover how it works</a>' : '<a class="btn btn-primary btn-lg" href="#/elections">Explore your elections <span aria-hidden="true">→</span></a>'}
         </div>
-        <p class="muted small">This platform is for organizational and community elections.
-        It is not certified for legally binding public elections.</p>
+        <p class="hero-note"><span aria-hidden="true">✓</span> Built for transparency. Designed for participation.</p>
+      </div>
+      <div class="hero-art" aria-label="Illustration of a verified digital ballot" role="img">
+        <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
+        <div class="ballot-card"><div class="ballot-top"><span class="ballot-brand-mini"><span class="mini-check">✓</span> OPENVOTE</span><span class="ballot-live"><i></i> SECURE BALLOT</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span><b>→</b></div><div class="ballot-foot"><span>● Encrypted connection</span><span>1 of 1</span></div></div>
+        <div class="float-chip chip-verified"><span>✓</span><div><b>Vote verified</b><small>Confirmation received</small></div></div><div class="float-chip chip-participate"><span class="chip-bars">▥</span><div><b>Every voice counts</b><small>Participation made simple</small></div></div>
+        <span class="art-spark spark-a">✳</span><span class="art-spark spark-b">+</span>
       </div>
     </header>
-    ${electionsHtml}`;
+    <section class="trust-strip" aria-label="OpenVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
+    <section class="feature-section" id="how-it-works"><div class="section-heading"><span class="section-kicker">A better way to decide</span><h2>Democracy, made <em>accessible.</em></h2><p>Everything your organization needs to bring people into the decisions that matter.</p></div><div class="feature-grid">
+      <article class="feature-card"><span class="feature-icon icon-lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span><h3>Secure voting</h3><p>Clear eligibility and a confirmation step help protect the integrity of each ballot.</p></article>
+      <article class="feature-card"><span class="feature-icon icon-eye" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span><h3>Transparent results</h3><p>Published outcomes and election records make the process easier to understand.</p></article>
+      <article class="feature-card"><span class="feature-icon icon-people" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-9a3 3 0 1 0-1-5.8M18 14a5 5 0 0 1 3 4.6V20"/></svg></span><h3>Accessible participation</h3><p>Thoughtful, responsive experiences help eligible voters take part wherever they are.</p></article>
+    </div></section>
+    ${electionsHtml}
+    <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} <span aria-hidden="true">→</span></a></section>
+    <footer class="site-footer"><a class="footer-brand" href="#/">OpenVote</a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
   if (u) {
     try {
       const data = await api('elections');

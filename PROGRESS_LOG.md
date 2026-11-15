@@ -55,6 +55,85 @@
 
 ## Session entries
 
+### 2026-11-14 --- Codex --- Update navbar color and slogan
+
+-   **Status:** Completed.
+-   **Summary:** Changed the navbar to slate blue with pale-yellow text
+    and selected states, and added the slogan “A clearer way to decide
+    together” beside the OpenVote brand.
+-   **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+-   **Decisions:** Used the existing palette and local styling; routes and
+    navigation items are unchanged.
+-   **Commands run:** `node --check web/app.js`; `git diff --check`.
+-   **Build result:** Not run; frontend-only change.
+-   **Tests and results:** No tests run; syntax and whitespace checks
+    passed.
+-   **Risks or known gaps:** Browser visual review remains pending.
+-   **Next exact task:** Review navbar contrast and mobile wrapping in a
+    browser.
+
+### 2026-11-14 --- Codex --- Remove Home navbar link
+
+-   **Status:** Completed.
+-   **Summary:** Removed the redundant Home item from the global navbar;
+    the brand link still returns to the landing page.
+-   **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+-   **Decisions:** No routes or role-specific navigation changed.
+-   **Commands run:** `node --check web/app.js`; `git diff --check`.
+-   **Build result:** Not run; frontend-only link removal.
+-   **Tests and results:** No tests run; JavaScript syntax check and
+    whitespace check passed.
+-   **Risks or known gaps:** None identified.
+-   **Next exact task:** Continue UI refinement based on browser review.
+
+### 2026-11-14 --- Codex --- UI visual and responsive refinement
+
+-   **Status:** Completed; frontend styling only.
+-   **Summary:** Refined the existing OpenVote UI with a calm green
+    palette, improved surface and navigation hierarchy, more consistent
+    spacing and controls, subtle motion, and narrower-screen layouts for
+    navigation, tabs and forms. Added dark-mode token overrides and kept
+    reduced-motion behavior. Existing app routes and ballot interactions
+    were not changed.
+-   **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+-   **Decisions:** Visual direction is an incremental CSS-only treatment;
+    no UI framework, external asset, or dependency added.
+-   **Commands run:** `make`; `git diff --check`.
+-   **Build result:** `make` exited successfully and reported
+    `Nothing to be done for 'all'`; the build does not process frontend
+    assets.
+-   **Tests and results:** Not run; styling-only change. Manual browser
+    walkthrough remains pending because browser access is unavailable.
+-   **Risks or known gaps:** Responsive styling has not been visually
+    checked in a browser or against WCAG contrast measurements. Existing
+    product screens and copy were preserved.
+-   **Next exact task:** Review the refined UI at mobile, tablet, and
+    desktop widths in a browser and adjust any observed layout issues.
+
+### 2026-11-14 --- Codex --- Apply supplied palette and navigation polish
+
+-   **Status:** Completed; frontend presentation and copy update.
+-   **Summary:** Applied the supplied charcoal (`#4A4A4A`), light gray
+    (`#CBCBCB`), pale yellow (`#FFFFE3`) and slate blue (`#6D8196`)
+    direction to the app theme, with compatible dark-mode tokens. Added a
+    serif display face using local system fallbacks, made the active route
+    visible in the shared navigation, and rewrote landing-page headline,
+    supporting text, and calls to action.
+-   **Files changed:** `web/style.css`, `web/app.js`, `PROGRESS_LOG.md`.
+-   **Decisions:** Reused existing role-aware navigation and routes. No
+    dependency or remote font was introduced.
+-   **Commands run:** `node --check web/app.js`; `make`; `git diff --check`.
+-   **Build result:** `make` succeeded and reported there was no backend
+    rebuild; the Makefile does not process frontend assets.
+-   **Tests and results:** No tests run. JavaScript syntax check and
+    whitespace check passed. Browser visual review remains pending.
+-   **Risks or known gaps:** Palette and contrast have not been visually
+    or programmatically assessed in an actual browser. Existing non-landing
+    screen copy remains largely unchanged.
+-   **Next exact task:** Inspect the updated navigation and landing view at
+    desktop and phone widths, then tune contrast and wrapping from observed
+    results.
+
 ### Initial handoff package
 
 -   **Date:** 2026-11-14
