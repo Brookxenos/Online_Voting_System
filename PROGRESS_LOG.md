@@ -55,6 +55,28 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Make voter settings visible and modernize profile
+
+-   **Status:** Implemented; visual browser review remains pending.
+-   **Summary:** Corrected the Settings navigation link contrast by
+    overriding the legacy high-specificity white-link rule, added a visible
+    gear icon and selected state, and redesigned account settings as a
+    profile page with branded header, profile details, and a separated
+    password/security section. Kept the existing password update behavior.
+-   **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+-   **Decisions:** Settings remains available to all authenticated roles;
+    no backend or profile data model changes.
+-   **Commands run:** `node --check web/app.js`; `git diff --check`;
+    `make`; `make test`.
+-   **Build result:** `make` succeeded; target was already up to date.
+-   **Tests and results:** `make test` passed: 55 passed, 0 failed.
+-   **Security/privacy implications:** No changes to authentication,
+    password update API, voting, or permissions.
+-   **Known issues:** Browser access remains unavailable, so the final
+    layout has not been visually checked at responsive widths.
+-   **Next exact task:** Review the voter settings page and navbar at mobile
+    and desktop widths when browser access is available.
+
 ### 2026-11-15 --- Codex --- ElectraVote palette and logo consistency
 
 -   **Status:** Implemented; browser viewport review remains pending.
