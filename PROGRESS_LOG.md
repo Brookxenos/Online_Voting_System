@@ -55,6 +55,95 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Remove Sign in hover underline
+
+- **Status:** Implemented.
+- **Summary:** Disabled text decoration for the shared action-button hover state so Sign in does not show an underline.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only fix.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review button hover states in the browser.
+
+### 2026-11-15 --- Codex --- Use the sign-in outline style for all four action buttons
+
+- **Status:** Implemented.
+- **Summary:** Applied the outlined Sign in treatment to navbar Get started, hero Get started, and Discover how it works. All four now share the same border, translucent fill, text color, and accent hover behavior.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review the four buttons in desktop and mobile layouts.
+
+### 2026-11-15 --- Codex --- Match navbar and hero button designs
+
+- **Status:** Implemented.
+- **Summary:** Matched navbar and hero action buttons for height, padding, font size, border, and corner radius. Added the shared arrow icon to navbar Get started; sign-in and Discover use the same outlined treatment.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected button and navbar rules; `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; frontend presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review header and hero action buttons at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Unify sign-in and registration button states
+
+- **Status:** Implemented.
+- **Summary:** Matched the navbar Sign in and Get started actions with their homepage hero counterparts using consistent button height, rounded corners, transition timing, lift/shadow hover behavior, and visible keyboard focus. Kept primary and outlined color treatments distinct.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected navbar markup and final theme overrides; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review navbar and hero buttons at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Standardize directional arrows across the web UI
+
+- **Status:** Implemented.
+- **Summary:** Replaced side-facing arrow characters on navigation/action links and the ballot preview action with one reusable right-arrow SVG icon and a small hover shift. Kept arrows used as date-range and lifecycle separators unchanged.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Searched frontend markup and styles for arrow symbols; `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; frontend presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review arrow alignment and hover behavior across the site at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Improve hero discover link visibility
+
+- **Status:** Implemented.
+- **Summary:** Set the “Discover how it works” link to a high contrast light label with a visible outline on the teal hero, and added a rightward SVG arrow that moves slightly on hover.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Located the hero link and its target feature section; `git diff --check` (passed); `node --check web/app.js` (passed).
+- **Build/tests:** Not run; small frontend presentation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review the home hero link at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Recolor the home hero note icon
+
+- **Status:** Implemented.
+- **Summary:** Changed the check icon beside “Built for transparency. Designed for participation.” to a bright teal accent on a darker teal circle for clear contrast with the hero.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Located the hero note in `web/app.js` and its existing styles; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only visual change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review the home hero in a browser if visual confirmation is needed.
+
+### 2026-11-15 --- Codex --- Use sans-serif typography across the site
+
+- **Status:** Implemented.
+- **Summary:** Applied the existing Arial/Helvetica sans-serif stack to all page elements, including form controls. Logo wordmarks are image assets, so their lettering remains unchanged.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Kept the current sans-serif family already used by the page body; extended it globally for consistent rendering.
+- **Commands run:** Inspected project context, progress log, repository status, stylesheet and logo usage; `git diff --check` (passed).
+- **Build/tests:** Not run; typography-only CSS change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Visual browser review not performed.
+- **Next exact task:** Review typography on desktop and mobile, including form controls; confirm logo artwork remains visually unchanged.
+
 ### 2026-11-15 --- Codex --- Restore teal palette and simplify home navigation
 
 -   **Status:** Implemented; browser review remains pending.
@@ -556,3 +645,184 @@
 - **Security/privacy implications:** No backend, authentication, ballot, or data changes.
 - **Known gaps:** Browser visual and responsive review remains pending. Several historical CSS declarations remain earlier in the stylesheet but the final unified theme rules override them.
 - **Next exact task:** Review frontend in a browser at desktop and mobile widths; rerun `make test` in an environment that permits local socket binding.
+
+### 2026-11-15 --- Codex --- Improve dark theme hierarchy and logo contrast
+
+- **Status:** CSS refinements applied; visual browser review still pending.
+- **Summary:** Strengthened the dark-theme hierarchy with white hero headings, grey supporting copy, and a white treatment for existing dark logo artwork across shared placements.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected app route renderers, shared CSS, logos, and status. `git diff --check` (to be run).
+- **Build/tests:** No backend changes; browser review not yet completed.
+- **Known gaps:** Need inspect rendered app at desktop/mobile sizes and verify logo treatment against the actual image.
+- **Next exact task:** Open the homepage and a representative authenticated page in browser; tune any remaining low-contrast regions.
+
+### 2026-11-15 --- Codex --- Switch to supplied blue palette
+
+- **Status:** Active theme updated to the five requested colors.
+- **Summary:** Replaced the active dark theme with `#3D52A0`, `#7091E6`, `#8697C4`, `#ADBBDA`, and `#EDE8F5` across shared surfaces, controls, text, navigation, and focus states.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Read active theme and inspected user-specified palette; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Security/privacy implications:** None; no workflow or backend changes.
+- **Known gaps:** Browser visual review is pending.
+- **Next exact task:** Review page screenshots at desktop and mobile sizes.
+
+### 2026-11-15 --- Codex --- Apply charcoal and teal palette
+
+- **Status:** Active frontend theme updated.
+- **Summary:** Replaced the active palette with `#212121`, `#323232`, `#0D7377`, and `#14FFEC` across shared surfaces, navigation, typography, controls, tables, and focus states.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected the current active theme and updated its palette; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Security/privacy implications:** No backend or workflow changes.
+- **Known gaps:** Browser visual review remains pending.
+- **Next exact task:** Review homepage and representative inner page at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Replace charcoal fills with light grey
+
+- **Status:** Active theme dark fills updated to `#c4c4c4` as requested.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected active theme and `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual review pending.
+- **Next exact task:** Review contrast and surfaces in browser.
+
+### 2026-11-15 --- Codex --- Restore styling before recent palette edits
+
+- **Status:** Completed; recent palette overrides removed from stylesheet.
+- **Summary:** Removed the recent charcoal/teal palette block and logo filter/text overrides, restoring the earlier tracked theme rules.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected `git diff`; direct repository restore was blocked because `.git` is read-only; removed only the recent added CSS rules; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS restoration only.
+- **Known gaps:** Restored stylesheet retains the dark theme that existed before the most recent palette changes.
+- **Next exact task:** Review the restored page in a browser.
+
+### 2026-11-15 --- Codex --- Restore screenshot color combination
+
+- **Status:** Screenshot palette restored in active theme.
+- **Summary:** Sampled the referenced screenshot and restored its dark slate page background, light grey hero/cards, charcoal text, and teal controls.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected screenshot and sampled pixel colors with Pillow; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual confirmation pending.
+- **Next exact task:** Reload homepage and compare with the screenshot.
+
+### 2026-11-15 --- Codex --- Apply OpenVote charcoal-teal palette
+
+- **Status:** Active theme updated to the current brand brief.
+- **Summary:** Applied #212121 and #323232 dark surfaces, #0D7377 primary actions, and selective #14FFEC accents, with white and soft grey supporting text as allowed.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected the active theme; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser review pending.
+- **Next exact task:** Review visual contrast and responsive rendering in browser.
+
+### 2026-11-15 --- Codex --- Apply emerald palette from screenshot
+
+- **Status:** Active theme updated.
+- **Summary:** Replaced the previous palette with deep Brunswick green, Emerald `#06D6A0`, and Polar `#E6FBF5` tones from the supplied reference.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected palette image; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Exact HEX for Brunswick Green was not visible in the screenshot; visually matched deep green values were used.
+- **Next exact task:** Review rendered theme in browser and adjust Brunswick Green if user provides its exact HEX.
+
+### 2026-11-15 --- Codex --- Apply Coolors teal palette
+
+- **Status:** Active theme updated to the supplied five-color palette.
+- **Summary:** Applied `#FFFFFA`, `#0D5C63`, `#44A1A0`, `#78CDD7`, and `#247B7B` to page surfaces, navigation, text, controls, and focus states.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Opened the supplied Coolors palette; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual review pending.
+- **Next exact task:** Review the palette across homepage and app pages at desktop and mobile widths.
+
+### 2026-11-15 --- Codex --- Lighten main page background
+
+- **Status:** Main page background changed to `#F0FFF1`.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual review pending.
+- **Next exact task:** Check light background contrast in browser.
+
+### 2026-11-15 --- Codex --- Replace remaining dark backgrounds
+
+- **Status:** Remaining active dark surface backgrounds changed to `#4BA3C3`.
+- **Summary:** Updated dark secondary surfaces, cards, navigation, hero, tables, controls, and related theme tokens while preserving the `#F0FFF1` main page background.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected active theme rules; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual review pending.
+- **Next exact task:** Reload and assess contrast in browser.
+
+### 2026-11-15 --- Codex --- Improve contrast with requested teal
+
+- **Status:** Low-contrast text on blue surfaces adjusted.
+- **Summary:** Contrast review found white text on `#4BA3C3` at 2.86:1 and `#78CDD7` on that surface at 1.57:1. Changed text on blue surfaces to `#212121` and used requested `#028090` for text/accent on the light `#F0FFF1` page (4.51:1).
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Read active theme; calculated contrast ratios; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Some other foreground/background pairs should be visually and contrast checked in browser.
+- **Next exact task:** Review all routes and interactive states in browser.
+
+### 2026-11-15 --- Codex --- Balance teal palette across surfaces
+
+- **Status:** Refined color distribution for a calmer, clearer appearance.
+- **Summary:** Reserved deep teal for navbar/hero and primary actions; returned cards and form fields to light neutral surfaces; kept cyan for selective highlights. Text is dark on light surfaces and light on dark hero/navigation.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Reviewed active theme declarations; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual review pending.
+- **Next exact task:** Inspect homepage and app pages in browser for contrast and responsive layout.
+
+### 2026-11-15 --- Codex --- Improve text and logo visibility
+
+- **Status:** Visibility fixes applied to active theme.
+- **Summary:** Added a white treatment to the header logo on the deep teal navigation, brightened the hero kicker, and set explicit readable text colors for empty states, errors, and status badges.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected logo placements and empty/status CSS; `git diff --check` (passed).
+- **Build/tests:** CSS only; not run.
+- **Known gaps:** Browser visual inspection pending.
+- **Next exact task:** Reload homepage and inspect navbar logo, status badges, and empty states.
+
+### 2026-11-15 --- Codex --- Improve remaining text and logo visibility
+
+- **Status:** Header logo variant and targeted contrast fixes applied.
+- **Summary:** Created a header logo variant with a white wordmark and `#41EAD4` checkmark/V, switched navbar markup to use it, removed the whole-image inversion filter, and set explicit readable colors for ballot details, table content, badges, and validation/empty text.
+- **Files changed:** `web/style.css`, `web/app.js`, `web/assets/electravote-logo-light.png`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected logo raster and relevant selectors; generated light logo variant; `git diff --check` (passed).
+- **Build/tests:** No backend changes; browser review pending.
+- **Known gaps:** Need visually verify the logo asset and representative inner page in browser.
+- **Next exact task:** Review navbar logo and text visibility across routes.
+
+### 2026-11-15 --- Codex --- Apply V accent to all logo placements
+
+- **Status:** Logo accent and sign-in visibility corrected.
+- **Summary:** Recolored teal logo/icon pixels to `#41EAD4` across original and light logo variants; forced the sign-in link to a readable light color on the teal navbar.
+- **Files changed:** `web/style.css`, `web/assets/electravote-logo.png`, `web/assets/electravote-logo-light.png`, `web/assets/electravote-icon.png`, `PROGRESS_LOG.md`.
+- **Commands run:** Located all logo placements; updated PNG palette pixels; `git diff --check` (passed).
+- **Build/tests:** No backend changes; browser check pending.
+- **Known gaps:** Verify recolored assets in browser.
+- **Next exact task:** Reload homepage and inspect logo in header, ballot preview, and footer; confirm sign-in contrast.
+
+### 2026-11-15 --- Codex --- Update sign-in hover color
+
+- **Status:** Sign-in hover/focus styling updated.
+- **Summary:** Set sign-in text to `#41EAD4` over the dark teal hover background.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; CSS-only change.
+- **Next exact task:** Inspect the hover state in browser.
+
+### 2026-11-15 --- Codex --- Use sans-serif typography throughout
+
+- **Status:** Typography updated; logo artwork left untouched.
+- **Summary:** Changed interface font stacks, including display headings and utility/monospaced text, to Arial/Helvetica sans-serif. Logo lettering remains part of the existing image assets and was not edited.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Used widely available sans-serif fallbacks without adding a downloaded font dependency.
+- **Commands run:** `make` (succeeded; nothing needed rebuilding); `make test` (failed to start the local server: socket binding returned `Operation not permitted`); `git diff --check` (passed).
+- **Build/tests:** Build target was already current. Integration smoke tests were blocked before execution by sandbox socket restrictions.
+- **Security/privacy implications:** None; styling only.
+- **Known gaps:** Browser visual review remains pending.
+- **Next exact task:** Review sans-serif typography on homepage and inner pages in a browser.

@@ -64,6 +64,10 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+function arrowIcon() {
+  return '<svg class="direction-arrow" aria-hidden="true" viewBox="0 0 20 20"><path d="M4 10h11M10 5l5 5-5 5"/></svg>';
+}
+
 function toast(message, type) {
   const region = document.getElementById('toast-region');
   const el = document.createElement('div');
@@ -141,7 +145,7 @@ function navHtml() {
   if (u && !homeNav && u.role === 'observer') links.push(['#/observer', 'Observer view']);
   if (u && !homeNav) links.push(['#/settings', 'Settings']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
-  html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a>';
+  html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-image" src="/assets/electravote-logo-light.png" alt="ElectraVote"></a>';
   if (links.length) html += '<div class="nav-links">';
   for (const [href, label] of links) {
     const route = href.slice(1).split('/')[1] || 'home';
@@ -160,7 +164,7 @@ function navHtml() {
     html += '<button class="btn btn-link" id="btn-logout">Log out</button>';
   } else {
     html += '<a class="btn btn-link nav-signin" href="#/login">Sign in</a>';
-    html += '<a class="btn btn-primary nav-start" href="#/register">Get started</a>';
+    html += `<a class="btn btn-primary nav-start" href="#/register">Get started ${arrowIcon()}</a>`;
   }
   html += '</div></nav>';
   return html;
@@ -219,9 +223,9 @@ async function renderHome(view) {
         <h2>Open elections</h2>
         <div id="home-elections" class="election-list"><div class="empty">Loading…</div></div>
         <div class="btn-row">
-          <a class="btn btn-secondary" href="#/elections">My elections →</a>
-          ${u.role === 'platform_admin' || u.role === 'org_admin' ? '<a class="btn btn-primary" href="#/admin">Administration →</a>' : ''}
-          ${u.role === 'observer' ? '<a class="btn btn-secondary" href="#/observer">Observer view →</a>' : ''}
+          <a class="btn btn-secondary" href="#/elections">My elections ${arrowIcon()}</a>
+          ${u.role === 'platform_admin' || u.role === 'org_admin' ? `<a class="btn btn-primary" href="#/admin">Administration ${arrowIcon()}</a>` : ''}
+          ${u.role === 'observer' ? `<a class="btn btn-secondary" href="#/observer">Observer view ${arrowIcon()}</a>` : ''}
         </div>
       </section>`;
   }
@@ -232,13 +236,13 @@ async function renderHome(view) {
         <h1>Every Voice Matters.<br><em>Every Vote Counts.</em></h1>
         <p class="subtitle">Experience a clearer way to participate in democracy. Explore elections, understand your options, and make your voice count in your community.</p>
         <div class="hero-actions">
-          ${!u ? '<a class="btn btn-primary btn-lg" href="#/register">Get started <span aria-hidden="true">→</span></a><a class="btn btn-outline btn-lg" href="#how-it-works">Discover how it works</a>' : '<a class="btn btn-primary btn-lg" href="#/elections">Explore your elections <span aria-hidden="true">→</span></a>'}
+          ${!u ? `<a class="btn btn-primary btn-lg" href="#/register">Get started ${arrowIcon()}</a><a class="btn btn-outline btn-lg hero-discover-link" href="#how-it-works">Discover how it works ${arrowIcon()}</a>` : `<a class="btn btn-primary btn-lg" href="#/elections">Explore your elections ${arrowIcon()}</a>`}
         </div>
         <p class="hero-note"><span aria-hidden="true">✓</span> Built for transparency. Designed for participation.</p>
       </div>
       <div class="hero-art" aria-label="Illustration of a verified digital ballot" role="img">
         <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-        <div class="ballot-card"><div class="ballot-top"><img class="ballot-logo" src="/assets/electravote-logo.png" alt="ElectraVote"><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span><b>→</b></div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
+        <div class="ballot-card"><div class="ballot-top"><img class="ballot-logo" src="/assets/electravote-logo.png" alt="ElectraVote"><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span>${arrowIcon()}</div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
         <div class="float-chip chip-verified"><span>✓</span><div><b>Vote verified</b><small>Confirmation received</small></div></div><div class="float-chip chip-participate"><span class="chip-bars">▥</span><div><b>Every voice counts</b><small>Participation made simple</small></div></div>
         <span class="art-spark spark-a">✳</span><span class="art-spark spark-b">+</span>
       </div>
@@ -250,7 +254,7 @@ async function renderHome(view) {
       <article class="feature-card"><span class="feature-icon icon-people" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-9a3 3 0 1 0-1-5.8M18 14a5 5 0 0 1 3 4.6V20"/></svg></span><h3>Accessible participation</h3><p>Thoughtful, responsive experiences help eligible voters take part wherever they are.</p></article>
     </div></section>
     ${electionsHtml}
-    <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} <span aria-hidden="true">→</span></a></section>
+    <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} ${arrowIcon()}</a></section>
     <footer class="site-footer"><a class="footer-brand" href="#/" aria-label="ElectraVote home"><img class="footer-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
   if (u) {
     try {
@@ -317,7 +321,7 @@ function renderLogin(view) {
         </label>
         <div class="error-box" id="login-error" hidden></div>
         <button type="submit" class="btn btn-primary">Log in</button>
-        <a class="btn btn-link" href="#/register">Need an account? Register →</a>
+        <a class="btn btn-link" href="#/register">Need an account? Register ${arrowIcon()}</a>
       </form>
     </section>`;
   const form = document.getElementById('form-login');
@@ -360,7 +364,7 @@ function renderRegister(view) {
         </label>
         <div class="error-box" id="reg-error" hidden></div>
         <button type="submit" class="btn btn-primary">Create account</button>
-        <a class="btn btn-link" href="#/login">Already registered? Log in →</a>
+        <a class="btn btn-link" href="#/login">Already registered? Log in ${arrowIcon()}</a>
       </form>
     </section>`;
   const form = document.getElementById('form-register');
@@ -486,7 +490,7 @@ async function renderElectionDetail(view) {
         <div><span class="meta-label">Participation</span>
           ${e.participationCount >= 0 ? e.participationCount + ' ballots so far' : 'Not public while voting is active'}</div>
         <div><span class="meta-label">Results</span>
-          ${e.status === 'published' || e.status === 'archived' ? '<a href="#/results/' + e.id + '">Published results →</a>' : 'Available after publication'}</div>
+          ${e.status === 'published' || e.status === 'archived' ? '<a href="#/results/' + e.id + '">Published results ' + arrowIcon() + '</a>' : 'Available after publication'}</div>
       </div>
       <h3>Ballot options</h3>
       <div class="candidate-grid static">${candList}</div>
