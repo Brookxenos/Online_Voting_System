@@ -1,4 +1,4 @@
-# OpenVote --- Project Context and AI Agent Handoff
+# ElectraVote --- Project Context and AI Agent Handoff
 
 > **Purpose:** This is the persistent source-of-truth document for every
 > AI coding agent working on this repository. Read it before inspecting,
@@ -10,8 +10,9 @@
 
 ## 1. Project identity
 
--   Working project name: **OpenVote** (name is provisional; do not
-    rename files, application branding, or repository without approval).
+-   Working project name: **ElectraVote** (confirmed by the project owner
+    on 2026-11-15; internal database and repository names remain
+    unchanged).
 -   Product: A general-purpose voting and election-management platform.
 -   Intended use cases: school/student elections, clubs and
     associations, organizations, community participation, and
@@ -349,8 +350,8 @@ C++17 backend and HTML/CSS/vanilla JavaScript frontend. - Improve
 existing project incrementally. - Aim for inclusive, neutral,
 privacy-preserving, transparent and auditable design.
 
-Proposed but not yet owner-approved: - OpenVote as final product name. -
-PostgreSQL as production database. - Argon2id through a maintained
+Proposed but not yet owner-approved: - PostgreSQL as production database. -
+Argon2id through a maintained
 library. - Modular monolith. - Initial voting methods and exact release
 scope. - Exact cryptographic protocol and anonymous credential
 approach. - Deployment provider and production hosting. - Final

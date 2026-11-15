@@ -55,6 +55,41 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- ElectraVote brand and navigation refinement
+
+-   **Status:** Implemented; browser visual review remains pending.
+-   **Summary:** Updated the UI brand from OpenVote to ElectraVote and used
+    the user's supplied neon checkmark logo as a transparent, cropped web
+    asset with a matching favicon. Changed the navbar to a floating pill
+    with centered route links and prominent sign-in/get-started actions.
+    Shifted the page canvas to `#E7E7E7`, added restrained teal/cyan
+    gradients, reduced landing-page vertical spacing, and strengthened
+    button contrast and hover/press feedback.
+-   **Files changed:** `web/app.js`, `web/style.css`, `web/index.html`,
+    `web/assets/electravote-logo.png`, `web/assets/electravote-icon.png`,
+    `web/favicon.png`, `PROJECT_CONTEXT.md`, `PROGRESS_LOG.md`,
+    `tests/smoke.sh`.
+-   **Decisions:** The project owner explicitly approved ElectraVote as the
+    UI name. Kept internal database/file names unchanged. Original supplied
+    image in Downloads was not modified; the web asset removes its black
+    background and crops transparent padding.
+-   **Commands run:** `node --check web/app.js`; `git diff --check`; `make`;
+    `make test`.
+-   **Build result:** `make` succeeded; target was already up to date.
+-   **Tests and results:** `make test` passed: 53 passed, 0 failed. Updated
+    the static-page title expectation to ElectraVote after the first run
+    caught the intentionally changed title; all checks passed on rerun.
+-   **Security/privacy implications:** UI-only. No API, database, role,
+    authentication, eligibility, ballot or result logic changed. No
+    production security claim was added.
+-   **Known issues:** Responsive browser review was unavailable because the
+    browser access host was unavailable. The user's existing
+    `data/openvote.db-shm` and `data/openvote.db-wal` are modified in the
+    working tree; they were not intentionally edited.
+-   **Next exact task:** Review the navbar and landing page visually at
+    mobile, tablet and desktop widths, then tune any overflow or contrast
+    issues found.
+
 ### 2026-11-15 --- Codex --- OpenVote premium UI/UX redesign
 
 -   **Status:** Frontend visual redesign implemented; responsive browser

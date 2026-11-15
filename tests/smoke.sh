@@ -49,7 +49,7 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
 fi
 
 echo "-- static and auth --"
-check "serves index.html" "<title>OpenVote</title>" "$(jget /)"
+check "serves index.html" "<title>ElectraVote" "$(jget /)"
 check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"
 check "wrong password rejected (uniform message)" "Invalid username or password" \
   "$(jpost /api/auth/login '{"username":"admin","password":"nope-nope"}')"

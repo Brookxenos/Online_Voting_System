@@ -1,5 +1,5 @@
 /* ==========================================================================
-   OpenVote — Frontend Application
+   ElectraVote — Frontend Application
    Vanilla JS, no dependencies. Talks to the C++ backend's JSON API.
    Authentication is a HttpOnly session cookie set by the server; the
    frontend never stores passwords and never decides permissions itself —
@@ -141,7 +141,7 @@ function navHtml() {
   if (u && u.role === 'observer') links.push(['#/observer', 'Observer view']);
   if (u) links.push(['#/settings', 'Settings']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
-  html += '<a class="brand" href="#/" aria-label="OpenVote home"><svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="2" y="2" width="36" height="36" rx="12" fill="currentColor"/><path d="m10 20 6.2 6.2L30 12.5" fill="none" stroke="#14FFEC" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 31h20" stroke="currentColor" stroke-width="2"/></svg><span>OpenVote</span><span class="brand-tagline">Every Voice Matters. Every Vote Counts.</span></a>';
+  html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a>';
   html += '<div class="nav-links">';
   for (const [href, label] of links) {
     const route = href.slice(1).split('/')[1] || 'home';
@@ -156,8 +156,8 @@ function navHtml() {
     html += `<span class="badge">${escapeHtml(u.displayName)} · ${roleLabel(u.role)}</span>`;
     html += '<button class="btn btn-link" id="btn-logout">Log out</button>';
   } else {
-    html += '<a class="btn btn-secondary" href="#/login">Log in</a>';
-    html += '<a class="btn btn-primary" href="#/register">Register</a>';
+    html += '<a class="btn btn-link nav-signin" href="#/login">Sign in</a>';
+    html += '<a class="btn btn-primary nav-start" href="#/register">Get started</a>';
   }
   html += '</div></nav>';
   return html;
@@ -235,12 +235,12 @@ async function renderHome(view) {
       </div>
       <div class="hero-art" aria-label="Illustration of a verified digital ballot" role="img">
         <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-        <div class="ballot-card"><div class="ballot-top"><span class="ballot-brand-mini"><span class="mini-check">✓</span> OPENVOTE</span><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span><b>→</b></div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
+        <div class="ballot-card"><div class="ballot-top"><span class="ballot-brand-mini"><span class="mini-check">✓</span> ELECTRAVOTE</span><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span><b>→</b></div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
         <div class="float-chip chip-verified"><span>✓</span><div><b>Vote verified</b><small>Confirmation received</small></div></div><div class="float-chip chip-participate"><span class="chip-bars">▥</span><div><b>Every voice counts</b><small>Participation made simple</small></div></div>
         <span class="art-spark spark-a">✳</span><span class="art-spark spark-b">+</span>
       </div>
     </header>
-    <section class="trust-strip" aria-label="OpenVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
+    <section class="trust-strip" aria-label="ElectraVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
     <section class="feature-section" id="how-it-works"><div class="section-heading"><span class="section-kicker">A better way to decide</span><h2>Democracy, made <em>accessible.</em></h2><p>Everything your organization needs to bring people into the decisions that matter.</p></div><div class="feature-grid">
       <article class="feature-card"><span class="feature-icon icon-lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span><h3>Secure voting</h3><p>Clear eligibility and a confirmation step help protect the integrity of each ballot.</p></article>
       <article class="feature-card"><span class="feature-icon icon-eye" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span><h3>Transparent results</h3><p>Published outcomes and election records make the process easier to understand.</p></article>
@@ -248,7 +248,7 @@ async function renderHome(view) {
     </div></section>
     ${electionsHtml}
     <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} <span aria-hidden="true">→</span></a></section>
-    <footer class="site-footer"><a class="footer-brand" href="#/">OpenVote</a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
+    <footer class="site-footer"><a class="footer-brand" href="#/">ElectraVote</a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
   if (u) {
     try {
       const data = await api('elections');
