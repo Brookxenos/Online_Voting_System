@@ -505,3 +505,16 @@
 -   **Next exact task:** User should stop OpenVote and run
     `./start.sh --reset-admin-password`, enter a new password twice, then
     restart with `./start.sh` and log in as `admin`.
+
+### 2026-11-15 --- Codex --- Update page background colors
+
+- **Status:** Completed; frontend styling updated.
+- **Summary:** Changed the page and hero background gradients to use the existing teal `#0D7377` with `#c4c4c4`.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Treated the request as applying to the main page and hero backgrounds; retained white foreground text and control styling.
+- **Commands run:** `git diff --check` (passed); inspected the CSS diff.
+- **Build result:** Not run; CSS-only change.
+- **Tests and results:** Not run; no tests requested and application behavior is unchanged.
+- **Security/privacy implications:** None.
+- **Known gaps:** Other component surfaces retain their existing colors.
+- **Next exact task:** Review the page in a browser and adjust gradient balance if needed.

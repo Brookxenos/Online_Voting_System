@@ -1301,12 +1301,12 @@ body {
   background:
     radial-gradient(ellipse at 79% 8%,rgba(20,255,236,.08),transparent 29rem),
     radial-gradient(ellipse at 4% 32%,rgba(13,115,119,.12),transparent 34rem),
-    linear-gradient(135deg,#E7E7E7 0%,#f6f6f6 49%,rgba(13,115,119,.1) 100%);
+    linear-gradient(135deg,#0D7377 0%,#c4c4c4 52%,rgba(13,115,119,.24) 100%);
 }
 .hero {
   background:
     radial-gradient(ellipse at 83% 22%,rgba(20,255,236,.16),transparent 23rem),
-    linear-gradient(115deg,#fff 0%,#E7E7E7 56%,rgba(13,115,119,.1) 100%);
+    linear-gradient(115deg,#0D7377 0%,#c4c4c4 56%,rgba(13,115,119,.2) 100%);
   border-color:rgba(13,115,119,.18);
 }
 .hero h1 em,.section-heading h2 em,.hero-kicker,.section-kicker,
