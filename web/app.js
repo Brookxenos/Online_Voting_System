@@ -134,15 +134,15 @@ const app = document.getElementById('app');
 
 function navHtml() {
   const u = state.user;
+  const homeNav = state.view === 'home';
   const links = [];
-  if (u) links.push(['#/elections', 'Elections']);
-  if (u && u.role === 'platform_admin') links.push(['#/admin', 'Administration']);
-  if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.push(['#/admin', 'Administration']);
-  if (u && u.role === 'observer') links.push(['#/observer', 'Observer view']);
-  if (u) links.push(['#/settings', 'Settings']);
+  if (u && !homeNav) links.push(['#/elections', 'Elections']);
+  if (u && !homeNav && (u.role === 'org_admin' || u.role === 'platform_admin')) links.push(['#/admin', 'Administration']);
+  if (u && !homeNav && u.role === 'observer') links.push(['#/observer', 'Observer view']);
+  if (u && !homeNav) links.push(['#/settings', 'Settings']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
   html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a>';
-  html += '<div class="nav-links">';
+  if (links.length) html += '<div class="nav-links">';
   for (const [href, label] of links) {
     const route = href.slice(1).split('/')[1] || 'home';
     const active = state.view === route ||
@@ -153,9 +153,9 @@ function navHtml() {
       : '';
     html += `<a href="${href}"${href === '#/settings' ? ' class="nav-settings"' : ''}${active ? ' aria-current="page"' : ''}>${settingsIcon}<span>${label}</span></a>`;
   }
-  html += '</div>';
+  if (links.length) html += '</div>';
   html += '<div class="nav-user">';
-  if (u) {
+  if (u && !homeNav) {
     html += `<span class="badge">${escapeHtml(u.displayName)} · ${roleLabel(u.role)}</span>`;
     html += '<button class="btn btn-link" id="btn-logout">Log out</button>';
   } else {
