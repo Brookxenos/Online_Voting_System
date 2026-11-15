@@ -309,20 +309,34 @@ function bindElectionRows(box) {
 
 function renderLogin(view) {
   view.innerHTML = `
-    <section class="card narrow">
-      <h2>Log in</h2>
-      <p class="muted">Use your account username and password.</p>
-      <form id="form-login" class="stack-form">
-        <label>Username
-          <input type="text" name="username" autocomplete="username" required>
-        </label>
-        <label>Password
-          <input type="password" name="password" autocomplete="current-password" required>
-        </label>
-        <div class="error-box" id="login-error" hidden></div>
-        <button type="submit" class="btn btn-primary">Log in</button>
-        <a class="btn btn-link" href="#/register">Need an account? Register ${arrowIcon()}</a>
-      </form>
+    <section class="login-layout" aria-labelledby="login-title">
+      <aside class="login-aside">
+        <img class="login-photo" src="/assets/login-voter-photo.jpg" alt="A voter holding a sign that reads Vote">
+        <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
+        <div class="login-aside-copy">
+          <h2>Your voice matters.</h2>
+          <p>Sign in to take part in the decisions shaping your community.</p>
+        </div>
+        <p class="login-aside-foot">Every vote begins with a voice.</p>
+      </aside>
+      <div class="login-panel">
+        <header class="login-heading">
+          <span class="login-kicker">ACCOUNT ACCESS</span>
+          <h1 id="login-title">Sign in</h1>
+          <p>Use your username and password to continue.</p>
+        </header>
+        <form id="form-login" class="stack-form login-form">
+          <label for="login-username">Username
+            <input id="login-username" type="text" name="username" autocomplete="username" placeholder="Enter your username" required>
+          </label>
+          <label for="login-password">Password
+            <input id="login-password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+          </label>
+          <div class="error-box" id="login-error" role="alert" aria-live="polite" hidden></div>
+          <button type="submit" class="btn btn-primary login-submit">Sign in ${arrowIcon()}</button>
+          <p class="login-register-prompt">New to ElectraVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
+        </form>
+      </div>
     </section>`;
   const form = document.getElementById('form-login');
   form.addEventListener('submit', async (ev) => {

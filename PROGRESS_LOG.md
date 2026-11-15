@@ -55,6 +55,29 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Use the supplied voter photo in the sign-in panel
+
+- **Status:** Implemented; visual browser review unavailable.
+- **Summary:** Replaced the lock illustration in the sign-in welcome panel with the user-supplied voter photo. Added a dark gradient overlay for legible white copy and revised the message to “Your voice matters” with concise community participation text.
+- **Files changed:** `web/app.js`, `web/style.css`, `web/assets/login-voter-photo.jpg`, `PROGRESS_LOG.md`.
+- **Commands run:** Checked the supplied image dimensions (4000x6000 RGB), copied it into frontend assets, `node --check web/app.js` and `git diff --check` (result below).
+- **Build/tests:** Not run; sign-in presentation change.
+- **Security/privacy implications:** No authentication flow changed. The supplied image is served as a static frontend asset.
+- **Known gaps:** Browser access host unavailable, so image crop and text overlay need visual review on desktop/mobile.
+- **Next exact task:** Review the sign-in image crop and copy contrast at 320px, 390px and desktop widths.
+
+### 2026-11-15 --- Codex --- Redesign the sign-in page for all screen sizes
+
+- **Status:** Implemented; visual browser review unavailable.
+- **Summary:** Replaced the narrow plain login card with a responsive two-panel sign-in surface, a teal welcome panel, a dedicated form panel, clearer field styling, and consistent submit/register actions. Preserved the existing API submission and authentication flow.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Used a compact single-column layout below 760px and tighter spacing below 390px. Kept the current logo and Arial sans-serif stack.
+- **Commands run:** Inspected login markup and form styles; `node --check web/app.js` and `git diff --check` (result below).
+- **Build/tests:** Not run; frontend presentation change only.
+- **Security/privacy implications:** No auth behavior changed. Error output remains in the existing alert region; no credentials are logged or stored in frontend code.
+- **Known gaps:** Browser access host unavailable, so visual review at device widths remains pending.
+- **Next exact task:** Review sign-in page at desktop, tablet, 390px and 320px widths.
+
 ### 2026-11-15 --- Codex --- Animate the navbar logo on interaction
 
 - **Status:** Implemented.
