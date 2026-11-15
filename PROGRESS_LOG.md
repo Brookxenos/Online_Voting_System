@@ -55,6 +55,44 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- OpenVote premium UI/UX redesign
+
+-   **Status:** Frontend visual redesign implemented; responsive browser
+    review remains pending.
+-   **Summary:** Replaced the existing blue/slate appearance with the
+    requested OpenVote palette and introduced a two-column landing hero,
+    original inline ballot illustration, feature highlights, principles
+    strip, and responsive closing section. The active implementation also
+    includes the OpenVote mark and slogan in the shared navigation. Updated
+    shared product surfaces (cards, forms, tabs, election rows and result
+    bars) to use the same tokens. No API, database, authentication, role,
+    eligibility or vote-submission behavior was changed.
+-   **Files changed:** `web/style.css`, `web/app.js`, `PROGRESS_LOG.md`.
+-   **Decisions:** Retained the C++17 and HTML/CSS/vanilla JavaScript stack.
+    Home calls to action point to implemented account/election routes. No
+    unsupported admin metrics, public discovery data, result totals or
+    security certifications were invented. Hero ballot art is illustrative
+    and not an actual election state.
+-   **Commands run:** `node --check web/app.js` (passed); `git diff --check`
+    (passed); `make all` (already up to date); `make test` (sandbox socket
+    bind first denied; rerun with approval passed).
+-   **Tests and results:** `make test`: 53 passed, 0 failed, covering auth,
+    authorization, election lifecycle, voting eligibility, results
+    publication, concurrent voting, audit hygiene and rate limiting.
+-   **Security/privacy implications:** No security behavior changed. The
+    hero's illustrative “secure ballot” wording is visual copy only; the
+    application remains an educational/demo platform and existing privacy
+    limitations in `PROJECT_CONTEXT.md` still apply.
+-   **Known issues:** No browser screenshot or viewport review was run.
+    The landing page uses a horizontal link row on mobile rather than a
+    drawer. The voter dashboard still only displays data exposed by existing
+    API endpoints; no separate backend-derived participation-rate metric
+    exists. Admin create-election form remains the existing inline form
+    (not a dialog), preserving its validated integration.
+-   **Next exact task:** Run a browser walkthrough at 360, 390, 430, 768,
+    1024 and 1440 px; refine any overflow or layout issues found, then
+    consider the separate results/admin detail visual pass.
+
 ### 2026-11-14 --- Codex --- Update navbar color and slogan
 
 -   **Status:** Completed.
