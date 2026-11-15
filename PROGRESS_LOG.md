@@ -55,12 +55,34 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Remove dark strip from signed-in navbar only
+
+- **Status:** Implemented; home navbar unaffected.
+- **Summary:** Made the signed-in `.nav-links` container transparent and changed its Settings link to a light-on-teal treatment. The home navigation has no `.nav-links` container, so this is scoped away from the home page.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; scoped CSS correction.
+- **Security/privacy implications:** None; route visibility and behavior unchanged.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Verify the signed-in navbar against the supplied screenshot.
+
+### 2026-11-15 --- Codex --- Restore the previous navbar styling
+
+- **Status:** Reverted the immediately preceding navbar redesign.
+- **Summary:** Restored the earlier nav link markup and removed the teal navbar, icon-led link, and hover animation overrides added in the previous task. Other sign-in, registration, and image changes remain untouched.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` and `git diff --check` (passed).
+- **Build/tests:** Not run; navbar-only rollback.
+- **Security/privacy implications:** Navigation routes and role visibility unchanged.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Confirm the restored navbar appearance in browser.
+
 ### 2026-11-15 --- Codex --- Refine signed-in navigation and add animated icons
 
 - **Status:** Implemented; browser visual review unavailable.
 - **Summary:** Changed the signed-in navbar to a clear teal surface, styled Elections/Administration/Observer/Settings as a grouped set of icon-led links, added ballot/gear/eye/shield SVGs, and added restrained smooth hover/focus/touch motion. Active page links use a light surface for clear location feedback.
 - **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
-- **Commands run:** Inspected signed-in navigation generation and theme overrides; `node --check web/app.js` and `git diff --check` (result below).
+- **Commands run:** Inspected signed-in navigation generation and theme overrides; `node --check web/app.js` and `git diff --check` (passed).
 - **Build/tests:** Not run; frontend navigation presentation update.
 - **Security/privacy implications:** Navigation destinations and role-based visibility are unchanged; no permissions changed.
 - **Known gaps:** Browser access unavailable; signed-in desktop and mobile layouts need visual review.
@@ -72,7 +94,7 @@
 - **Summary:** Replaced the plain registration card with the responsive sign-in visual system, added clearer account setup headings and field hints, and added a required confirm-password field. The form checks for a match before calling the existing registration API and submits only username, display name and password.
 - **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
 - **Decisions:** Reused the voter image panel and responsive auth layout for consistency. Confirmation is client-side only and is not sent to the backend.
-- **Commands run:** Inspected current registration renderer and API payload; `node --check web/app.js` and `git diff --check` (result below).
+- **Commands run:** Inspected current registration renderer and API payload; `node --check web/app.js` and `git diff --check` (passed).
 - **Build/tests:** Not run; frontend registration UI/validation change.
 - **Security/privacy implications:** Confirm-password value is only used for comparison in the browser and is not transmitted or logged. Existing backend registration behavior remains.
 - **Known gaps:** Browser visual review unavailable.
@@ -83,7 +105,7 @@
 - **Status:** Implemented.
 - **Summary:** Removed the directional arrow from the login form’s Sign in button; other action arrows remain unchanged.
 - **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
-- **Commands run:** `node --check web/app.js` and `git diff --check` (result below).
+- **Commands run:** `node --check web/app.js` and `git diff --check` (passed).
 - **Build/tests:** Not run; small frontend markup change.
 - **Security/privacy implications:** Authentication behavior unchanged.
 - **Known gaps:** Browser visual review unavailable.
