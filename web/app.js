@@ -235,7 +235,7 @@ async function renderHome(view) {
       </div>
       <div class="hero-art" aria-label="Illustration of a verified digital ballot" role="img">
         <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-        <div class="ballot-card"><div class="ballot-top"><span class="ballot-brand-mini"><span class="mini-check">✓</span> ELECTRAVOTE</span><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span><b>→</b></div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
+        <div class="ballot-card"><div class="ballot-top"><img class="ballot-logo" src="/assets/electravote-logo.png" alt="ElectraVote"><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span><b>→</b></div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
         <div class="float-chip chip-verified"><span>✓</span><div><b>Vote verified</b><small>Confirmation received</small></div></div><div class="float-chip chip-participate"><span class="chip-bars">▥</span><div><b>Every voice counts</b><small>Participation made simple</small></div></div>
         <span class="art-spark spark-a">✳</span><span class="art-spark spark-b">+</span>
       </div>
@@ -248,7 +248,7 @@ async function renderHome(view) {
     </div></section>
     ${electionsHtml}
     <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} <span aria-hidden="true">→</span></a></section>
-    <footer class="site-footer"><a class="footer-brand" href="#/">ElectraVote</a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
+    <footer class="site-footer"><a class="footer-brand" href="#/" aria-label="ElectraVote home"><img class="footer-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
   if (u) {
     try {
       const data = await api('elections');
@@ -1219,6 +1219,7 @@ function renderSettings(view) {
   if (!state.user) { go('#/login'); return; }
   view.innerHTML = `
     <section class="card narrow">
+      <div class="profile-brand-panel"><img src="/assets/electravote-logo.png" alt="ElectraVote" class="profile-brand-logo"><div><strong>Your ElectraVote profile</strong><span>Account and sign-in details</span></div></div>
       <h2>Account settings</h2>
       <div class="meta-grid">
         <div><span class="meta-label">Username</span>${escapeHtml(state.user.username)}</div>

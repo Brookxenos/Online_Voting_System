@@ -1069,3 +1069,65 @@ input, select, textarea { background:rgba(255,255,255,.88); }
   .btn, .feature-card { transition:none !important; }
   .btn:hover, .btn:active { transform:none; }
 }
+
+/* Apply the selected Color Hunt palette consistently across shared surfaces. */
+:root {
+  --brand-ink: #212121;
+  --brand-dark: #323232;
+  --brand-teal: #0D7377;
+  --brand-flash: #14FFEC;
+  --brand-canvas: #E7E7E7;
+  --primary: var(--brand-teal);
+  --primary-dark: #0D7377;
+  --primary-soft: rgba(13,115,119,.12);
+  --secondary: var(--brand-dark);
+}
+.ballot-logo { display:block; width:120px; height:auto; }
+.footer-brand { display:inline-flex; align-items:center; margin-right:auto; text-decoration:none; }
+.footer-brand:before { content:none; }
+.footer-brand-image { display:block; width:142px; height:auto; }
+.profile-brand-panel {
+  display:flex;
+  align-items:center;
+  gap:17px;
+  margin:0 0 25px;
+  padding:17px 19px;
+  border:1px solid rgba(13,115,119,.2);
+  border-radius:14px;
+  background:linear-gradient(115deg,rgba(13,115,119,.11),rgba(20,255,236,.12));
+}
+.profile-brand-logo { display:block; width:160px; max-width:42%; height:auto; }
+.profile-brand-panel strong,.profile-brand-panel span { display:block; }
+.profile-brand-panel strong { color:var(--brand-ink); font-size:.95rem; }
+.profile-brand-panel span { margin-top:3px; color:#596563; font-size:.82rem; }
+.ballot-card { border-color:rgba(50,50,50,.12); }
+.ballot-option.chosen { border-color:var(--brand-teal); }
+.mini-check,.chosen .option-ring { background:var(--brand-teal); }
+.selected-tag,.ballot-foot span:first-child { color:var(--brand-teal); }
+.ballot-submit { background:linear-gradient(110deg,var(--brand-teal),#0b666a); }
+.ballot-submit b { color:var(--brand-flash); }
+.art-orbit { border-color:rgba(13,115,119,.22); }
+.orbit-two { border-top-color:var(--brand-flash); }
+.nav-links a,.tab,.election-row,.candidate-card,.feature-card,
+input,select,textarea,.btn,a { transition-duration:.22s; }
+.topnav .nav-links a[aria-current="page"] { box-shadow:inset 0 -2px var(--brand-teal); }
+.btn-primary,.btn-primary:visited {
+  background:linear-gradient(115deg,var(--brand-teal) 0%,var(--brand-teal) 74%,#0b686b 100%);
+  border-color:var(--brand-teal);
+  box-shadow:0 5px 13px rgba(13,115,119,.27),inset 0 1px 0 rgba(20,255,236,.42);
+}
+.btn-primary:hover {
+  background:linear-gradient(115deg,#095f63,var(--brand-teal) 72%,#0b686b 100%);
+  box-shadow:0 9px 22px rgba(13,115,119,.35),inset 0 1px 0 rgba(20,255,236,.62);
+}
+#view > * { animation: page-arrive .32s ease both; }
+@keyframes page-arrive { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+@media(max-width:620px) {
+  .ballot-logo { width:98px; }
+  .footer-brand-image { width:132px; }
+  .profile-brand-panel { gap:12px; padding:14px; }
+  .profile-brand-logo { width:138px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  #view > *, *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
+}
