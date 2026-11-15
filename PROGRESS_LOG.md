@@ -55,6 +55,17 @@
 
 ## Session entries
 
+### 2026-11-15 --- Codex --- Animate the navbar logo on interaction
+
+- **Status:** Implemented.
+- **Summary:** Added a restrained lift, scale and teal shadow animation when the existing navbar logo is hovered, focused, or pressed. The logo image, artwork and lettering are unchanged; reduced-motion preferences disable the animation.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only interaction styling.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review unavailable.
+- **Next exact task:** Review the logo animation on desktop hover and mobile touch.
+
 ### 2026-11-15 --- Codex --- Add mobile press feedback and feature icon motion
 
 - **Status:** Implemented; browser review unavailable.

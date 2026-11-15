@@ -1644,6 +1644,25 @@ input,select,textarea { max-width:100%; }
   }
 }
 
+/* Animate the existing logo image without altering its artwork or lettering. */
+.topnav .brand-image {
+  transform-origin:left center;
+  transition:transform .3s cubic-bezier(.2,.75,.25,1),filter .3s ease;
+}
+.topnav .brand:hover .brand-image,
+.topnav .brand:focus-visible .brand-image {
+  transform:translateY(-2px) scale(1.035);
+  filter:drop-shadow(0 4px 7px rgba(65,234,212,.38));
+}
+.topnav .brand:active .brand-image { transform:scale(.98); }
+@media(prefers-reduced-motion:reduce) {
+  .topnav .brand-image,.topnav .brand:hover .brand-image,
+  .topnav .brand:focus-visible .brand-image,.topnav .brand:active .brand-image {
+    transition:none;
+    transform:none;
+  }
+}
+
 /* Touch devices get the same visible feedback through the pressed state. */
 @media(hover:none) {
   .topnav .nav-signin:active,.topnav .nav-start:active,
