@@ -951,7 +951,7 @@ async function renderAdmin(view) {
           </div>
           <div class="error-box" id="ne-error" hidden></div>
         </form>
-        <div class="admin-election-controls"><label>Search elections<input id="admin-election-search" type="search" placeholder="Search title or description"></label><label>Status<select id="admin-election-status"><option value="all">All statuses</option><option value="draft">Draft</option><option value="open">Open</option><option value="closed">Closed</option><option value="published">Published</option><option value="archived">Archived</option></select></label></div>
+        <div class="admin-election-controls"><label>Search elections<input id="admin-election-search" type="search" placeholder="Search title or description"></label><label>Status<select id="admin-election-status"><option value="all">All statuses</option><option value="draft">Draft</option><option value="open">Open</option><option value="closed">Closed</option><option value="published">Published</option><option value="archived">Archived</option></select></label><label>Sort by<select id="admin-election-sort"><option value="start">Start date</option><option value="title">Title</option></select></label></div>
         <div id="admin-election-list" class="election-list"><div class="loading-state">Loading elections…</div></div>
       </div>
       ${state.user.role === 'platform_admin' ? `
@@ -990,7 +990,8 @@ async function renderAdmin(view) {
           <div class="btn-row"><button type="submit" class="btn btn-primary">Create user</button>
           <button type="button" class="btn btn-link" id="nu-cancel">Cancel</button></div>
         </form>
-        <div id="user-list" class="table-wrap"><div class="empty">Loading…</div></div>
+        <div class="admin-user-controls"><label>Search users<input id="admin-user-search" type="search" placeholder="Search username or display name"></label><label>Role<select id="admin-user-role"><option value="all">All roles</option><option value="voter">Voter</option><option value="org_admin">Organization admin</option><option value="platform_admin">Platform admin</option><option value="observer">Observer</option></select></label><label>Status<select id="admin-user-status"><option value="all">All accounts</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label></div>
+        <div id="user-list" class="table-wrap"><div class="loading-state">Loading users…</div></div>
       </div>
       <div id="tab-audit" class="tab-panel">
         <div class="btn-row"><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
@@ -1032,18 +1033,26 @@ async function renderAdmin(view) {
   let adminElectionRecords = [];
   let adminUsers = [];
   let adminUsersLoaded = false;
+  let adminElectionPageSize = 10;
   const drawAdminElections = () => {
     const q = document.getElementById('admin-election-search').value.trim().toLocaleLowerCase();
     const status = document.getElementById('admin-election-status').value;
+    const sort = document.getElementById('admin-election-sort').value;
     const filtered = adminElectionRecords.filter(e => (!q || `${e.name} ${e.description || ''}`.toLocaleLowerCase().includes(q)) && (status === 'all' || e.status === status));
-    listEl.innerHTML = filtered.length ? filtered.map(e => `
+    filtered.sort((a,b) => sort === 'title' ? a.name.localeCompare(b.name) : (Date.parse(a.startAt || '') || 0) - (Date.parse(b.startAt || '') || 0));
+    const shown = filtered.slice(0,adminElectionPageSize);
+    listEl.innerHTML = shown.length ? `${shown.map(e => `
       <div class="election-row">
         <div class="election-row-main"><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><div class="muted small">${escapeHtml(e.description || '')}</div><div class="muted small">${escapeHtml(e.startAt || 'No start date')} — ${escapeHtml(e.endAt || 'No end date')}</div></div>
         <div class="election-row-side"><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${fmtStatus(e.status)}</span><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></div>
       </div>`).join('') : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
+    if (shown.length && filtered.length > shown.length) listEl.innerHTML += '<button class="btn btn-secondary" id="admin-election-load-more">Load more</button>';
+    const more = document.getElementById('admin-election-load-more');
+    if (more) more.addEventListener('click',() => { adminElectionPageSize += 10; drawAdminElections(); });
   };
   document.getElementById('admin-election-search').addEventListener('input',drawAdminElections);
   document.getElementById('admin-election-status').addEventListener('change',drawAdminElections);
+  document.getElementById('admin-election-sort').addEventListener('change',drawAdminElections);
   async function updateAdminStats() {
     const container = document.getElementById('admin-statistics');
     const detailPairs = await Promise.all(adminElectionRecords.map(async e => {
