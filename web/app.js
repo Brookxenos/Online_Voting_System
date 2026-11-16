@@ -372,7 +372,7 @@ async function renderHome(view) {
         <h1>Every Voice Matters.<br><em>Every Vote Counts.</em></h1>
         <p class="subtitle">Experience a clearer way to participate in democracy. Explore elections, understand your options, and make your voice count in your community.</p>
         <div class="hero-actions">
-          ${!u ? `<a class="btn btn-outline btn-lg hero-discover-link" href="#/about">About ${arrowIcon()}</a>` : `<a class="btn btn-primary btn-lg" href="#/dashboard">Open your dashboard ${arrowIcon()}</a>`}
+          ${!u ? `<a class="btn btn-outline btn-lg hero-discover-link" href="#/elections">Discover Elections ${arrowIcon()}</a><a class="btn btn-outline btn-lg hero-discover-link" href="#/about">About</a>` : `<a class="btn btn-primary btn-lg" href="#/dashboard">Open your dashboard ${arrowIcon()}</a>`}
         </div>
         <p class="hero-note"><span aria-hidden="true">✓</span> Built for transparency. Designed for participation.</p>
       </div>

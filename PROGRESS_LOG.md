@@ -1244,3 +1244,14 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review remains unavailable in this environment.
 - **Next exact task:** Verify navigation button spacing and wrapping at desktop and mobile widths in a browser.
+
+### 2026-11-16 --- Codex --- Add homepage Discover Elections action
+
+- **Status:** The homepage now presents Discover Elections as its primary visitor action.
+- **Summary:** Added a working Discover Elections hero button and retained About beside it. Both use the existing outlined action style and shared palette.
+- **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; focused frontend navigation and styling change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Confirm the two hero buttons remain well spaced at mobile widths.
