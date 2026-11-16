@@ -1677,15 +1677,15 @@ input,select,textarea { max-width:100%; }
   .nav-user { justify-content:flex-start; }
 }
 
-/* Account settings refresh: clear hierarchy, bright paper surfaces, restrained blue. */
+/* Account settings refresh: use the shared site palette with clearer hierarchy. */
 .settings-card.settings-page {
   width:min(100%,980px);
   max-width:980px;
   padding:clamp(20px,4vw,42px);
-  border:1px solid rgba(15,98,146,.13);
+  border:1px solid var(--border);
   border-radius:24px;
-  background:#f5f8fa;
-  box-shadow:0 18px 50px rgba(16,45,62,.1);
+  background:#FFFFFA;
+  box-shadow:var(--shadow-soft);
 }
 .settings-page .settings-hero {
   justify-content:space-between;
@@ -1694,39 +1694,39 @@ input,select,textarea { max-width:100%; }
   padding:clamp(23px,4vw,38px);
   border:0;
   border-radius:18px;
-  background:#0f6292;
+  background:var(--brand-teal);
   color:#fff;
-  box-shadow:inset 0 -4px 0 rgba(255,237,0,.78);
+  box-shadow:inset 0 -4px 0 var(--brand-flash);
 }
 .settings-page .settings-identity { display:flex;align-items:center;gap:24px;min-width:0; }
-.settings-page .settings-logo { flex:0 0 118px;width:118px;padding:8px;border-radius:13px;background:#fff; }
-.settings-page .settings-eyebrow { color:#ffed00;font-size:.72rem;letter-spacing:.08em; }
+.settings-page .settings-logo { flex:0 0 118px;width:118px;padding:8px;border-radius:13px;background:#FFFFFA; }
+.settings-page .settings-eyebrow { color:var(--brand-flash);font-size:.72rem;letter-spacing:.08em; }
 .settings-page .settings-hero h2 { margin:.3rem 0 .4rem;color:#fff;font-size:clamp(1.7rem,3.3vw,2.4rem);letter-spacing:-.035em; }
 .settings-page .settings-hero p { color:rgba(255,255,255,.84);font-size:.98rem; }
 .settings-page .settings-back { border-color:rgba(255,255,255,.7);color:#fff;white-space:nowrap; }
-.settings-page .settings-back:hover { border-color:#ffed00;background:rgba(255,255,255,.13);color:#fff; }
-.settings-page .settings-section { margin-top:18px;padding:clamp(20px,3vw,30px);border:1px solid #dce6eb;border-radius:17px;background:#fff; }
+.settings-page .settings-back:hover { border-color:var(--brand-flash);background:rgba(255,255,255,.13);color:#fff; }
+.settings-page .settings-section { margin-top:18px;padding:clamp(20px,3vw,30px);border:1px solid var(--border);border-radius:17px;background:#FFFFFA; }
 .settings-page .settings-section-heading { margin-bottom:22px; }
 .settings-page .settings-section-heading h3 { font-size:1.25rem;letter-spacing:-.02em; }
 .settings-page .settings-section-heading p { margin-top:5px; }
-.settings-page .profile-initial,.settings-page .security-mark { width:50px;height:50px;flex-basis:50px;border-radius:15px;background:#e7f2f8;color:#0f6292;box-shadow:none; }
+.settings-page .profile-initial,.settings-page .security-mark { width:50px;height:50px;flex-basis:50px;border-radius:15px;background:var(--primary-soft);color:var(--brand-teal);box-shadow:none; }
 .settings-page .profile-details-grid { gap:13px; }
-.settings-page .profile-details-grid>div { padding:17px;border-color:#e0e8ec;border-radius:13px;background:#f7fafb; }
-.settings-page .profile-details-grid .meta-label { display:block;margin-bottom:7px;color:#64737b;font-size:.76rem;font-weight:650; }
-.settings-page .profile-details-grid strong { color:#172a35;font-size:1rem; }
+.settings-page .profile-details-grid>div { padding:17px;border-color:var(--border);border-radius:13px;background:#F0FFF1; }
+.settings-page .profile-details-grid .meta-label { display:block;margin-bottom:7px;color:var(--text-muted);font-size:.76rem;font-weight:650; }
+.settings-page .profile-details-grid strong { color:var(--text);font-size:1rem; }
 .settings-page .profile-name-form { max-width:560px;margin-top:24px;gap:13px; }
-.settings-page .profile-name-form label { color:#263943;font-weight:650; }
-.settings-page .profile-name-form input { min-height:48px;margin-top:8px;border-color:#cbd9e0;border-radius:11px;background:#fff; }
-.settings-page .profile-name-form input:focus { border-color:#0f6292;box-shadow:0 0 0 3px rgba(15,98,146,.14); }
-.settings-page .profile-name-form .settings-action { min-height:48px;border:0;border-radius:11px;background:#0f6292;box-shadow:none; }
-.settings-page .profile-name-form .settings-action:hover { background:#0b527c; }
-.settings-page .security-section .settings-notice { margin:0 0 20px;padding:13px 15px;border:1px solid #f0df78;border-left:4px solid #c7a900;border-radius:10px;background:#fffbed;color:#4c4212; }
+.settings-page .profile-name-form label { color:var(--text);font-weight:650; }
+.settings-page .profile-name-form input { min-height:48px;margin-top:8px;border-color:var(--border);border-radius:11px;background:#FFFFFA; }
+.settings-page .profile-name-form input:focus { border-color:var(--brand-teal);box-shadow:0 0 0 3px var(--primary-soft); }
+.settings-page .profile-name-form .settings-action { min-height:48px;border:0;border-radius:11px;background:var(--brand-teal);box-shadow:none; }
+.settings-page .profile-name-form .settings-action:hover { background:var(--brand-dark); }
+.settings-page .security-section .settings-notice { margin:0 0 20px;padding:13px 15px;border:1px solid var(--border);border-left:4px solid var(--brand-teal);border-radius:10px;background:var(--primary-soft);color:var(--text); }
 .settings-page .security-section .stack-form { max-width:560px;gap:15px; }
-.settings-page .security-section label { color:#263943;font-weight:650; }
-.settings-page .security-section input { min-height:48px;margin-top:8px;border-color:#cbd9e0;border-radius:11px;background:#fff; }
-.settings-page .security-section input:focus { border-color:#0f6292;box-shadow:0 0 0 3px rgba(15,98,146,.14); }
-.settings-page .security-section .settings-action { min-height:48px;border:0;border-radius:11px;background:#0f6292;box-shadow:none; }
-.settings-page .security-section .settings-action:hover { background:#0b527c; }
+.settings-page .security-section label { color:var(--text);font-weight:650; }
+.settings-page .security-section input { min-height:48px;margin-top:8px;border-color:var(--border);border-radius:11px;background:#FFFFFA; }
+.settings-page .security-section input:focus { border-color:var(--brand-teal);box-shadow:0 0 0 3px var(--primary-soft); }
+.settings-page .security-section .settings-action { min-height:48px;border:0;border-radius:11px;background:var(--brand-teal);box-shadow:none; }
+.settings-page .security-section .settings-action:hover { background:var(--brand-dark); }
 @media(max-width:700px) {
   .settings-page .settings-hero { align-items:stretch; }
   .settings-page .settings-identity { align-items:flex-start;gap:16px; }
