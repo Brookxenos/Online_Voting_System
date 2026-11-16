@@ -55,6 +55,18 @@
 
 ## Session entries
 
+### 2026-11-16 --- Codex --- Align profile redesign with site palette
+
+- **Status:** Updated per owner direction; browser visual review pending.
+- **Summary:** Removed the separate blue/yellow profile treatment and tied its header, accents, panels, field focus, and actions to the existing site palette and surface colors. Kept the refreshed hierarchy, spacing, typography, and responsive placement.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Use shared theme variables and existing page surface colors; no profile-specific palette.
+- **Commands run:** Inspected global theme tokens and profile overrides; `git diff --check` (passed); `node --check web/app.js` (passed; renderer unchanged in this adjustment).
+- **Build/tests:** Not run; CSS presentation adjustment.
+- **Security/privacy implications:** None; account data and behavior unchanged.
+- **Known gaps:** Browser visual review pending because the browser access host is unavailable.
+- **Next exact task:** Review the profile page layout and shared colors at desktop and mobile widths in a browser.
+
 ### 2026-11-16 --- Codex --- Redesign account settings page
 
 - **Status:** Implemented; browser visual review pending.
