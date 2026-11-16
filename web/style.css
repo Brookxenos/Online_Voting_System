@@ -2255,3 +2255,78 @@ input,select,textarea { max-width:100%; }
   .password-input-wrap { flex-wrap:wrap; }
   .password-toggle { min-height:44px; }
 }
+
+/* Admin surfaces: clear teal controls with a restrained cyan active accent. */
+.login-panel .login-brand-image {
+  width:min(220px,100%);
+  max-width:100%;
+  min-height:52px;
+  margin:0 0 24px;
+  object-position:left center;
+}
+.admin-dashboard .btn,.admin-election-detail .btn {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:42px;
+  padding:9px 14px;
+  border:1px solid #0D5C63;
+  border-radius:10px;
+  background:#0D5C63;
+  color:#FFFFFA;
+  font-size:.9rem;
+  font-weight:700;
+  line-height:1.2;
+  text-decoration:none;
+  box-shadow:0 3px 9px rgba(13,92,99,.16);
+  transition:transform .16s ease,background .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease;
+}
+.admin-dashboard .btn:hover,.admin-election-detail .btn:hover {
+  transform:translateY(-1px);
+  border-color:#14FFEC;
+  background:#247B7B;
+  color:#FFFFFA;
+  box-shadow:0 7px 15px rgba(13,92,99,.2);
+  text-decoration:none;
+}
+.admin-dashboard .btn:focus-visible,.admin-election-detail .btn:focus-visible {
+  outline:3px solid #14FFEC;
+  outline-offset:2px;
+}
+.admin-dashboard .btn:disabled,.admin-election-detail .btn:disabled { cursor:wait;opacity:.72;transform:none; }
+.admin-dashboard .tabs,.admin-election-detail .tabs {
+  display:flex;
+  gap:7px;
+  padding:6px;
+  border:1px solid rgba(13,92,99,.18);
+  border-radius:13px;
+  background:#EAF5F3;
+}
+.admin-dashboard .tab,.admin-election-detail .tab {
+  flex:0 0 auto;
+  min-height:40px;
+  padding:8px 13px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#0D5C63;
+  font-weight:700;
+  transition:background .16s ease,border-color .16s ease,color .16s ease;
+}
+.admin-dashboard .tab:hover,.admin-election-detail .tab:hover { border-color:rgba(13,92,99,.2);background:#FFFFFA;color:#0D5C63; }
+.admin-dashboard .tab.active,.admin-election-detail .tab.active {
+  border-color:#0D5C63;
+  background:#0D5C63;
+  color:#FFFFFA;
+  box-shadow:inset 0 -2px #14FFEC,0 3px 8px rgba(13,92,99,.14);
+}
+.admin-dashboard .tab:focus-visible,.admin-election-detail .tab:focus-visible { outline:3px solid #14FFEC;outline-offset:2px; }
+@media(max-width:760px) {
+  .admin-dashboard .tabs,.admin-election-detail .tabs { flex-wrap:nowrap;overflow-x:auto; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .admin-dashboard .btn,.admin-election-detail .btn,
+  .admin-dashboard .btn:hover,.admin-election-detail .btn:hover,
+  .admin-dashboard .tab,.admin-election-detail .tab { transition:none;transform:none; }
+}

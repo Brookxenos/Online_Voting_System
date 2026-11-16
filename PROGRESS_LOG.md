@@ -1298,3 +1298,14 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review remains unavailable in this environment.
 - **Next exact task:** Verify the remaining navbar layout at desktop and mobile widths.
+
+### 2026-11-16 --- Codex --- Restore visible login logo and refine admin controls
+
+- **Status:** ElectraVote logo has a cache-busted frontend bundle path and explicit login sizing; admin controls use a consistent teal/cyan design.
+- **Summary:** Updated the browser to load versioned JS, CSS, and favicon URLs so the restored branding is picked up after refresh. Corrected the participant-access brand label. Refined admin action buttons and tabs with consistent sizing, dark teal surfaces, cyan focus/active accents, and responsive overflow.
+- **Files changed:** `web/index.html`, `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Tests:** Not run; visual frontend change.
+- **Security/privacy implications:** None. Existing untracked `data/openvote.db-shm` and `data/openvote.db-wal` were left untouched.
+- **Known gaps:** Browser visual review unavailable; screenshot shows a narrow/cropped login view, so the logo’s rendered position needs visual confirmation after hard refresh.
+- **Next exact task:** Hard-refresh the frontend and inspect the ElectraVote logo and admin controls on desktop and mobile.

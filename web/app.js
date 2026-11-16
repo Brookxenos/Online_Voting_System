@@ -453,7 +453,7 @@ function renderLogin(view) {
     <section class="login-layout" aria-labelledby="login-title">
       <aside class="login-aside">
         <img class="login-photo" src="/assets/vote-teal-studio-backdrop.png" alt="A voter holding a sign that says Vote against a teal studio backdrop">
-        <span class="login-eyebrow">OPENVOTE · PARTICIPANT ACCESS</span>
+        <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
         <div class="login-aside-copy">
           <h2>Your voice matters.</h2>
         </div>
@@ -718,7 +718,7 @@ async function renderElectionDetail(view) {
       </div><a class="candidate-profile-link" href="#/candidate/${e.id}/${c.id}">Candidate information</a></article>`).join('');
 
   view.innerHTML = `
-    <section class="card">
+    <section class="card admin-election-detail">
       <header class="page-head-inline">
         <h2>${escapeHtml(e.name)}</h2>
         ${statusPill}
