@@ -55,6 +55,28 @@
 
 ## Session entries
 
+### 2026-11-16 --- Codex --- Match signed-in nav button colors
+
+- **Status:** Implemented; browser visual review pending.
+- **Summary:** Matched Profile and Log out button colors to Home: transparent background, cyan outline, white text, and the same teal hover and focus treatment. The active Profile state now retains the shared base colors.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected signed-in navbar markup and active styles; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only color update.
+- **Security/privacy implications:** None; navigation and logout behavior unchanged.
+- **Known gaps:** Browser visual review pending. Pre-existing SQLite WAL/SHM modifications were left untouched.
+- **Next exact task:** Review signed-in Home, Profile, and Log out buttons in the browser at desktop and mobile widths.
+
+### 2026-11-16 --- Codex --- Align profile name save button
+
+- **Status:** Implemented; browser visual review pending.
+- **Summary:** Stacked the “Save name” button below the display-name field and matched its width to the field, keeping the editor at the same 520px maximum width as the other settings form.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** Inspected the profile renderer and active editor styles; `git diff --check` (passed).
+- **Build/tests:** Not run; CSS-only layout change.
+- **Security/privacy implications:** None; profile update behavior and API unchanged.
+- **Known gaps:** Browser visual review pending. Pre-existing `data/openvote.db-shm` and `data/openvote.db-wal` modifications were left untouched.
+- **Next exact task:** Review the profile name editor layout in a browser at desktop and mobile widths.
+
 ### 2026-11-15 --- Codex --- Fix logo visibility and sign-in feedback
 
 - **Status:** Implemented; browser review unavailable.

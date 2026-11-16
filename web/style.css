@@ -1181,11 +1181,11 @@ input,select,textarea,.btn,a { transition-duration:.22s; }
 .profile-details-grid strong { display:block; overflow-wrap:anywhere; color:var(--brand-ink); font-size:.96rem; font-weight:650; }
 .settings-notice { margin:0 0 17px; padding:12px 14px; border-left:3px solid var(--brand-teal); border-radius:0 10px 10px 0; background:rgba(13,115,119,.08); color:#3d5250; font-size:.87rem; }
 .settings-card .stack-form { max-width:520px; }
-.settings-card .profile-name-form { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;max-width:650px;margin-top:18px; }
+.settings-card .profile-name-form { display:grid;grid-template-columns:minmax(0,1fr);gap:12px;max-width:520px;margin-top:18px; }
 .settings-card .profile-name-form label { min-width:0; }
 .settings-card .profile-name-form input { width:100%;min-width:0; }
 .settings-card .profile-name-form .error-box { grid-column:1 / -1; }
-.settings-card .profile-name-form .settings-action { grid-column:2;grid-row:1; }
+.settings-card .profile-name-form .settings-action { grid-column:1;grid-row:auto;width:100%; }
 .settings-card .stack-form .settings-action { align-self:flex-start; min-width:180px; }
 .settings-card .settings-action {
   display:inline-flex;
@@ -1948,6 +1948,16 @@ input,select,textarea { max-width:100%; }
 .topnav .nav-home:hover { transform:translateY(-2px) scale(1.02);border-color:#41EAD4;background:rgba(65,234,212,.16);color:#FFFFFA;box-shadow:0 5px 14px rgba(8,126,139,.42),inset 0 1px 0 rgba(255,255,255,.16);text-decoration:none; }
 .topnav .nav-home:hover svg { transform:translateY(-1px); }
 .topnav .nav-home:focus-visible { outline:2px solid #41EAD4;outline-offset:3px; }
+.topnav .nav-user .nav-profile-action {
+  border:1px solid #78CDD7;
+  border-radius:9px;
+  background:transparent;
+  color:#FFFFFA;
+  box-shadow:0 2px 7px rgba(8,126,139,.2);
+}
+.topnav .nav-user .nav-profile-action[aria-current="page"] { border-color:#78CDD7;background:transparent;color:#FFFFFA; }
+.topnav .nav-user .nav-profile-action:hover { transform:translateY(-2px) scale(1.02);border-color:#41EAD4;background:rgba(65,234,212,.16);color:#FFFFFA;box-shadow:0 5px 14px rgba(8,126,139,.42),inset 0 1px 0 rgba(255,255,255,.16); }
+.topnav .nav-user .nav-profile-action:focus-visible { outline:2px solid #41EAD4;outline-offset:3px; }
 @media(max-width:620px) {
   .topnav .nav-user { flex-wrap:wrap;justify-content:flex-end;gap:6px; }
   .topnav .nav-home,.topnav .nav-profile-action,.topnav .nav-user #btn-logout { min-height:40px;padding:.55rem .7rem;font-size:.84rem; }
