@@ -1264,10 +1264,12 @@ async function renderObserver(view) {
 function renderSettings(view) {
   if (!state.user) { go('#/login'); return; }
   view.innerHTML = `
-    <section class="card settings-card">
+    <section class="card settings-card settings-page">
       <header class="settings-hero">
-        <img src="/assets/electravote-logo.png" alt="ElectraVote" class="settings-logo">
-        <div><span class="settings-eyebrow">PROFILE & SECURITY</span><h2>Account settings</h2><p>Manage your profile details and keep your account secure.</p></div>
+        <div class="settings-identity">
+          <img src="/assets/electravote-logo.png" alt="ElectraVote" class="settings-logo">
+          <div><span class="settings-eyebrow">YOUR ACCOUNT</span><h2>Account settings</h2><p>Manage your profile and account security.</p></div>
+        </div>
         <a class="btn settings-action settings-back" href="#/elections"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10H4.5M9 5l-5 5 5 5"/></svg><span>Back to elections</span></a>
       </header>
       <section class="settings-section" aria-labelledby="profile-details-title">
