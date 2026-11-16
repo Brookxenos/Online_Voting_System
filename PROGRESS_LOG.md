@@ -1,4 +1,4 @@
-# OpenVote --- Development Progress Log
+# ElectraVote --- Development Progress Log
 
 > Every AI agent must update this file at the end of each work session.
 > Keep entries concise, factual and chronological. Never mark work
@@ -8,7 +8,7 @@
 
 -   **Overall status:** Core demo implementation completed; run guide
     corrected; manual browser walkthrough still pending.
--   **Current approved direction:** OpenVote brand; general-purpose
+-   **Current approved direction:** ElectraVote brand; general-purpose
     voting platform; retain C++17 and HTML/CSS/vanilla JavaScript; improve
     the existing project incrementally.
 -   **Current phase:** Post-implementation review --- documentation
@@ -18,7 +18,7 @@
 
 ## Confirmed decisions
 
--   Use OpenVote as the product name (owner direction, 2026-11-16; supersedes the prior ElectraVote decision).
+-   Use ElectraVote as the product name (owner direction, restored 2026-11-16).
 -   Keep the existing language/framework direction.
 -   Prefer a modular monolith.
 -   Design for multiple organizations and independent elections.
@@ -1221,3 +1221,26 @@
 - **Security/privacy implications:** No backend/security behavior changed. Candidate choice is only held in page memory before submission and cleared after success; success is shown only after a successful API response; voter activity does not show candidate choice. Do not claim anonymity or production-election readiness.
 - **Known gaps:** Public election discovery and results indexing require authenticated API access; no anonymous discovery/list endpoint. Profile email/image, password recovery, notifications, candidate biography/media/edit, election deletion, voter participation history/timestamps, official-winner/finalization field, and aggregate admin statistics are unsupported by current API. Full browser/device verification remains outstanding. Existing project documentation still contains historical claims that do not match the current SQLite/API source; backend documentation was not broadly rewritten in this frontend-only task.
 - **Next exact task:** Implement and review the documented backend contracts in Stage 2, then return to complete browser-based responsive and interaction verification for the frontend.
+
+### 2026-11-16 --- Codex --- Restore ElectraVote logo and brand
+
+- **Status:** ElectraVote logo restored across the main frontend brand placements.
+- **Summary:** Replaced the text-only OpenVote mark with the existing ElectraVote logo asset in the header, landing ballot preview, footer, login page, and profile settings. Restored the ElectraVote favicon and browser title, and updated visible product references and project headings. Kept the existing teal/cyan/neutral visual palette.
+- **Files changed:** `web/app.js`, `web/index.html`, `web/style.css`, `README.md`, `PROJECT_CONTEXT.md`, `PROGRESS_LOG.md`, `tests/smoke.sh`.
+- **Decision:** Owner requested restoration of ElectraVote branding on 2026-11-16.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed); `make` (passed, already up to date); `make test` (passed with local socket access).
+- **Tests:** Smoke suite result: **55 passed, 0 failed**, including the ElectraVote page title, logo asset, and favicon checks.
+- **Security/privacy implications:** Brand assets and frontend presentation only.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Visually verify the logo size and contrast on desktop and mobile when browser access is available.
+
+### 2026-11-16 --- Codex --- Match navigation links to account buttons
+
+- **Status:** Home, Discover Elections, Results, and About now use the same outlined button styling as Log in and Get started.
+- **Summary:** Reused the existing teal navigation surface and cyan border/hover colors; shortened the About label and About page CTA to “About.” Added visible keyboard focus and reduced-motion handling.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; focused visual styling and copy change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Verify navigation button spacing and wrapping at desktop and mobile widths in a browser.

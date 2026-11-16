@@ -1,4 +1,4 @@
-# 🗳️ OpenVote — Online Voting System (C++ Client-Server + Responsive Web App)
+# 🗳️ ElectraVote — Online Voting System (C++ Client-Server + Responsive Web App)
 
 A complete electronic voting system written in **C++17** with **zero external
 dependencies** — the HTTP server, JSON parser, SHA-256 implementation, and

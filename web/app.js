@@ -1,5 +1,5 @@
 /* ==========================================================================
-   OpenVote — Frontend Application
+   ElectraVote — Frontend Application
    Vanilla JS, no dependencies. Talks to the C++ backend's JSON API.
    Authentication is a HttpOnly session cookie set by the server; the
    frontend never stores passwords and never decides permissions itself —
@@ -166,12 +166,12 @@ const app = document.getElementById('app');
 
 function navHtml() {
   const u = state.user;
-  const links = [['#/', 'Home'], ['#/elections', 'Discover Elections'], ['#/results', 'Results'], ['#/about', 'About OpenVote']];
+  const links = [['#/', 'Home'], ['#/elections', 'Discover Elections'], ['#/results', 'Results'], ['#/about', 'About']];
   if (u && u.role === 'voter') links.splice(1, 0, ['#/dashboard', 'Dashboard']);
   if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.splice(1, 0, ['#/admin', 'Administration']);
   if (u && u.role === 'observer') links.splice(1, 0, ['#/observer', 'Observer view']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
-  html += '<a class="brand" href="#/" aria-label="OpenVote home"><span class="brand-mark" aria-hidden="true">O</span><span class="brand-wordmark">OpenVote</span></a>';
+  html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-logo-image" src="/assets/electravote-logo-light.png" alt="ElectraVote"></a>';
   html += '<div class="nav-links">';
   for (const [href, label] of links) {
     const route = href === '#/' ? 'home' : href.slice(2).split('/')[0];
@@ -248,9 +248,9 @@ function renderNotFound(view) {
 function renderAbout(view) {
   view.innerHTML = `
     <section class="card about-page">
-      <p class="section-kicker">OpenVote</p>
+      <p class="section-kicker">ElectraVote</p>
       <h1>Every Voice Matters. Every Vote Counts.</h1>
-      <p class="muted">OpenVote helps communities and organizations share election information, participate in available ballots, and review published outcomes.</p>
+      <p class="muted">ElectraVote helps communities and organizations share election information, participate in available ballots, and review published outcomes.</p>
       <div class="feature-grid">
         <article class="feature-card"><h2>Explore</h2><p>Review elections and the information available to you.</p></article>
         <article class="feature-card"><h2>Participate</h2><p>Eligible voters can submit a ballot while an election is open.</p></article>
@@ -372,18 +372,18 @@ async function renderHome(view) {
         <h1>Every Voice Matters.<br><em>Every Vote Counts.</em></h1>
         <p class="subtitle">Experience a clearer way to participate in democracy. Explore elections, understand your options, and make your voice count in your community.</p>
         <div class="hero-actions">
-          ${!u ? `<a class="btn btn-outline btn-lg hero-discover-link" href="#/about">About OpenVote ${arrowIcon()}</a>` : `<a class="btn btn-primary btn-lg" href="#/dashboard">Open your dashboard ${arrowIcon()}</a>`}
+          ${!u ? `<a class="btn btn-outline btn-lg hero-discover-link" href="#/about">About ${arrowIcon()}</a>` : `<a class="btn btn-primary btn-lg" href="#/dashboard">Open your dashboard ${arrowIcon()}</a>`}
         </div>
         <p class="hero-note"><span aria-hidden="true">✓</span> Built for transparency. Designed for participation.</p>
       </div>
       <div class="hero-art" aria-label="Illustration of a verified digital ballot" role="img">
         <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-        <div class="ballot-card"><div class="ballot-top"><strong class="ballot-logo-text">OpenVote</strong><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span>${arrowIcon()}</div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
+        <div class="ballot-card"><div class="ballot-top"><img class="ballot-logo-image" src="/assets/electravote-logo.png" alt="ElectraVote"><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span>${arrowIcon()}</div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
         <div class="float-chip chip-verified"><span>✓</span><div><b>Vote verified</b><small>Confirmation received</small></div></div><div class="float-chip chip-participate"><span class="chip-bars">▥</span><div><b>Every voice counts</b><small>Participation made simple</small></div></div>
         <span class="art-spark spark-a">✳</span><span class="art-spark spark-b">+</span>
       </div>
     </header>
-    <section class="trust-strip" aria-label="OpenVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
+    <section class="trust-strip" aria-label="ElectraVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
     <section class="feature-section" id="how-it-works"><div class="section-heading"><span class="section-kicker">A better way to decide</span><h2>Democracy, made <em>accessible.</em></h2><p>Everything your organization needs to bring people into the decisions that matter.</p></div><div class="feature-grid">
       <article class="feature-card"><span class="feature-icon icon-lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span><h3>Secure voting</h3><p>Clear eligibility and a confirmation step help protect the integrity of each ballot.</p></article>
       <article class="feature-card"><span class="feature-icon icon-eye" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span><h3>Transparent results</h3><p>Published outcomes and election records make the process easier to understand.</p></article>
@@ -391,7 +391,7 @@ async function renderHome(view) {
     </div></section>
     ${electionsHtml}
     <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} ${arrowIcon()}</a></section>
-    <footer class="site-footer"><a class="footer-brand" href="#/" aria-label="OpenVote home">OpenVote</a><span>Every Voice Matters. Every Vote Counts.</span><span>For community and organizational elections.</span></footer>`;
+    <footer class="site-footer"><a class="footer-brand" href="#/" aria-label="ElectraVote home"><img class="footer-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a><span>Every Voice Matters. Every Vote Counts.</span><span>For community and organizational elections.</span></footer>`;
   if (u) {
     try {
       const data = await api('elections');
@@ -459,7 +459,7 @@ function renderLogin(view) {
         </div>
       </aside>
       <div class="login-panel">
-        <div class="login-brand-wordmark">OpenVote</div>
+        <img class="login-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote">
         <header class="login-heading">
           <span class="login-kicker">ACCOUNT ACCESS</span>
           <h1 id="login-title">Sign in</h1>
@@ -474,7 +474,7 @@ function renderLogin(view) {
           </label>
           <div class="error-box" id="login-error" role="alert" aria-live="polite" hidden></div>
           <button type="submit" class="btn btn-primary login-submit">Sign in</button>
-          <p class="login-register-prompt">New to OpenVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
+          <p class="login-register-prompt">New to ElectraVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
         </form>
       </div>
     </section>`;
@@ -592,7 +592,7 @@ async function renderElections(view) {
   view.innerHTML = `
     <section class="card discovery-page">
       <header class="page-head-inline">
-        <div><p class="section-kicker">OpenVote</p><h1>Discover Elections</h1></div>
+        <div><p class="section-kicker">ElectraVote</p><h1>Discover Elections</h1></div>
       </header>
       <p class="muted">Explore elections available to your account. Published results are shown when the election permits public access.</p>
       <div id="discovery-controls" class="discovery-controls" hidden>
@@ -795,7 +795,7 @@ async function renderElectionDetail(view) {
           <section class="card narrow center">
             <div class="big-icon" aria-hidden="true">✓</div>
             <h2>Your Participation Has Been Recorded.</h2>
-            <p>${escapeHtml(e.name)} · Confirmation received from OpenVote.</p>
+            <p>${escapeHtml(e.name)} · Confirmation received from ElectraVote.</p>
             ${receipt}
             <div class="btn-row center">
               <a class="btn btn-primary" href="#/dashboard">Return to Dashboard</a>
@@ -818,7 +818,7 @@ async function renderElectionDetail(view) {
 // ---------------------------------------------------------------------------
 
 async function renderResultsIndex(view) {
-  view.innerHTML = `<section class="card results-discovery"><p class="section-kicker">OpenVote</p><h1>Published Results</h1><p class="muted">Browse published outcomes for elections visible to your account.</p><label class="results-search-label">Search published results<input id="results-search" type="search" placeholder="Search by election title"></label><div id="results-election-list" class="election-list"><div class="loading-state">Loading published results…</div></div></section>`;
+  view.innerHTML = `<section class="card results-discovery"><p class="section-kicker">ElectraVote</p><h1>Published Results</h1><p class="muted">Browse published outcomes for elections visible to your account.</p><label class="results-search-label">Search published results<input id="results-search" type="search" placeholder="Search by election title"></label><div id="results-election-list" class="election-list"><div class="loading-state">Loading published results…</div></div></section>`;
   try {
     const data = await api('elections');
     if (state.view !== 'resultsIndex') return;
@@ -919,7 +919,7 @@ async function renderAdmin(view) {
   }
   view.innerHTML = `
     <section class="card admin-dashboard">
-      <header class="page-head-inline"><div><p class="section-kicker">OpenVote</p><h1>Administration</h1></div></header>
+      <header class="page-head-inline"><div><p class="section-kicker">ElectraVote</p><h1>Administration</h1></div></header>
       <div class="dashboard-stats" id="admin-statistics" aria-label="Administration summary"><div class="stat-card"><span>Total Elections</span><strong>—</strong></div><div class="stat-card"><span>Active Elections</span><strong>—</strong></div><div class="stat-card"><span>Total Candidates</span><strong>—</strong></div><div class="stat-card"><span>Registered Voters</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div></div>
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="elections" role="tab">Elections</button>
@@ -1585,7 +1585,7 @@ function renderSettings(view) {
     <section class="card settings-card settings-page">
       <header class="settings-hero">
         <div class="settings-identity">
-          <span class="settings-wordmark">OpenVote</span>
+          <img class="settings-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote">
           <div><span class="settings-eyebrow">YOUR ACCOUNT</span><h2>Account settings</h2><p>Manage your profile and account security.</p></div>
         </div>
         <a class="btn settings-action settings-back" href="#/elections"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10H4.5M9 5l-5 5 5 5"/></svg><span>Back to elections</span></a>

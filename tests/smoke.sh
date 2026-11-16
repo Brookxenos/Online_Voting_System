@@ -51,7 +51,7 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
 fi
 
 echo "-- static and auth --"
-check "serves OpenVote index.html" "<title>OpenVote" "$(jget /)"
+check "serves ElectraVote index.html" "<title>ElectraVote" "$(jget /)"
 check "serves ElectraVote logo asset" "Content-Type: image/png" "$(curl -s "$BASE/assets/electravote-logo.png" -D - -o /dev/null | tr -d '\r')"
 check "serves ElectraVote favicon" "Content-Type: image/png" "$(curl -s "$BASE/favicon.png" -D - -o /dev/null | tr -d '\r')"
 check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"

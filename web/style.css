@@ -2038,8 +2038,51 @@ input,select,textarea { max-width:100%; }
   .topnav .nav-home:hover,.topnav .nav-profile-action:hover { transform:none;transition:none; }
 }
 
+/* Give primary navigation the same outlined button treatment as account actions. */
+.topnav .nav-links a {
+  display:inline-flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  min-height:44px;
+  padding:9px 12px;
+  border:1px solid #78CDD7;
+  border-radius:9px;
+  background:rgba(255,255,255,.08);
+  color:#FFFFFA;
+  font-size:.92rem;
+  font-weight:700;
+  line-height:1.2;
+  text-decoration:none;
+  text-shadow:none;
+  transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease,color .18s ease;
+}
+.topnav .nav-links a:hover,
+.topnav .nav-links a[aria-current="page"] {
+  transform:translateY(-2px);
+  border-color:#14FFEC;
+  background:rgba(20,255,236,.1);
+  color:#14FFEC;
+  box-shadow:0 8px 18px rgba(20,255,236,.2);
+  text-decoration:none;
+}
+.topnav .nav-links a:focus-visible { outline:2px solid #14FFEC;outline-offset:3px; }
+@media(max-width:760px) {
+  .topnav .nav-links a { min-height:42px;padding:8px 10px;font-size:.88rem; }
+}
+@media(max-width:390px) {
+  .topnav .nav-links a { min-height:40px;padding:7px 9px;font-size:.83rem; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .topnav .nav-links a,.topnav .nav-links a:hover { transform:none;transition:none; }
+}
+
 /* OpenVote Stage 1 interfaces */
 .topnav .brand-mark { display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--brand-teal);color:#FFFFFA;font-size:1.2rem;font-weight:800; }
+.brand-logo-image { display:block;width:166px;max-width:34vw;height:auto;object-fit:contain; }
+.login-brand-image { display:block;width:190px;max-width:60%;height:auto;margin:0 0 24px;object-fit:contain; }
+.settings-brand-image { display:block;flex:0 0 auto;width:160px;max-width:38%;height:auto;padding:9px 11px;border:1px solid rgba(255,255,255,.3);border-radius:12px;background:#FFFFFA;object-fit:contain; }
+.ballot-logo-image { display:block;width:120px;height:auto; }
 .topnav .brand-wordmark,.login-brand-wordmark,.settings-wordmark,.ballot-logo-text { color:var(--brand-ink);font-weight:800;letter-spacing:-.045em; }
 .topnav .brand-wordmark { font-size:1.14rem; }
 .login-brand-wordmark { margin-bottom:24px;color:var(--brand-teal);font-size:1.65rem; }
@@ -2103,6 +2146,7 @@ input,select,textarea { max-width:100%; }
 .admin-election-controls input,.admin-election-controls select,.admin-user-controls input,.admin-user-controls select { min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#FFFFFA;color:var(--text); }
 .admin-election-controls input:focus,.admin-election-controls select:focus,.admin-user-controls input:focus,.admin-user-controls select:focus { border-color:var(--brand-teal);box-shadow:0 0 0 3px var(--primary-soft); }
 @media(max-width:760px) {
+  .brand-logo-image { width:145px; }
   .dashboard-welcome { align-items:flex-start;flex-direction:column; }
   .dashboard-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   #admin-statistics { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -2110,6 +2154,9 @@ input,select,textarea { max-width:100%; }
   .results-discovery .election-row { align-items:flex-start;flex-direction:column; }
 }
 @media(max-width:420px) {
+  .brand-logo-image { width:125px; }
+  .login-brand-image { width:165px; }
+  .settings-brand-image { width:135px; }
   .dashboard-stats { gap:8px; }
   .stat-card { padding:13px; }
   .stat-card span { font-size:.75rem; }
