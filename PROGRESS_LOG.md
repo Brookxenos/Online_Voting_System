@@ -1,4 +1,4 @@
-# ElectraVote --- Development Progress Log
+# OpenVote --- Development Progress Log
 
 > Every AI agent must update this file at the end of each work session.
 > Keep entries concise, factual and chronological. Never mark work
@@ -8,7 +8,7 @@
 
 -   **Overall status:** Core demo implementation completed; run guide
     corrected; manual browser walkthrough still pending.
--   **Current approved direction:** ElectraVote brand; general-purpose
+-   **Current approved direction:** OpenVote brand; general-purpose
     voting platform; retain C++17 and HTML/CSS/vanilla JavaScript; improve
     the existing project incrementally.
 -   **Current phase:** Post-implementation review --- documentation
@@ -18,7 +18,7 @@
 
 ## Confirmed decisions
 
--   Use ElectraVote as the product name.
+-   Use OpenVote as the product name (owner direction, 2026-11-16; supersedes the prior ElectraVote decision).
 -   Keep the existing language/framework direction.
 -   Prefer a modular monolith.
 -   Design for multiple organizations and independent elections.

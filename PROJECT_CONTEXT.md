@@ -1,4 +1,4 @@
-# ElectraVote --- Project Context and AI Agent Handoff
+# OpenVote --- Project Context and AI Agent Handoff
 
 > **Purpose:** This is the persistent source-of-truth document for every
 > AI coding agent working on this repository. Read it before inspecting,
@@ -10,9 +10,8 @@
 
 ## 1. Project identity
 
--   Working project name: **ElectraVote** (confirmed by the project owner
-    on 2026-11-15; internal database and repository names remain
-    unchanged).
+-   Working project name: **OpenVote** (set by the project owner on
+    2026-11-16; replaces the earlier ElectraVote branding direction).
 -   Product: A general-purpose voting and election-management platform.
 -   Intended use cases: school/student elections, clubs and
     associations, organizations, community participation, and

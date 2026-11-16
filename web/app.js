@@ -280,6 +280,31 @@ function electionWhen(e) {
   return e.status === 'open' ? 'Open now' : fmtStatus(e.status);
 }
 
+function utcToLocalInput(value) {
+  const stamp = Date.parse(value || '');
+  if (!Number.isFinite(stamp)) return '';
+  const local = new Date(stamp - new Date(stamp).getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0,16);
+}
+
+function localInputToUtc(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toISOString().replace(/\.\d{3}Z$/,'Z');
+}
+
+function readSchedule(form) {
+  const fd = new FormData(form);
+  const startRaw = String(fd.get('startAt') || '');
+  const endRaw = String(fd.get('endAt') || '');
+  const startAt = localInputToUtc(startRaw);
+  const endAt = localInputToUtc(endRaw);
+  if (startAt === null || endAt === null) throw new Error('Enter valid start and end dates.');
+  if (startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)) throw new Error('The end date must be after the start date.');
+  return { startAt, endAt };
+}
+
 function renderDashboard(view) {
   if (!state.user) { go('#/login'); return; }
   if (state.user.role === 'platform_admin' || state.user.role === 'org_admin') { go('#/admin'); return; }
@@ -672,6 +697,10 @@ async function renderElectionDetail(view) {
     } else {
       ballotHtml = `<div class="banner banner-muted">Voting has ended for this election.</div>`;
     }
+  } else if (!state.user) {
+    if (phase === 'upcoming') ballotHtml = '<div class="banner banner-muted">Voting opens soon.</div>';
+    else if (phase === 'active') ballotHtml = '<div class="banner banner-info">Log in to check your eligibility and participate.</div><a class="btn btn-primary" href="#/login">Log in to participate</a>';
+    else if (e.status === 'published' || e.status === 'archived') ballotHtml = `<a class="btn btn-primary" href="#/results/${e.id}">View Election Results</a>`;
   }
 
   const cands = e.candidates || [];
@@ -707,7 +736,7 @@ async function renderElectionDetail(view) {
     const grid = document.getElementById('ballot-grid');
     const staticGrid = view.querySelector('.candidate-grid.static');
     // Move candidates into the selectable grid.
-    if (staticGrid) grid.innerHTML = staticGrid.innerHTML;
+    if (staticGrid) { grid.innerHTML = staticGrid.innerHTML; staticGrid.remove(); }
     const castBtn = document.getElementById('btn-cast');
     const select = (card) => {
       grid.querySelectorAll('.candidate-card').forEach(el => {
@@ -913,8 +942,8 @@ async function renderAdmin(view) {
             Show live vote totals while the election is open (deliberate configuration)
           </label>
           <div class="form-row">
-            <label>Start (ISO UTC, optional)<input type="text" name="startAt" placeholder="2026-01-01T08:00:00Z"></label>
-            <label>End (ISO UTC, optional)<input type="text" name="endAt" placeholder="2026-01-07T20:00:00Z"></label>
+            <label>Start date<input type="datetime-local" name="startAt"></label>
+            <label>End date<input type="datetime-local" name="endAt"></label>
           </div>
           <div class="btn-row">
             <button type="submit" class="btn btn-primary">Create election</button>
@@ -1002,6 +1031,7 @@ async function renderAdmin(view) {
   const listEl = document.getElementById('admin-election-list');
   let adminElectionRecords = [];
   let adminUsers = [];
+  let adminUsersLoaded = false;
   const drawAdminElections = () => {
     const q = document.getElementById('admin-election-search').value.trim().toLocaleLowerCase();
     const status = document.getElementById('admin-election-status').value;
@@ -1025,7 +1055,7 @@ async function renderAdmin(view) {
     const complete = detailPairs.every(Boolean);
     const candidateCount = complete ? detailPairs.reduce((sum,x) => sum + x.candidates,0) : null;
     const voteCount = complete ? detailPairs.reduce((sum,x) => sum + (Number(x.votes) >= 0 ? Number(x.votes) : 0),0) : null;
-    const values = [adminElectionRecords.length, adminElectionRecords.filter(e => electionPhase(e,Date.now()) === 'active').length,candidateCount,adminUsers.length ? adminUsers.filter(u => u.role === 'voter' && !u.disabled).length : null,voteCount];
+    const values = [adminElectionRecords.length, adminElectionRecords.filter(e => electionPhase(e,Date.now()) === 'active').length,candidateCount,adminUsersLoaded ? adminUsers.filter(u => u.role === 'voter').length : null,voteCount];
     const labels = ['Total Elections','Active Elections','Total Candidates','Registered Voters','Votes Cast'];
     container.innerHTML = labels.map((label,i) => `<div class="stat-card"><span>${label}</span><strong>${values[i] === null ? '—' : values[i]}</strong></div>`).join('');
   }
@@ -1057,11 +1087,16 @@ async function renderAdmin(view) {
       name: fd.get('name'),
       description: fd.get('description') || '',
       showLiveResults: fd.get('showLiveResults') === 'on',
-      startAt: (fd.get('startAt') || '').trim(),
-      endAt: (fd.get('endAt') || '').trim(),
     };
+    try { Object.assign(body, readSchedule(neForm)); }
+    catch (err) { errBox.textContent = err.message; errBox.hidden = false; return; }
     if (state.user.role === 'platform_admin') body.orgId = Number(fd.get('orgId'));
     else body.orgId = state.user.orgId;
+    const submitButton = neForm.querySelector('button[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy','true');
+    submitButton.textContent = 'Creating…';
     try {
       const r = await api('elections', { method: 'POST', body });
       toast('Election created.');
@@ -1069,6 +1104,9 @@ async function renderAdmin(view) {
       go('#/admin/election/' + r.election.id);
     } catch (err) {
       errBox.textContent = err.message; errBox.hidden = false;
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.textContent = 'Create election';
     }
   });
 
@@ -1140,6 +1178,7 @@ async function renderAdmin(view) {
       const data = await api('users');
       const users = data.users || [];
       adminUsers = users;
+      adminUsersLoaded = true;
       await updateAdminStats();
       userList.innerHTML = users.length === 0 ? '<div class="empty">No users.</div>' :
         `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th></th></tr></thead><tbody>` +
@@ -1252,8 +1291,8 @@ async function renderAdminElection(view) {
             Show live vote totals while the election is open
           </label>
           <div class="form-row">
-            <label>Start (ISO UTC)<input type="text" name="startAt" value="${escapeHtml(e.startAt || '')}" placeholder="2026-01-01T08:00:00Z"></label>
-            <label>End (ISO UTC)<input type="text" name="endAt" value="${escapeHtml(e.endAt || '')}" placeholder="2026-01-07T20:00:00Z"></label>
+            <label>Start date<input type="datetime-local" name="startAt" value="${escapeHtml(utcToLocalInput(e.startAt))}"></label>
+            <label>End date<input type="datetime-local" name="endAt" value="${escapeHtml(utcToLocalInput(e.endAt))}"></label>
           </div>
           <div class="btn-row"><button type="submit" class="btn btn-primary">Save configuration</button></div>
           <div class="error-box" id="cfg-error" hidden></div>
@@ -1336,19 +1375,30 @@ async function renderAdminElection(view) {
     const errBox = document.getElementById('cfg-error');
     errBox.hidden = true;
     try {
+      const schedule = readSchedule(cfgForm);
+      const submitButton = cfgForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      submitButton.setAttribute('aria-busy','true');
+      submitButton.textContent = 'Saving…';
       await api('elections/' + e.id, {
         method: 'POST',
         body: {
           name: fd.get('name'),
           description: fd.get('description') || '',
           showLiveResults: fd.get('showLiveResults') === 'on',
-          startAt: (fd.get('startAt') || '').trim(),
-          endAt: (fd.get('endAt') || '').trim(),
+          ...schedule,
         }
       });
       toast('Configuration saved.');
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.textContent = 'Save configuration';
     } catch (err) {
       errBox.textContent = err.message; errBox.hidden = false;
+      const submitButton = cfgForm.querySelector('button[type="submit"]');
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.textContent = 'Save configuration';
     }
   });
 
@@ -1523,15 +1573,16 @@ function renderSettings(view) {
         <form id="form-profile-name" class="stack-form profile-name-form">
           <label for="profile-display-name">Edit display name<input id="profile-display-name" type="text" name="displayName" maxlength="100" autocomplete="name" value="${escapeHtml(state.user.displayName || '')}" required></label>
           <div class="error-box" id="profile-name-error" hidden></div>
-          <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3 14.8-.7 3 3-.7L16.8 7.6a2.1 2.1 0 0 0-3-3L3 14.8Z"/><path d="m12.5 5.9 3 3"/></svg><span>Save name</span></button>
+          <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3 14.8-.7 3 3-.7L16.8 7.6a2.1 2.1 0 0 0-3-3L3 14.8Z"/><path d="m12.5 5.9 3 3"/></svg><span>Save changes</span></button>
+          <button type="button" id="cancel-profile-name" class="btn btn-link">Cancel changes</button>
         </form>
       </section>
       <section class="settings-section security-section" aria-labelledby="security-title">
         <div class="settings-section-heading"><div><h3 id="security-title">Password and security</h3><p>Update your password to protect your account.</p></div><span class="security-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span></div>
         <p class="settings-notice">Changing your password signs you out everywhere.</p>
       <form id="form-password" class="stack-form">
-        <label>Current password<input type="password" name="currentPassword" autocomplete="current-password" required></label>
-        <label>New password (min 8 chars)<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required></label>
+        <label>Current password<span class="password-input-wrap"><input id="settings-current-password" type="password" name="currentPassword" autocomplete="current-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="settings-current-password" aria-pressed="false">Show</button></span></label>
+        <label>New password (min 8 chars)<span class="password-input-wrap"><input id="settings-new-password" type="password" name="newPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="settings-new-password" aria-pressed="false">Show</button></span></label>
         <div class="error-box" id="pwd-error" hidden></div>
         <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8.5" width="12" height="9" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v2"/></svg><span>Update password</span></button>
       </form>
@@ -1539,11 +1590,21 @@ function renderSettings(view) {
     </section>`;
   const form = document.getElementById('form-password');
   const nameForm = document.getElementById('form-profile-name');
+  bindPasswordToggles(form);
+  document.getElementById('cancel-profile-name').addEventListener('click', () => {
+    nameForm.reset();
+    document.getElementById('profile-name-error').hidden = true;
+  });
   nameForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const displayName = String(new FormData(nameForm).get('displayName') || '').trim();
     const errBox = document.getElementById('profile-name-error');
     errBox.hidden = true;
+    const submitButton = nameForm.querySelector('button[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy','true');
+    submitButton.querySelector('span').textContent = 'Saving…';
     try {
       const result = await api('me/profile', { method: 'POST', body: { displayName } });
       state.user = result.user;
@@ -1552,6 +1613,9 @@ function renderSettings(view) {
     } catch (err) {
       errBox.textContent = err.message;
       errBox.hidden = false;
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.querySelector('span').textContent = 'Save changes';
     }
   });
   form.addEventListener('submit', async (ev) => {
@@ -1559,6 +1623,11 @@ function renderSettings(view) {
     const fd = new FormData(form);
     const errBox = document.getElementById('pwd-error');
     errBox.hidden = true;
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy','true');
+    submitButton.querySelector('span').textContent = 'Updating…';
     try {
       await api('auth/password', {
         method: 'POST',
@@ -1569,6 +1638,9 @@ function renderSettings(view) {
       go('#/login');
     } catch (err) {
       errBox.textContent = err.message; errBox.hidden = false;
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.querySelector('span').textContent = 'Update password';
     }
   });
 }
