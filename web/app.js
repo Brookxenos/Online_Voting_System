@@ -396,6 +396,7 @@ async function renderHome(view) {
     try {
       const data = await api('elections');
       const box = document.getElementById('home-elections');
+      if (state.view !== 'home' || !box) return;
       const open = (data.elections || []).filter(e => e.status === 'open');
       if (open.length === 0) {
         box.innerHTML = '<div class="empty">No elections are open for voting right now.</div>';
@@ -403,7 +404,10 @@ async function renderHome(view) {
         box.innerHTML = open.map(e => electionRowHtml(e, state.user)).join('');
         bindElectionRows(box);
       }
-    } catch (e) { /* silent on home */ }
+    } catch (err) {
+      const box = document.getElementById('home-elections');
+      if (state.view === 'home' && box) box.innerHTML = `<div class="error-state" role="alert"><p>Could not load elections. ${escapeHtml(err.message)}</p><a class="btn btn-secondary" href="#/elections">Open election discovery</a></div>`;
+    }
   }
 }
 
@@ -990,7 +994,7 @@ async function renderAdmin(view) {
           <div class="btn-row"><button type="submit" class="btn btn-primary">Create user</button>
           <button type="button" class="btn btn-link" id="nu-cancel">Cancel</button></div>
         </form>
-        <div class="admin-user-controls"><label>Search users<input id="admin-user-search" type="search" placeholder="Search username or display name"></label><label>Role<select id="admin-user-role"><option value="all">All roles</option><option value="voter">Voter</option><option value="org_admin">Organization admin</option><option value="platform_admin">Platform admin</option><option value="observer">Observer</option></select></label><label>Status<select id="admin-user-status"><option value="all">All accounts</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label></div>
+        <div class="admin-user-controls"><label>Search users<input id="admin-user-search" type="search" placeholder="Search username or display name"></label><label>Role<select id="admin-user-role"><option value="all">All roles</option><option value="voter">Voter</option><option value="org_admin">Organization admin</option><option value="platform_admin">Platform admin</option><option value="observer">Observer</option></select></label><label>Status<select id="admin-user-status"><option value="all">All accounts</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label><label>Sort by<select id="admin-user-sort"><option value="username">Username</option><option value="displayName">Display name</option><option value="role">Role</option></select></label></div>
         <div id="user-list" class="table-wrap"><div class="loading-state">Loading users…</div></div>
       </div>
       <div id="tab-audit" class="tab-panel">
@@ -1034,6 +1038,7 @@ async function renderAdmin(view) {
   let adminUsers = [];
   let adminUsersLoaded = false;
   let adminElectionPageSize = 10;
+  let adminElectionMetrics = {};
   const drawAdminElections = () => {
     const q = document.getElementById('admin-election-search').value.trim().toLocaleLowerCase();
     const status = document.getElementById('admin-election-status').value;
@@ -1041,32 +1046,34 @@ async function renderAdmin(view) {
     const filtered = adminElectionRecords.filter(e => (!q || `${e.name} ${e.description || ''}`.toLocaleLowerCase().includes(q)) && (status === 'all' || e.status === status));
     filtered.sort((a,b) => sort === 'title' ? a.name.localeCompare(b.name) : (Date.parse(a.startAt || '') || 0) - (Date.parse(b.startAt || '') || 0));
     const shown = filtered.slice(0,adminElectionPageSize);
-    listEl.innerHTML = shown.length ? `${shown.map(e => `
+    listEl.innerHTML = shown.length ? shown.map(e => `
       <div class="election-row">
-        <div class="election-row-main"><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><div class="muted small">${escapeHtml(e.description || '')}</div><div class="muted small">${escapeHtml(e.startAt || 'No start date')} — ${escapeHtml(e.endAt || 'No end date')}</div></div>
+        <div class="election-row-main"><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><div class="muted small">${escapeHtml(e.description || '')}</div><div class="muted small">${escapeHtml(e.startAt || 'No start date')} — ${escapeHtml(e.endAt || 'No end date')}</div><div class="muted small">Eligible voters: ${adminElectionMetrics[e.id] ? adminElectionMetrics[e.id].eligible : '—'}</div></div>
         <div class="election-row-side"><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${fmtStatus(e.status)}</span><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></div>
       </div>`).join('') : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
     if (shown.length && filtered.length > shown.length) listEl.innerHTML += '<button class="btn btn-secondary" id="admin-election-load-more">Load more</button>';
     const more = document.getElementById('admin-election-load-more');
     if (more) more.addEventListener('click',() => { adminElectionPageSize += 10; drawAdminElections(); });
   };
-  document.getElementById('admin-election-search').addEventListener('input',drawAdminElections);
-  document.getElementById('admin-election-status').addEventListener('change',drawAdminElections);
-  document.getElementById('admin-election-sort').addEventListener('change',drawAdminElections);
+  document.getElementById('admin-election-search').addEventListener('input',() => { adminElectionPageSize = 10; drawAdminElections(); });
+  document.getElementById('admin-election-status').addEventListener('change',() => { adminElectionPageSize = 10; drawAdminElections(); });
+  document.getElementById('admin-election-sort').addEventListener('change',() => { adminElectionPageSize = 10; drawAdminElections(); });
   async function updateAdminStats() {
     const container = document.getElementById('admin-statistics');
     const detailPairs = await Promise.all(adminElectionRecords.map(async e => {
       try {
-        const [detail,candidates] = await Promise.all([api('elections/' + e.id),api('elections/' + e.id + '/candidates')]);
-        return {votes: detail.participationCount, candidates: (candidates.candidates || []).length};
+        const [detail,candidates,eligible] = await Promise.all([api('elections/' + e.id),api('elections/' + e.id + '/candidates'),api('elections/' + e.id + '/eligibility')]);
+        return {id:e.id,votes: detail.participationCount, candidates: (candidates.candidates || []).length, eligible:(eligible.eligible || []).length};
       } catch (_) { return null; }
     }));
     const complete = detailPairs.every(Boolean);
+    adminElectionMetrics = Object.fromEntries(detailPairs.filter(Boolean).map(x => [x.id,x]));
     const candidateCount = complete ? detailPairs.reduce((sum,x) => sum + x.candidates,0) : null;
     const voteCount = complete ? detailPairs.reduce((sum,x) => sum + (Number(x.votes) >= 0 ? Number(x.votes) : 0),0) : null;
     const values = [adminElectionRecords.length, adminElectionRecords.filter(e => electionPhase(e,Date.now()) === 'active').length,candidateCount,adminUsersLoaded ? adminUsers.filter(u => u.role === 'voter').length : null,voteCount];
     const labels = ['Total Elections','Active Elections','Total Candidates','Registered Voters','Votes Cast'];
     container.innerHTML = labels.map((label,i) => `<div class="stat-card"><span>${label}</span><strong>${values[i] === null ? '—' : values[i]}</strong></div>`).join('');
+    drawAdminElections();
   }
   async function loadElections() {
     try {
@@ -1159,6 +1166,32 @@ async function renderAdmin(view) {
   // ---- users ----
   const userList = document.getElementById('user-list');
   const nuForm = document.getElementById('form-new-user');
+  let adminUserPageSize = 10;
+  const drawAdminUsers = () => {
+    const query = document.getElementById('admin-user-search').value.trim().toLocaleLowerCase();
+    const role = document.getElementById('admin-user-role').value;
+    const status = document.getElementById('admin-user-status').value;
+    const sort = document.getElementById('admin-user-sort').value;
+    const filtered = adminUsers.filter(u => (!query || `${u.username} ${u.displayName}`.toLocaleLowerCase().includes(query)) && (role === 'all' || u.role === role) && (status === 'all' || (status === 'disabled') === !!u.disabled));
+    filtered.sort((a,b) => String(a[sort] || '').localeCompare(String(b[sort] || '')));
+    const shown = filtered.slice(0,adminUserPageSize);
+    if (!adminUsers.length) { userList.innerHTML = '<div class="empty-state"><h2>No users available</h2></div>'; return; }
+    if (!filtered.length) { userList.innerHTML = '<div class="empty-state"><h2>No matching users</h2><p>Change your search or filters.</p></div>'; return; }
+    userList.innerHTML = `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
+      shown.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td><td>${roleLabel(u.role)}</td><td>${u.orgId || '—'}</td><td>${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td>${u.id !== state.user.id ? `<button class="btn btn-link btn-danger" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable' : 'Disable'}</button>` : ''}</td></tr>`).join('') + '</tbody></table>';
+    if (filtered.length > shown.length) userList.innerHTML += '<button class="btn btn-secondary" id="admin-user-load-more">Load more</button>';
+    const more = document.getElementById('admin-user-load-more');
+    if (more) more.addEventListener('click',() => { adminUserPageSize += 10; drawAdminUsers(); });
+    userList.querySelectorAll('[data-disable]').forEach(btn => btn.addEventListener('click',async () => {
+      const disable = btn.textContent.trim() === 'Disable';
+      if (!window.confirm((disable ? 'Disable' : 'Enable') + ' account ' + btn.getAttribute('data-name') + '?')) return;
+      try { await api('users/' + btn.getAttribute('data-disable') + '/disable',{method:'POST',body:{disabled:disable}}); await loadUsers(); }
+      catch (err) { toast(err.message,'error'); }
+    }));
+  };
+  ['admin-user-search','admin-user-role','admin-user-status','admin-user-sort'].forEach(id => {
+    document.getElementById(id).addEventListener(id === 'admin-user-search' ? 'input' : 'change',drawAdminUsers);
+  });
   document.getElementById('btn-new-user').addEventListener('click', () => { nuForm.hidden = !nuForm.hidden; });
   document.getElementById('nu-cancel').addEventListener('click', () => { nuForm.hidden = true; });
   nuForm.addEventListener('submit', async (ev) => {
@@ -1189,26 +1222,7 @@ async function renderAdmin(view) {
       adminUsers = users;
       adminUsersLoaded = true;
       await updateAdminStats();
-      userList.innerHTML = users.length === 0 ? '<div class="empty">No users.</div>' :
-        `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th></th></tr></thead><tbody>` +
-        users.map(u => `<tr>
-          <td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td>
-          <td>${roleLabel(u.role)}</td><td>${u.orgId || '—'}</td>
-          <td>${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td>
-          <td>${u.id !== state.user.id ? `<button class="btn btn-link btn-danger" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable' : 'Disable'}</button>` : ''}</td>
-        </tr>`).join('') + '</tbody></table>';
-      userList.querySelectorAll('[data-disable]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const disable = btn.textContent.trim() === 'Disable';
-          if (!window.confirm((disable ? 'Disable' : 'Enable') + ' account ' + btn.getAttribute('data-name') + '?')) return;
-          try {
-            await api('users/' + btn.getAttribute('data-disable') + '/disable', {
-              method: 'POST', body: { disabled: disable }
-            });
-            await loadUsers();
-          } catch (err) { toast(err.message, 'error'); }
-        });
-      });
+      drawAdminUsers();
     } catch (err) {
       userList.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
     }
@@ -1553,7 +1567,10 @@ async function renderObserver(view) {
       entries.map(ev => `<tr><td class="mono">${escapeHtml(ev.ts)}</td><td>${escapeHtml(ev.actor)}</td><td>${escapeHtml(ev.action)}</td><td>${ev.electionId || '—'}</td><td>${escapeHtml(ev.detail || '')}</td></tr>`).join('') +
       '</tbody></table>';
   } catch (err) {
-    toast(err.message, 'error');
+    const electionBox = document.getElementById('observer-elections');
+    const auditBox = document.getElementById('observer-audit');
+    if (electionBox && electionBox.querySelector('.empty')) electionBox.innerHTML = `<div class="error-state" role="alert">Could not load elections. ${escapeHtml(err.message)}</div>`;
+    if (auditBox && auditBox.querySelector('.empty')) auditBox.innerHTML = `<div class="error-state" role="alert">Could not load the audit trail. ${escapeHtml(err.message)}</div>`;
   }
 }
 
