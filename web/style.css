@@ -2067,6 +2067,22 @@ input,select,textarea { max-width:100%; }
   text-decoration:none;
 }
 .topnav .nav-links a:focus-visible { outline:2px solid #14FFEC;outline-offset:3px; }
+.hero .hero-actions .hero-discover-link {
+  border:1px solid #78CDD7;
+  background:rgba(255,255,255,.08);
+  color:#FFFFFA;
+  box-shadow:0 2px 7px rgba(8,126,139,.2);
+  text-shadow:none;
+}
+.hero .hero-actions .hero-discover-link:hover,
+.hero .hero-actions .hero-discover-link:focus-visible {
+  border-color:#14FFEC;
+  background:rgba(20,255,236,.1);
+  color:#14FFEC !important;
+  box-shadow:0 8px 18px rgba(20,255,236,.2);
+  text-shadow:none;
+}
+.hero .hero-actions .hero-discover-link:active { background:rgba(20,255,236,.16); }
 @media(max-width:760px) {
   .topnav .nav-links a { min-height:42px;padding:8px 10px;font-size:.88rem; }
 }
@@ -2075,6 +2091,75 @@ input,select,textarea { max-width:100%; }
 }
 @media(prefers-reduced-motion:reduce) {
   .topnav .nav-links a,.topnav .nav-links a:hover { transform:none;transition:none; }
+}
+
+/* One shared button system for every navbar action, across signed-in states. */
+.topnav .nav-links a,
+.topnav .nav-user .nav-signin,
+.topnav .nav-user .nav-start,
+.topnav .nav-user .nav-profile-action,
+.topnav .nav-user #btn-logout {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:44px;
+  padding:8px 12px;
+  border:1px solid #78CDD7;
+  border-radius:9px;
+  background:rgba(255,255,255,.08);
+  color:#FFFFFA;
+  font-size:.92rem;
+  font-weight:700;
+  line-height:1.2;
+  text-decoration:none;
+  text-shadow:none;
+  box-shadow:0 2px 7px rgba(8,126,139,.2);
+  transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease,color .18s ease;
+}
+.topnav .nav-links a:hover,
+.topnav .nav-links a[aria-current="page"],
+.topnav .nav-user .nav-signin:hover,
+.topnav .nav-user .nav-start:hover,
+.topnav .nav-user .nav-profile-action:hover,
+.topnav .nav-user #btn-logout:hover {
+  transform:translateY(-2px);
+  border-color:#14FFEC;
+  background:rgba(20,255,236,.1);
+  color:#14FFEC !important;
+  box-shadow:0 8px 18px rgba(20,255,236,.2);
+  text-decoration:none;
+  text-shadow:none;
+}
+.topnav .nav-links a:focus-visible,
+.topnav .nav-user .nav-signin:focus-visible,
+.topnav .nav-user .nav-start:focus-visible,
+.topnav .nav-user .nav-profile-action:focus-visible,
+.topnav .nav-user #btn-logout:focus-visible {
+  outline:2px solid #14FFEC;
+  outline-offset:3px;
+}
+.topnav .nav-user #btn-logout { cursor:pointer; }
+@media(max-width:760px) {
+  .topnav .nav-links a,
+  .topnav .nav-user .nav-signin,
+  .topnav .nav-user .nav-start,
+  .topnav .nav-user .nav-profile-action,
+  .topnav .nav-user #btn-logout { min-height:42px;padding:8px 10px;font-size:.88rem; }
+}
+@media(max-width:390px) {
+  .topnav .nav-links a,
+  .topnav .nav-user .nav-signin,
+  .topnav .nav-user .nav-start,
+  .topnav .nav-user .nav-profile-action,
+  .topnav .nav-user #btn-logout { min-height:40px;padding:7px 9px;font-size:.83rem; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .topnav .nav-links a,.topnav .nav-user .nav-signin,.topnav .nav-user .nav-start,
+  .topnav .nav-user .nav-profile-action,.topnav .nav-user #btn-logout,
+  .topnav .nav-links a:hover,.topnav .nav-user .nav-signin:hover,
+  .topnav .nav-user .nav-start:hover,.topnav .nav-user .nav-profile-action:hover,
+  .topnav .nav-user #btn-logout:hover { transform:none;transition:none; }
 }
 
 /* OpenVote Stage 1 interfaces */

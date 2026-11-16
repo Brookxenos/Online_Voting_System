@@ -1255,3 +1255,25 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review remains unavailable in this environment.
 - **Next exact task:** Confirm the two hero buttons remain well spaced at mobile widths.
+
+### 2026-11-16 --- Codex --- Match homepage Discover button colors
+
+- **Status:** Homepage visitor action buttons now share the navigation’s light text, cyan border, teal surface, and hover colors.
+- **Summary:** Applied the same color treatment used by Home, Results, and About to the homepage Discover Elections and About actions without changing their layout or routes.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; focused color styling change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Verify hero CTA contrast and button states in a browser.
+
+### 2026-11-16 --- Codex --- Unify navbar button styling
+
+- **Status:** Navbar links and account actions share one button style.
+- **Summary:** Unified dimensions, border, background, typography, hover, focus, responsive sizing, and reduced-motion behavior across public navigation and authenticated controls.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; CSS-only styling change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Review navbar wrapping and visual alignment across roles on desktop and mobile.
