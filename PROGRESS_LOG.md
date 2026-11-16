@@ -1277,3 +1277,24 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review remains unavailable in this environment.
 - **Next exact task:** Review navbar wrapping and visual alignment across roles on desktop and mobile.
+
+### 2026-11-16 --- Codex --- Keep active Discover button on shared nav colors
+
+- **Status:** The current-page navigation item no longer switches to a different color treatment.
+- **Summary:** Kept the active Discover Elections item on the same border, background, and text colors as the other navbar buttons; cyan treatment remains for hover and keyboard focus.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; CSS-only state styling change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Verify the active Discover Elections state in the browser.
+
+### 2026-11-16 --- Codex --- Remove Discover Elections from navbar
+
+- **Status:** Navbar no longer includes a Discover Elections link; the homepage action remains available.
+- **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; navigation list change only.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review remains unavailable in this environment.
+- **Next exact task:** Verify the remaining navbar layout at desktop and mobile widths.

@@ -166,7 +166,7 @@ const app = document.getElementById('app');
 
 function navHtml() {
   const u = state.user;
-  const links = [['#/', 'Home'], ['#/elections', 'Discover Elections'], ['#/results', 'Results'], ['#/about', 'About']];
+  const links = [['#/', 'Home'], ['#/results', 'Results'], ['#/about', 'About']];
   if (u && u.role === 'voter') links.splice(1, 0, ['#/dashboard', 'Dashboard']);
   if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.splice(1, 0, ['#/admin', 'Administration']);
   if (u && u.role === 'observer') links.splice(1, 0, ['#/observer', 'Observer view']);
