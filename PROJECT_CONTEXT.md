@@ -344,7 +344,7 @@ security property merely because code was added.
 
 ## 14. Decision log
 
-Confirmed by project owner: - ElectraVote as the product name. -
+Confirmed by project owner: - OpenVote as the product name (2026-11-16). -
 General-purpose voting platform. - Retain C++17 backend and
 HTML/CSS/vanilla JavaScript frontend. - Improve
 existing project incrementally. - Aim for inclusive, neutral,

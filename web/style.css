@@ -2060,6 +2060,7 @@ input,select,textarea { max-width:100%; }
 .dashboard-welcome p { margin:0;color:#FFFFFA; }
 .dashboard-welcome .section-kicker { margin:0 0 8px;color:var(--brand-flash); }
 .dashboard-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 26px; }
+#admin-statistics { grid-template-columns:repeat(5,minmax(0,1fr)); }
 .stat-card { display:flex;flex-direction:column;gap:8px;min-width:0;padding:16px;border:1px solid var(--border);border-radius:12px;background:#FFFFFA; }
 .stat-card span { color:var(--text-muted);font-size:.82rem; }
 .stat-card strong { color:var(--brand-teal);font-size:1.8rem;line-height:1; }
@@ -2097,9 +2098,14 @@ input,select,textarea { max-width:100%; }
 .about-page>h1 { max-width:18ch;color:var(--brand-ink);font-size:clamp(2rem,4vw,3rem);letter-spacing:-.045em; }
 .about-page>.muted { max-width:70ch;line-height:1.7; }
 .about-page .feature-grid { margin:26px 0; }
+.admin-election-controls,.admin-user-controls { display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0; }
+.admin-election-controls label,.admin-user-controls label { display:flex;flex-direction:column;gap:7px;color:var(--text);font-size:.83rem;font-weight:650; }
+.admin-election-controls input,.admin-election-controls select,.admin-user-controls input,.admin-user-controls select { min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#FFFFFA;color:var(--text); }
+.admin-election-controls input:focus,.admin-election-controls select:focus,.admin-user-controls input:focus,.admin-user-controls select:focus { border-color:var(--brand-teal);box-shadow:0 0 0 3px var(--primary-soft); }
 @media(max-width:760px) {
   .dashboard-welcome { align-items:flex-start;flex-direction:column; }
   .dashboard-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #admin-statistics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .dashboard-election { align-items:flex-start;flex-direction:column; }
   .results-discovery .election-row { align-items:flex-start;flex-direction:column; }
 }

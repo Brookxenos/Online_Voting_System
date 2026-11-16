@@ -789,6 +789,7 @@ async function renderElectionDetail(view) {
           method: 'POST',
           body: { candidateId: state.selectedCandidate }
         });
+        state.selectedCandidate = null;
         const receipt = typeof r.receipt === 'string' && r.receipt ? `<div class="receipt-box"><span class="meta-label">Submission reference</span><code>${escapeHtml(r.receipt)}</code></div>` : '';
         view.innerHTML = `
           <section class="card narrow center">
@@ -833,7 +834,7 @@ async function renderResultsIndex(view) {
   } catch (err) {
     const box = document.getElementById('results-election-list');
     if (!box || state.view !== 'resultsIndex') return;
-    box.innerHTML = `<div class="empty-state"><h2>Results discovery requires sign in</h2><p>${escapeHtml(err.message)}</p>${err.status === 401 ? '<p>The current API allows public access to published results when an election ID is known, but does not provide a public results index.</p><a class="btn btn-primary" href="#/login">Log in to browse available results</a>' : '<button class="btn btn-secondary" id="retry-results-index">Try again</button>'}</div>`;
+    box.innerHTML = `<div class="${err.status === 401 ? 'empty-state' : 'error-state'}"><h2>${err.status === 401 ? 'Results discovery requires sign in' : 'Could not load results'}</h2><p>${escapeHtml(err.message)}</p>${err.status === 401 ? '<p>The current API allows public access to published results when an election ID is known, but does not provide a public results index.</p><a class="btn btn-primary" href="#/login">Log in to browse available results</a>' : '<button class="btn btn-secondary" id="retry-results-index">Try again</button>'}</div>`;
     const retry = document.getElementById('retry-results-index');
     if (retry) retry.addEventListener('click', () => renderResultsIndex(view));
   }
