@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ElectraVote — Frontend Application
+   OpenVote — Frontend Application
    Vanilla JS, no dependencies. Talks to the C++ backend's JSON API.
    Authentication is a HttpOnly session cookie set by the server; the
    frontend never stores passwords and never decides permissions itself —
@@ -35,6 +35,7 @@ async function api(path, opts) {
   const init = {
     method: opts.method || 'GET',
     headers: {},
+    credentials: 'same-origin',
   };
   if (opts.body !== undefined) {
     init.body = JSON.stringify(opts.body);
@@ -44,6 +45,11 @@ async function api(path, opts) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* non-JSON (e.g. CSV) */ }
   if (!res.ok) {
+    if (res.status === 401 && state.user && !path.startsWith('auth/login') && !path.startsWith('auth/register')) {
+      state.user = null;
+      toast('Your session has ended. Please log in again.', 'error');
+      go('#/login');
+    }
     const msg = (data && data.error) || ('HTTP ' + res.status);
     const err = new Error(msg);
     err.status = res.status;
@@ -91,15 +97,37 @@ function roleLabel(role) {
   return map[role] || role;
 }
 
+function dashboardPath(user) {
+  if (user && (user.role === 'platform_admin' || user.role === 'org_admin')) return '#/admin';
+  if (user && user.role === 'observer') return '#/observer';
+  return '#/dashboard';
+}
+
+function bindPasswordToggles(form) {
+  form.querySelectorAll('[data-password-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.getAttribute('aria-controls'));
+      const reveal = input.type === 'password';
+      input.type = reveal ? 'text' : 'password';
+      button.textContent = reveal ? 'Hide' : 'Show';
+      button.setAttribute('aria-pressed', String(reveal));
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Router (hash-based)
 // ---------------------------------------------------------------------------
 
 const routes = [
   { name: 'home',       pattern: /^#?\/?$/ },
+  { name: 'about',      pattern: /^#\/about$/ },
   { name: 'login',      pattern: /^#\/login$/ },
   { name: 'register',   pattern: /^#\/register$/ },
+  { name: 'dashboard',  pattern: /^#\/dashboard$/ },
   { name: 'elections',  pattern: /^#\/elections$/ },
+  { name: 'resultsIndex', pattern: /^#\/results$/ },
+  { name: 'candidate',  pattern: /^#\/candidate\/(\d+)\/(\d+)$/, params: ['electionId', 'candidateId'] },
   { name: 'election',   pattern: /^#\/election\/(\d+)$/, params: ['id'] },
   { name: 'results',    pattern: /^#\/results\/(\d+)$/, params: ['id'] },
   { name: 'admin',      pattern: /^#\/admin$/ },
@@ -138,28 +166,28 @@ const app = document.getElementById('app');
 
 function navHtml() {
   const u = state.user;
-  const homeNav = state.view === 'home';
-  const links = [];
-  if (u && !homeNav && (u.role === 'org_admin' || u.role === 'platform_admin')) links.push(['#/admin', 'Administration']);
-  if (u && !homeNav && u.role === 'observer') links.push(['#/observer', 'Observer view']);
+  const links = [['#/', 'Home'], ['#/elections', 'Discover Elections'], ['#/results', 'Results'], ['#/about', 'About OpenVote']];
+  if (u && u.role === 'voter') links.splice(1, 0, ['#/dashboard', 'Dashboard']);
+  if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.splice(1, 0, ['#/admin', 'Administration']);
+  if (u && u.role === 'observer') links.splice(1, 0, ['#/observer', 'Observer view']);
   let html = '<nav class="topnav" aria-label="Main navigation">';
-  html += '<a class="brand" href="#/" aria-label="ElectraVote home"><img class="brand-image" src="/assets/electravote-logo-light.png" alt="ElectraVote"></a>';
-  if (links.length) html += '<div class="nav-links">';
+  html += '<a class="brand" href="#/" aria-label="OpenVote home"><span class="brand-mark" aria-hidden="true">O</span><span class="brand-wordmark">OpenVote</span></a>';
+  html += '<div class="nav-links">';
   for (const [href, label] of links) {
-    const route = href.slice(1).split('/')[1] || 'home';
+    const route = href === '#/' ? 'home' : href.slice(2).split('/')[0];
     const active = state.view === route ||
-      (route === 'admin' && state.view === 'adminElection') ||
-      (route === 'elections' && state.view === 'election');
+      (route === 'admin' && (state.view === 'adminElection' || state.view === 'admin')) ||
+      (route === 'elections' && (state.view === 'election' || state.view === 'candidate')) ||
+      (route === 'results' && (state.view === 'results' || state.view === 'resultsIndex'));
     html += `<a href="${href}"${active ? ' aria-current="page"' : ''}><span>${label}</span></a>`;
   }
-  if (links.length) html += '</div>';
+  html += '</div>';
   html += '<div class="nav-user">';
-  if (u && !homeNav) {
-    html += '<a class="btn nav-home" href="#/" aria-label="Back to home"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m2.5 9 7.5-6 7.5 6M4.5 8v9h4v-5h3v5h4V8"/></svg><span>Home</span></a>';
+  if (u) {
     html += `<a class="btn nav-profile-action" href="#/settings" aria-label="Profile: ${escapeHtml(u.displayName)}"${state.view === 'settings' ? ' aria-current="page"' : ''}><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.2" r="3.1"/><path d="M3.8 17a6.2 6.2 0 0 1 12.4 0"/></svg><span>Profile</span></a>`;
     html += '<button class="btn btn-link nav-profile-action" id="btn-logout"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4M7 10h8"/></svg><span>Log out</span></button>';
   } else {
-    html += '<a class="btn btn-link nav-signin" href="#/login">Sign in</a>';
+    html += '<a class="btn btn-link nav-signin" href="#/login">Log in</a>';
     html += `<a class="btn btn-primary nav-start" href="#/register">Get started ${arrowIcon()}</a>`;
   }
   html += '</div></nav>';
@@ -171,19 +199,32 @@ function render() {
   const logout = document.getElementById('btn-logout');
   if (logout) {
     logout.addEventListener('click', async () => {
-      try { await api('auth/logout', { method: 'POST' }); } catch (e) { /* ignore */ }
-      state.user = null;
-      toast('You have been logged out.');
-      go('#/');
-      render();
+      if (logout.disabled) return;
+      logout.disabled = true;
+      logout.setAttribute('aria-busy','true');
+      try {
+        await api('auth/logout', { method: 'POST' });
+        state.user = null;
+        toast('You have been logged out.');
+        go('#/');
+        render();
+      } catch (err) {
+        toast('Could not log out. Please try again.', 'error');
+        logout.disabled = false;
+        logout.removeAttribute('aria-busy');
+      }
     });
   }
   const view = document.getElementById('view');
   const renderers = {
     home: renderHome,
+    about: renderAbout,
     login: renderLogin,
     register: renderRegister,
+    dashboard: renderDashboard,
     elections: renderElections,
+    resultsIndex: renderResultsIndex,
+    candidate: renderCandidateProfile,
     election: renderElectionDetail,
     results: renderResults,
     admin: renderAdmin,
@@ -202,6 +243,80 @@ function renderNotFound(view) {
       <p class="muted">The page you requested does not exist.</p>
       <a class="btn btn-primary" href="#/">Back to home</a>
     </section>`;
+}
+
+function renderAbout(view) {
+  view.innerHTML = `
+    <section class="card about-page">
+      <p class="section-kicker">OpenVote</p>
+      <h1>Every Voice Matters. Every Vote Counts.</h1>
+      <p class="muted">OpenVote helps communities and organizations share election information, participate in available ballots, and review published outcomes.</p>
+      <div class="feature-grid">
+        <article class="feature-card"><h2>Explore</h2><p>Review elections and the information available to you.</p></article>
+        <article class="feature-card"><h2>Participate</h2><p>Eligible voters can submit a ballot while an election is open.</p></article>
+        <article class="feature-card"><h2>Review</h2><p>Published results are available through the results page.</p></article>
+      </div>
+      <div class="btn-row"><a class="btn btn-primary" href="#/elections">Discover Elections</a><a class="btn btn-secondary" href="#/register">Get Started</a></div>
+    </section>`;
+}
+
+function electionPhase(e, now) {
+  if (e.status === 'draft') return 'upcoming';
+  if (e.status === 'closed' || e.status === 'published' || e.status === 'archived') return 'completed';
+  const start = e.startAt ? Date.parse(e.startAt) : NaN;
+  const end = e.endAt ? Date.parse(e.endAt) : NaN;
+  if (Number.isFinite(start) && start > now) return 'upcoming';
+  if (Number.isFinite(end) && end < now) return 'completed';
+  return e.status === 'open' ? 'active' : 'upcoming';
+}
+
+function electionWhen(e) {
+  const start = e.startAt ? Date.parse(e.startAt) : NaN;
+  const end = e.endAt ? Date.parse(e.endAt) : NaN;
+  const showDate = value => Number.isFinite(value)
+    ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  if (showDate(end)) return `Closes ${showDate(end)}`;
+  if (showDate(start)) return `Opens ${showDate(start)}`;
+  return e.status === 'open' ? 'Open now' : fmtStatus(e.status);
+}
+
+function renderDashboard(view) {
+  if (!state.user) { go('#/login'); return; }
+  if (state.user.role === 'platform_admin' || state.user.role === 'org_admin') { go('#/admin'); return; }
+  if (state.user.role === 'observer') { go('#/observer'); return; }
+  view.innerHTML = `
+    <section class="card voter-dashboard">
+      <header class="dashboard-welcome"><div><p class="section-kicker">Voter dashboard</p><h1>Welcome back, ${escapeHtml(state.user.displayName || state.user.username)}!</h1><p class="muted">Stay informed, explore elections, and make your voice count.</p></div><a class="btn btn-primary" href="#/elections">Explore elections</a></header>
+      <div class="dashboard-stats" id="voter-stats" aria-label="Election summary"><div class="stat-card"><span>Available Elections</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div><div class="stat-card"><span>Upcoming Elections</span><strong>—</strong></div><div class="stat-card"><span>Completed Elections</span><strong>—</strong></div></div>
+      <div id="voter-dashboard-content" class="dashboard-content" aria-live="polite"><div class="loading-state">Loading your elections…</div></div>
+    </section>`;
+  api('elections').then(data => {
+    if (state.view !== 'dashboard') return;
+    const list = data.elections || [];
+    const now = Date.now();
+    const phases = list.map(e => ({ e, phase: electionPhase(e, now) }));
+    const available = phases.filter(({e, phase}) => e.eligible === true && !e.hasVoted && phase !== 'completed').length;
+    const voted = list.filter(e => e.hasVoted === true).length;
+    const upcoming = phases.filter(x => x.phase === 'upcoming').length;
+    const completed = phases.filter(x => x.phase === 'completed').length;
+    document.getElementById('voter-stats').innerHTML = [
+      ['Available Elections', available], ['Votes Cast', voted], ['Upcoming Elections', upcoming], ['Completed Elections', completed]
+    ].map(([label, value]) => `<div class="stat-card"><span>${label}</span><strong>${value}</strong></div>`).join('');
+    const activeItems = phases.filter(x => x.phase === 'active');
+    const upcomingItems = phases.filter(x => x.phase === 'upcoming');
+    const activityItems = list.filter(e => e.hasVoted === true);
+    const section = (title, items, empty, actionFor) => `<section class="dashboard-section"><h2>${title}</h2>${items.length ? `<div class="dashboard-election-list">${items.map(({e}) => `<article class="dashboard-election"><div><h3>${escapeHtml(e.name)}</h3><p>${escapeHtml(e.description || '')}</p><span class="muted small">${escapeHtml(electionWhen(e))}</span>${e.eligible === false && !e.hasVoted ? '<span class="muted small">Not on the voter list</span>' : ''}</div><a class="btn btn-secondary" href="#/election/${e.id}">${actionFor(e)}</a></article>`).join('')}</div>` : `<p class="empty">${empty}</p>`}</section>`;
+    document.getElementById('voter-dashboard-content').innerHTML =
+      section('Active Elections', activeItems.filter(({e}) => !e.hasVoted), 'No active elections are available for participation right now.', e => e.eligible ? 'View Election' : 'View Details') +
+      section('Upcoming Elections', upcomingItems, 'There are no upcoming elections available to you.', () => 'View Details') +
+      section('My Voting Activity', activityItems.map(e => ({e})), 'Your participation history will appear here after you vote.', () => 'View Details');
+  }).catch(err => {
+    if (state.view !== 'dashboard') return;
+    const box = document.getElementById('voter-dashboard-content');
+    if (box) box.innerHTML = `<div class="error-state" role="alert">Could not load your elections. ${escapeHtml(err.message)} <button class="btn btn-secondary" id="retry-voter-dashboard">Try again</button></div>`;
+    const retry = document.getElementById('retry-voter-dashboard');
+    if (retry) retry.addEventListener('click', () => renderDashboard(view));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -232,18 +347,18 @@ async function renderHome(view) {
         <h1>Every Voice Matters.<br><em>Every Vote Counts.</em></h1>
         <p class="subtitle">Experience a clearer way to participate in democracy. Explore elections, understand your options, and make your voice count in your community.</p>
         <div class="hero-actions">
-          ${!u ? `<a class="btn btn-outline btn-lg hero-discover-link" href="#how-it-works">Discover how it works ${arrowIcon()}</a>` : `<a class="btn btn-primary btn-lg" href="#/elections">Explore your elections ${arrowIcon()}</a>`}
+          ${!u ? `<a class="btn btn-outline btn-lg hero-discover-link" href="#/about">About OpenVote ${arrowIcon()}</a>` : `<a class="btn btn-primary btn-lg" href="#/dashboard">Open your dashboard ${arrowIcon()}</a>`}
         </div>
         <p class="hero-note"><span aria-hidden="true">✓</span> Built for transparency. Designed for participation.</p>
       </div>
       <div class="hero-art" aria-label="Illustration of a verified digital ballot" role="img">
         <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-        <div class="ballot-card"><div class="ballot-top"><img class="ballot-logo" src="/assets/electravote-logo.png" alt="ElectraVote"><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span>${arrowIcon()}</div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
+        <div class="ballot-card"><div class="ballot-top"><strong class="ballot-logo-text">OpenVote</strong><span class="ballot-live"><i></i> BALLOT PREVIEW</span></div><div class="ballot-rule"></div><span class="ballot-eyebrow">COMMUNITY ELECTION</span><strong class="ballot-title">Your voice<br>shapes tomorrow.</strong><div class="ballot-option"><span class="option-ring"></span><span><b>Option one</b><small>Your choice matters</small></span></div><div class="ballot-option chosen"><span class="option-ring">✓</span><span><b>Option two</b><small>Selected by you</small></span><span class="selected-tag">SELECTED</span></div><div class="ballot-submit"><span>Submit your ballot</span>${arrowIcon()}</div><div class="ballot-foot"><span>● Sample election interface</span><span>1 of 1</span></div></div>
         <div class="float-chip chip-verified"><span>✓</span><div><b>Vote verified</b><small>Confirmation received</small></div></div><div class="float-chip chip-participate"><span class="chip-bars">▥</span><div><b>Every voice counts</b><small>Participation made simple</small></div></div>
         <span class="art-spark spark-a">✳</span><span class="art-spark spark-b">+</span>
       </div>
     </header>
-    <section class="trust-strip" aria-label="ElectraVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
+    <section class="trust-strip" aria-label="OpenVote principles"><span>SECURE BY DESIGN</span><i></i><span>TRANSPARENT PROCESS</span><i></i><span>OPEN TO EVERY VOICE</span></section>
     <section class="feature-section" id="how-it-works"><div class="section-heading"><span class="section-kicker">A better way to decide</span><h2>Democracy, made <em>accessible.</em></h2><p>Everything your organization needs to bring people into the decisions that matter.</p></div><div class="feature-grid">
       <article class="feature-card"><span class="feature-icon icon-lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></span><h3>Secure voting</h3><p>Clear eligibility and a confirmation step help protect the integrity of each ballot.</p></article>
       <article class="feature-card"><span class="feature-icon icon-eye" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span><h3>Transparent results</h3><p>Published outcomes and election records make the process easier to understand.</p></article>
@@ -251,7 +366,7 @@ async function renderHome(view) {
     </div></section>
     ${electionsHtml}
     <section class="closing-cta"><div><span class="section-kicker">Your community. Your choice.</span><h2>Make your voice part of the decision.</h2></div><a class="btn btn-primary" href="${u ? '#/elections' : '#/register'}">${u ? 'View elections' : 'Create your account'} ${arrowIcon()}</a></section>
-    <footer class="site-footer"><a class="footer-brand" href="#/" aria-label="ElectraVote home"><img class="footer-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote"></a><span>Secure. Transparent. Democratic.</span><span>For community and organizational elections.</span></footer>`;
+    <footer class="site-footer"><a class="footer-brand" href="#/" aria-label="OpenVote home">OpenVote</a><span>Every Voice Matters. Every Vote Counts.</span><span>For community and organizational elections.</span></footer>`;
   if (u) {
     try {
       const data = await api('elections');
@@ -268,8 +383,8 @@ async function renderHome(view) {
 }
 
 function electionRowHtml(e, user) {
-  const badgeClass = { open: 'success', draft: 'muted-badge', closed: 'warn',
-                       published: 'info', archived: 'muted-badge' }[e.status] || 'muted-badge';
+  const phase = electionPhase(e,Date.now());
+  const badgeClass = { active: 'success', upcoming: 'warn', completed: 'info' }[phase] || 'muted-badge';
   let voterInfo = '';
   if (user && user.role === 'voter') {
     if (e.hasVoted) voterInfo = '<span class="pill pill-info">You have voted</span>';
@@ -283,10 +398,11 @@ function electionRowHtml(e, user) {
     <div class="election-row">
       <div class="election-row-main">
         <a href="${link}" class="election-title">${escapeHtml(e.name)}</a>
-        <div class="muted small">Organization #${e.orgId} · created ${escapeHtml((e.createdAt || '').slice(0, 10))}</div>
+        <div class="muted small">${escapeHtml(e.description || '')}</div>
+        <div class="muted small">${escapeHtml(electionWhen(e))}</div>
       </div>
       <div class="election-row-side">
-        <span class="pill pill-${badgeClass}">${fmtStatus(e.status)}</span>
+        <span class="pill pill-${badgeClass}">${phase[0].toUpperCase() + phase.slice(1)}</span>
         ${voterInfo}
         <a class="btn btn-link" href="#/results/${e.id}">Results</a>
       </div>
@@ -308,13 +424,13 @@ function renderLogin(view) {
     <section class="login-layout" aria-labelledby="login-title">
       <aside class="login-aside">
         <img class="login-photo" src="/assets/vote-teal-studio-backdrop.png" alt="A voter holding a sign that says Vote against a teal studio backdrop">
-        <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
+        <span class="login-eyebrow">OPENVOTE · PARTICIPANT ACCESS</span>
         <div class="login-aside-copy">
           <h2>Your voice matters.</h2>
         </div>
       </aside>
       <div class="login-panel">
-        <img class="login-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote">
+        <div class="login-brand-wordmark">OpenVote</div>
         <header class="login-heading">
           <span class="login-kicker">ACCOUNT ACCESS</span>
           <h1 id="login-title">Sign in</h1>
@@ -325,15 +441,16 @@ function renderLogin(view) {
             <input id="login-username" type="text" name="username" autocomplete="username" placeholder="Enter your username" required>
           </label>
           <label for="login-password">Password
-            <input id="login-password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+            <span class="password-input-wrap"><input id="login-password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="login-password" aria-pressed="false">Show</button></span>
           </label>
           <div class="error-box" id="login-error" role="alert" aria-live="polite" hidden></div>
           <button type="submit" class="btn btn-primary login-submit">Sign in</button>
-          <p class="login-register-prompt">New to ElectraVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
+          <p class="login-register-prompt">New to OpenVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
         </form>
       </div>
     </section>`;
   const form = document.getElementById('form-login');
+  bindPasswordToggles(form);
   const submitButton = form.querySelector('button[type="submit"]');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -351,7 +468,7 @@ function renderLogin(view) {
       });
       state.user = r.user;
       toast('Welcome, ' + r.user.displayName + '!');
-      go('#/elections');
+      go(dashboardPath(r.user));
     } catch (err) {
       errBox.textContent = err.message;
       errBox.hidden = false;
@@ -367,7 +484,7 @@ function renderRegister(view) {
     <section class="login-layout registration-layout" aria-labelledby="register-title">
       <aside class="login-aside">
         <img class="login-photo" src="/assets/vote-teal-studio-backdrop.png" alt="">
-        <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
+        <span class="login-eyebrow">OPENVOTE · PARTICIPANT ACCESS</span>
         <div class="login-aside-copy"><h2>Your voice matters.</h2></div>
       </aside>
       <div class="login-panel">
@@ -384,10 +501,10 @@ function renderRegister(view) {
             <input id="register-display-name" type="text" name="displayName" maxlength="100" autocomplete="name" placeholder="How your name will appear">
           </label>
           <label for="register-password"><span class="register-label-row"><span>Password</span><span class="register-field-hint">At least 8 characters</span></span>
-            <input id="register-password" type="password" name="password" minlength="8" autocomplete="new-password" placeholder="Create a password" required>
+            <span class="password-input-wrap"><input id="register-password" type="password" name="password" minlength="8" autocomplete="new-password" placeholder="Create a password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="register-password" aria-pressed="false">Show</button></span>
           </label>
           <label for="register-confirm-password">Confirm password
-            <input id="register-confirm-password" type="password" name="confirmPassword" minlength="8" autocomplete="new-password" placeholder="Enter your password again" required>
+            <span class="password-input-wrap"><input id="register-confirm-password" type="password" name="confirmPassword" minlength="8" autocomplete="new-password" placeholder="Enter your password again" required><button class="password-toggle" type="button" data-password-toggle aria-controls="register-confirm-password" aria-pressed="false">Show</button></span>
           </label>
           <div class="error-box" id="reg-error" role="alert" aria-live="polite" hidden></div>
           <button type="submit" class="btn btn-primary login-submit">Create account</button>
@@ -396,6 +513,8 @@ function renderRegister(view) {
       </div>
     </section>`;
   const form = document.getElementById('form-register');
+  bindPasswordToggles(form);
+  const submitButton = form.querySelector('button[type="submit"]');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(form);
@@ -412,6 +531,9 @@ function renderRegister(view) {
       return;
     }
     confirmInput.removeAttribute('aria-invalid');
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy','true');
+    submitButton.textContent = 'Creating account…';
     try {
       await api('auth/register', {
         method: 'POST',
@@ -426,6 +548,9 @@ function renderRegister(view) {
     } catch (err) {
       errBox.textContent = err.message;
       errBox.hidden = false;
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.textContent = 'Create account';
     }
   });
 }
@@ -435,30 +560,67 @@ function renderRegister(view) {
 // ---------------------------------------------------------------------------
 
 async function renderElections(view) {
-  if (!state.user) { go('#/login'); return; }
   view.innerHTML = `
-    <section class="card">
+    <section class="card discovery-page">
       <header class="page-head-inline">
-        <h2>My elections</h2>
+        <div><p class="section-kicker">OpenVote</p><h1>Discover Elections</h1></div>
       </header>
-      <p class="muted">Elections you can view. Only elections that are
-      <strong>open</strong> accept ballots, and results appear only after they
-      are published by the administrators.</p>
-      <div id="election-list" class="election-list"><div class="empty">Loading…</div></div>
+      <p class="muted">Explore elections available to your account. Published results are shown when the election permits public access.</p>
+      <div id="discovery-controls" class="discovery-controls" hidden>
+        <label>Search elections<input type="search" id="election-search" placeholder="Search title or description"></label>
+        <label>Status<select id="election-status"><option value="all">All statuses</option><option value="upcoming">Upcoming</option><option value="active">Active</option><option value="completed">Completed</option></select></label>
+        <label>From date<input id="election-from" type="date"></label><label>To date<input id="election-to" type="date"></label>
+        <label>Sort by<select id="election-sort"><option value="start-asc">Soonest first</option><option value="start-desc">Latest first</option><option value="title">Title</option></select></label>
+      </div>
+      <div id="election-list" class="election-list"><div class="loading-state">Loading elections…</div></div>
     </section>`;
   try {
     const data = await api('elections');
     const box = document.getElementById('election-list');
-    const list = data.elections || [];
-    if (list.length === 0) {
-      box.innerHTML = '<div class="empty">No elections are available for your account yet. You will see an election here once an organization adds you to its voter list.</div>';
+    const list = (data.elections || []).slice();
+    if (state.view !== 'elections') return;
+    if (state.user && ['platform_admin','org_admin'].includes(state.user.role)) { go('#/admin'); return; }
+    if (state.user && state.user.role === 'observer') { go('#/observer'); return; }
+    if (!state.user) {
+      box.innerHTML = `<div class="empty-state"><h2>Sign in to see elections available to you</h2><p>Election visibility depends on your eligibility and organization settings. Sign in to view elections your account can access.</p><a class="btn btn-primary" href="#/login">Log in</a></div>`;
       return;
     }
-    box.innerHTML = list.map(e => electionRowHtml(e, state.user)).join('');
-    bindElectionRows(box);
+    if (list.length === 0) {
+      box.innerHTML = '<div class="empty-state"><h2>No elections are available yet</h2><p>Elections available to your account will appear here.</p></div>';
+      return;
+    }
+    const controls = ['election-search','election-status','election-from','election-to','election-sort'].map(id => document.getElementById(id));
+    document.getElementById('discovery-controls').hidden = false;
+    let visibleCount = 8;
+    const draw = () => {
+      const [search,status,from,to,sort] = controls;
+      const query = search.value.trim().toLocaleLowerCase();
+      const filtered = list.filter(e => {
+        const date = Date.parse(e.startAt || e.createdAt || '');
+        return (!query || `${e.name} ${e.description || ''}`.toLocaleLowerCase().includes(query)) &&
+          (status.value === 'all' || electionPhase(e,Date.now()) === status.value) &&
+          (!from.value || (Number.isFinite(date) && date >= Date.parse(from.value))) &&
+          (!to.value || (Number.isFinite(date) && date <= Date.parse(to.value + 'T23:59:59')));
+      });
+      filtered.sort((a,b) => sort.value === 'title' ? a.name.localeCompare(b.name) :
+        ((Date.parse(a.startAt || '') || 0) - (Date.parse(b.startAt || '') || 0)) * (sort.value === 'start-desc' ? -1 : 1));
+      const shown = filtered.slice(0,visibleCount);
+      box.innerHTML = !filtered.length ? '<div class="empty-state"><h2>No matching elections</h2><p>Try changing your search or filters.</p><button class="btn btn-secondary" id="clear-election-filters">Clear filters</button></div>' :
+        `${shown.map(e => electionRowHtml(e,state.user)).join('')}${filtered.length > shown.length ? '<button class="btn btn-secondary" id="load-more-elections">Load more</button>' : ''}`;
+      bindElectionRows(box);
+      const more = document.getElementById('load-more-elections');
+      if (more) more.addEventListener('click', () => { visibleCount += 8; draw(); });
+      const clear = document.getElementById('clear-election-filters');
+      if (clear) clear.addEventListener('click', () => { controls.forEach(el => el.value = el.id === 'election-status' ? 'all' : el.id === 'election-sort' ? 'start-asc' : ''); draw(); });
+    };
+    controls.forEach(control => control.addEventListener('input',draw));
+    draw();
   } catch (err) {
-    document.getElementById('election-list').innerHTML =
-      `<div class="empty">Failed to load: ${escapeHtml(err.message)}</div>`;
+    const box = document.getElementById('election-list');
+    if (!box || state.view !== 'elections') return;
+    box.innerHTML = `<div class="error-state" role="alert"><h2>Could not load elections</h2><p>${escapeHtml(err.message)}</p>${err.status === 401 ? '<p>Public discovery is not available from the current API.</p><a class="btn btn-primary" href="#/login">Log in</a>' : '<button class="btn btn-secondary" id="retry-election-list">Try again</button>'}</div>`;
+    const retry = document.getElementById('retry-election-list');
+    if (retry) retry.addEventListener('click', () => renderElections(view));
   }
 }
 
@@ -467,7 +629,6 @@ async function renderElections(view) {
 // ---------------------------------------------------------------------------
 
 async function renderElectionDetail(view) {
-  if (!state.user) { go('#/login'); return; }
   view.innerHTML = '<section class="card"><div class="empty">Loading…</div></section>';
   let e;
   try {
@@ -475,32 +636,39 @@ async function renderElectionDetail(view) {
   } catch (err) {
     view.innerHTML = `<section class="card"><h2>Election unavailable</h2>
       <p class="muted">${escapeHtml(err.message)}</p>
-      <a class="btn btn-secondary" href="#/elections">← Back to elections</a></section>`;
+      ${err.status === 401 ? '<p>Sign in to see election details available to your account.</p><a class="btn btn-primary" href="#/login">Log in</a>' : ''}
+      <a class="btn btn-secondary" href="#/elections">Back to elections</a></section>`;
     return;
   }
   state.election = e;
-  const isVoter = state.user.role === 'voter';
-  const canVoteNow = isVoter && e.status === 'open' && e.eligible && !e.hasVoted;
+  const isVoter = !!state.user && state.user.role === 'voter';
+  const phase = electionPhase(e,Date.now());
+  const canVoteNow = isVoter && phase === 'active' && e.eligible && !e.hasVoted;
 
-  const statusPill = `<span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>`;
+  const statusPill = `<span class="pill pill-${{active:'success',upcoming:'warn',completed:'info'}[phase]}">${phase[0].toUpperCase() + phase.slice(1)}</span>`;
 
   let ballotHtml = '';
   if (isVoter) {
     if (e.hasVoted) {
       ballotHtml = `<div class="banner banner-info">✓ You have already voted in this election. Your ballot has been recorded and can no longer be changed.</div>`;
-    } else if (e.status === 'open' && !e.eligible) {
+    } else if (phase === 'active' && !e.eligible) {
       ballotHtml = `<div class="banner banner-warn">You are not on the voter list for this election.</div>`;
-    } else if (e.status === 'open' && e.eligible) {
+    } else if (phase === 'active' && e.eligible) {
       ballotHtml = `
         <h3>Cast your vote</h3>
         <p class="muted">Select one option. No option is preselected. You will be asked to confirm before your ballot is recorded.</p>
         <div class="candidate-grid" id="ballot-grid" role="radiogroup" aria-label="Ballot options"></div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="btn-cast" disabled>Cast vote</button>
+          <button class="btn btn-primary" id="btn-cast" disabled>Review selection</button>
         </div>
-        <div class="error-box" id="vote-error" hidden></div>`;
-    } else if (e.status === 'draft') {
-      ballotHtml = `<div class="banner banner-muted">This election is being prepared and is not accepting ballots yet.</div>`;
+        <section class="vote-review" id="vote-review" aria-labelledby="vote-review-title" hidden>
+          <h3 id="vote-review-title">Review your selection</h3><p>You are about to submit this ballot. Once submitted, your participation cannot be withdrawn or changed.</p>
+          <p class="vote-review-choice"><span class="meta-label">Selected candidate</span><strong id="vote-review-candidate"></strong></p>
+          <div class="btn-row"><button class="btn btn-primary" id="btn-confirm-vote">Confirm and submit vote</button><button class="btn btn-secondary" id="btn-back-vote">Go back</button></div>
+          <div class="error-box" id="vote-error" role="alert" aria-live="polite" hidden></div>
+        </section>`;
+    } else if (phase === 'upcoming') {
+      ballotHtml = `<div class="banner banner-muted">Voting opens soon. ${e.startAt ? 'Scheduled to open ' + escapeHtml(e.startAt) + '.' : 'This election is being prepared and is not accepting ballots yet.'}</div>`;
     } else {
       ballotHtml = `<div class="banner banner-muted">Voting has ended for this election.</div>`;
     }
@@ -510,11 +678,11 @@ async function renderElectionDetail(view) {
   const candList = cands.length === 0
     ? '<div class="empty">No ballot options have been published yet.</div>'
     : cands.map(c => `
-      <div class="candidate-card" data-cid="${c.id}" role="radio" aria-checked="false" tabindex="0">
+      <article class="candidate-entry"><div class="candidate-card" data-cid="${c.id}" ${canVoteNow ? 'role="radio" aria-checked="false" tabindex="0"' : ''}>
         <div class="candidate-name">${escapeHtml(c.name)}</div>
         ${c.party ? `<div class="candidate-party">${escapeHtml(c.party)}</div>` : ''}
         ${c.description ? `<div class="candidate-desc">${escapeHtml(c.description)}</div>` : ''}
-      </div>`).join('');
+      </div><a class="candidate-profile-link" href="#/candidate/${e.id}/${c.id}">Candidate information</a></article>`).join('');
 
   view.innerHTML = `
     <section class="card">
@@ -526,8 +694,7 @@ async function renderElectionDetail(view) {
       <div class="meta-grid">
         <div><span class="meta-label">Voting window</span>
           ${e.startAt || e.endAt ? `${escapeHtml(e.startAt || 'now')} → ${escapeHtml(e.endAt || 'no end')}` : 'Not restricted'}</div>
-        <div><span class="meta-label">Participation</span>
-          ${e.participationCount >= 0 ? e.participationCount + ' ballots so far' : 'Not public while voting is active'}</div>
+        <div><span class="meta-label">Voting schedule</span>${escapeHtml(electionWhen(e))}</div>
         <div><span class="meta-label">Results</span>
           ${e.status === 'published' || e.status === 'archived' ? '<a href="#/results/' + e.id + '">Published results ' + arrowIcon() + '</a>' : 'Available after publication'}</div>
       </div>
@@ -559,40 +726,54 @@ async function renderElectionDetail(view) {
         if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); select(card); }
       });
     });
-    castBtn.addEventListener('click', async () => {
+    grid.querySelectorAll('.candidate-profile-link').forEach(link => {
+      link.addEventListener('click', ev => ev.stopPropagation());
+      link.addEventListener('keydown', ev => ev.stopPropagation());
+    });
+    castBtn.addEventListener('click', () => {
       if (!state.selectedCandidate) return;
       const choiceName = grid.querySelector('.candidate-card.selected .candidate-name').textContent;
-      if (!window.confirm('Confirm your vote for “' + choiceName + '”?\n\nThis cannot be undone and cannot be changed afterwards.')) {
-        return;
-      }
-      castBtn.disabled = true;
+      document.getElementById('vote-review-candidate').textContent = choiceName;
+      document.getElementById('vote-review').hidden = false;
+      castBtn.hidden = true;
+      document.getElementById('btn-confirm-vote').focus();
+    });
+    document.getElementById('btn-back-vote').addEventListener('click', () => {
+      document.getElementById('vote-review').hidden = true;
+      castBtn.hidden = false;
+      castBtn.focus();
+    });
+    const confirmButton = document.getElementById('btn-confirm-vote');
+    confirmButton.addEventListener('click', async () => {
+      if (!state.selectedCandidate || confirmButton.disabled) return;
+      const errBox = document.getElementById('vote-error');
+      errBox.hidden = true;
+      confirmButton.disabled = true;
+      confirmButton.setAttribute('aria-busy','true');
+      confirmButton.textContent = 'Submitting…';
       try {
         const r = await api('elections/' + e.id + '/vote', {
           method: 'POST',
           body: { candidateId: state.selectedCandidate }
         });
+        const receipt = typeof r.receipt === 'string' && r.receipt ? `<div class="receipt-box"><span class="meta-label">Submission reference</span><code>${escapeHtml(r.receipt)}</code></div>` : '';
         view.innerHTML = `
           <section class="card narrow center">
-            <div class="big-icon">✅</div>
-            <h2>Your vote has been recorded</h2>
-            <p>Thank you for participating. Your ballot is anonymous to the
-            application: no record links your account to your choice.</p>
-            <div class="receipt-box">
-              <span class="meta-label">Receipt code</span>
-              <code id="receipt-code">${escapeHtml(r.receipt)}</code>
-            </div>
-            <p class="muted small">Save this receipt code. It confirms your ballot
-            was accepted but does not reveal your choice.</p>
+            <div class="big-icon" aria-hidden="true">✓</div>
+            <h2>Your Participation Has Been Recorded.</h2>
+            <p>${escapeHtml(e.name)} · Confirmation received from OpenVote.</p>
+            ${receipt}
             <div class="btn-row center">
-              <a class="btn btn-secondary" href="#/elections">Back to elections</a>
-              <a class="btn btn-link" href="#/results/${e.id}">Results</a>
+              <a class="btn btn-primary" href="#/dashboard">Return to Dashboard</a>
+              <a class="btn btn-secondary" href="#/elections">Discover Elections</a>
             </div>
           </section>`;
       } catch (err) {
-        const errBox = document.getElementById('vote-error');
         errBox.textContent = err.message;
         errBox.hidden = false;
-        castBtn.disabled = false;
+        confirmButton.disabled = false;
+        confirmButton.removeAttribute('aria-busy');
+        confirmButton.textContent = 'Confirm and submit vote';
       }
     });
   }
@@ -601,6 +782,42 @@ async function renderElectionDetail(view) {
 // ---------------------------------------------------------------------------
 // Views: results
 // ---------------------------------------------------------------------------
+
+async function renderResultsIndex(view) {
+  view.innerHTML = `<section class="card results-discovery"><p class="section-kicker">OpenVote</p><h1>Published Results</h1><p class="muted">Browse published outcomes for elections visible to your account.</p><label class="results-search-label">Search published results<input id="results-search" type="search" placeholder="Search by election title"></label><div id="results-election-list" class="election-list"><div class="loading-state">Loading published results…</div></div></section>`;
+  try {
+    const data = await api('elections');
+    if (state.view !== 'resultsIndex') return;
+    const published = (data.elections || []).filter(e => e.status === 'published' || e.status === 'archived');
+    const box = document.getElementById('results-election-list');
+    const draw = () => {
+      const q = document.getElementById('results-search').value.trim().toLocaleLowerCase();
+      const matches = published.filter(e => e.name.toLocaleLowerCase().includes(q));
+      box.innerHTML = matches.length ? matches.map(e => `<article class="election-row"><div><h2>${escapeHtml(e.name)}</h2><p class="muted">${escapeHtml(e.description || '')}</p><span class="pill pill-info">${fmtStatus(e.status)}</span></div><a class="btn btn-primary" href="#/results/${e.id}">View Results</a></article>`).join('') : '<div class="empty-state"><h2>No matching results</h2><p>Try another election title.</p></div>';
+    };
+    document.getElementById('results-search').addEventListener('input',draw);
+    draw();
+  } catch (err) {
+    const box = document.getElementById('results-election-list');
+    if (!box || state.view !== 'resultsIndex') return;
+    box.innerHTML = `<div class="empty-state"><h2>Results discovery requires sign in</h2><p>${escapeHtml(err.message)}</p>${err.status === 401 ? '<p>The current API allows public access to published results when an election ID is known, but does not provide a public results index.</p><a class="btn btn-primary" href="#/login">Log in to browse available results</a>' : '<button class="btn btn-secondary" id="retry-results-index">Try again</button>'}</div>`;
+    const retry = document.getElementById('retry-results-index');
+    if (retry) retry.addEventListener('click', () => renderResultsIndex(view));
+  }
+}
+
+async function renderCandidateProfile(view) {
+  const { electionId, candidateId } = state.params;
+  view.innerHTML = '<section class="card"><div class="loading-state">Loading candidate information…</div></section>';
+  try {
+    const election = await api('elections/' + electionId);
+    const candidate = (election.candidates || []).find(c => String(c.id) === String(candidateId));
+    if (!candidate) throw new Error('Candidate information is unavailable for this election.');
+    view.innerHTML = `<section class="card candidate-profile-page"><a class="btn btn-link" href="#/election/${election.id}">Back to ${escapeHtml(election.name)}</a><p class="section-kicker">Candidate information</p><h1>${escapeHtml(candidate.name)}</h1>${candidate.party ? `<p class="candidate-affiliation">${escapeHtml(candidate.party)}</p>` : ''}<section class="candidate-bio"><h2>About</h2><p>${escapeHtml(candidate.description || 'Additional profile information is not available.')}</p></section><p class="muted small">Candidate information is provided as returned by the election.</p></section>`;
+  } catch (err) {
+    view.innerHTML = `<section class="card"><h1>Candidate information unavailable</h1><p class="muted">${escapeHtml(err.message)}</p>${err.status === 401 ? '<a class="btn btn-primary" href="#/login">Log in to view this election</a>' : `<a class="btn btn-secondary" href="#/election/${escapeHtml(electionId)}">Back to election</a>`}</section>`;
+  }
+}
 
 async function renderResults(view) {
   view.innerHTML = '<section class="card"><div class="empty">Loading…</div></section>';
@@ -619,8 +836,9 @@ async function renderResults(view) {
       </section>`;
     return;
   }
-  const total = r.results.reduce((s, c) => s + c.votes, 0);
-  const rows = r.results.map(c => {
+  const results = Array.isArray(r.results) ? r.results : [];
+  const total = results.reduce((s, c) => s + Number(c.votes || 0), 0);
+  const rows = results.map(c => {
     const pct = total > 0 ? (c.votes * 100.0 / total) : 0;
     return `
       <tr>
@@ -636,12 +854,13 @@ async function renderResults(view) {
     <section class="card">
       <header class="page-head-inline">
         <h2>Results — ${escapeHtml(r.electionName)}</h2>
-        <span class="pill pill-${r.published ? 'info' : 'warn'}">${r.published ? 'Published' : 'Live (configured)'}</span>
+        <span class="pill pill-${r.published ? 'info' : 'warn'}">${r.published ? 'Published' : 'Not published'}</span>
       </header>
       <div class="meta-grid">
-        <div><span class="meta-label">Total ballots</span>${r.totalBallots}</div>
+        <div><span class="meta-label">Valid votes</span>${total}</div>
+        <div><span class="meta-label">Candidates</span>${results.length}</div>
         <div><span class="meta-label">Participants</span>${r.totalParticipations}</div>
-        <div><span class="meta-label">Integrity check</span>${r.integrityOk ? '✓ ballots match participants' : '⚠ mismatch detected'}</div>
+        <div><span class="meta-label">Results status</span>${r.integrityOk ? 'Integrity check passed' : 'Integrity check needs review'}</div>
       </div>
       <div class="table-wrap">
         <table>
@@ -651,7 +870,7 @@ async function renderResults(view) {
       </div>
       <div class="btn-row">
         <a class="btn btn-secondary" href="/api/elections/${r.electionId}/results.csv">Download CSV report</a>
-        <a class="btn btn-link" href="#/elections">← Back</a>
+        <a class="btn btn-link" href="#/results">All results</a>
       </div>
     </section>`;
 }
@@ -665,8 +884,9 @@ async function renderAdmin(view) {
     go('#/elections'); return;
   }
   view.innerHTML = `
-    <section class="card">
-      <header class="page-head-inline"><h2>Administration</h2></header>
+    <section class="card admin-dashboard">
+      <header class="page-head-inline"><div><p class="section-kicker">OpenVote</p><h1>Administration</h1></div></header>
+      <div class="dashboard-stats" id="admin-statistics" aria-label="Administration summary"><div class="stat-card"><span>Total Elections</span><strong>—</strong></div><div class="stat-card"><span>Active Elections</span><strong>—</strong></div><div class="stat-card"><span>Total Candidates</span><strong>—</strong></div><div class="stat-card"><span>Registered Voters</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div></div>
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="elections" role="tab">Elections</button>
         ${state.user.role === 'platform_admin' ? '<button class="tab" data-tab="orgs" role="tab">Organizations</button>' : ''}
@@ -702,7 +922,8 @@ async function renderAdmin(view) {
           </div>
           <div class="error-box" id="ne-error" hidden></div>
         </form>
-        <div id="admin-election-list" class="election-list"><div class="empty">Loading…</div></div>
+        <div class="admin-election-controls"><label>Search elections<input id="admin-election-search" type="search" placeholder="Search title or description"></label><label>Status<select id="admin-election-status"><option value="all">All statuses</option><option value="draft">Draft</option><option value="open">Open</option><option value="closed">Closed</option><option value="published">Published</option><option value="archived">Archived</option></select></label></div>
+        <div id="admin-election-list" class="election-list"><div class="loading-state">Loading elections…</div></div>
       </div>
       ${state.user.role === 'platform_admin' ? `
       <div id="tab-orgs" class="tab-panel">
@@ -779,24 +1000,42 @@ async function renderAdmin(view) {
 
   // ---- elections list ----
   const listEl = document.getElementById('admin-election-list');
+  let adminElectionRecords = [];
+  let adminUsers = [];
+  const drawAdminElections = () => {
+    const q = document.getElementById('admin-election-search').value.trim().toLocaleLowerCase();
+    const status = document.getElementById('admin-election-status').value;
+    const filtered = adminElectionRecords.filter(e => (!q || `${e.name} ${e.description || ''}`.toLocaleLowerCase().includes(q)) && (status === 'all' || e.status === status));
+    listEl.innerHTML = filtered.length ? filtered.map(e => `
+      <div class="election-row">
+        <div class="election-row-main"><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><div class="muted small">${escapeHtml(e.description || '')}</div><div class="muted small">${escapeHtml(e.startAt || 'No start date')} — ${escapeHtml(e.endAt || 'No end date')}</div></div>
+        <div class="election-row-side"><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${fmtStatus(e.status)}</span><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></div>
+      </div>`).join('') : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
+  };
+  document.getElementById('admin-election-search').addEventListener('input',drawAdminElections);
+  document.getElementById('admin-election-status').addEventListener('change',drawAdminElections);
+  async function updateAdminStats() {
+    const container = document.getElementById('admin-statistics');
+    const detailPairs = await Promise.all(adminElectionRecords.map(async e => {
+      try {
+        const [detail,candidates] = await Promise.all([api('elections/' + e.id),api('elections/' + e.id + '/candidates')]);
+        return {votes: detail.participationCount, candidates: (candidates.candidates || []).length};
+      } catch (_) { return null; }
+    }));
+    const complete = detailPairs.every(Boolean);
+    const candidateCount = complete ? detailPairs.reduce((sum,x) => sum + x.candidates,0) : null;
+    const voteCount = complete ? detailPairs.reduce((sum,x) => sum + (Number(x.votes) >= 0 ? Number(x.votes) : 0),0) : null;
+    const values = [adminElectionRecords.length, adminElectionRecords.filter(e => electionPhase(e,Date.now()) === 'active').length,candidateCount,adminUsers.length ? adminUsers.filter(u => u.role === 'voter' && !u.disabled).length : null,voteCount];
+    const labels = ['Total Elections','Active Elections','Total Candidates','Registered Voters','Votes Cast'];
+    container.innerHTML = labels.map((label,i) => `<div class="stat-card"><span>${label}</span><strong>${values[i] === null ? '—' : values[i]}</strong></div>`).join('');
+  }
   async function loadElections() {
     try {
       const data = await api('elections');
-      const list = (data.elections || []).filter(e =>
+      adminElectionRecords = (data.elections || []).filter(e =>
         state.user.role === 'platform_admin' || e.orgId === state.user.orgId);
-      listEl.innerHTML = list.length === 0
-        ? '<div class="empty">No elections yet. Create one to get started.</div>'
-        : list.map(e => `
-          <div class="election-row">
-            <div class="election-row-main">
-              <a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a>
-              <div class="muted small">Organization #${e.orgId}</div>
-            </div>
-            <div class="election-row-side">
-              <span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>
-              <a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a>
-            </div>
-          </div>`).join('');
+      drawAdminElections();
+      await updateAdminStats();
     } catch (err) {
       listEl.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
     }
@@ -900,6 +1139,8 @@ async function renderAdmin(view) {
     try {
       const data = await api('users');
       const users = data.users || [];
+      adminUsers = users;
+      await updateAdminStats();
       userList.innerHTML = users.length === 0 ? '<div class="empty">No users.</div>' :
         `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th></th></tr></thead><tbody>` +
         users.map(u => `<tr>
@@ -1267,7 +1508,7 @@ function renderSettings(view) {
     <section class="card settings-card settings-page">
       <header class="settings-hero">
         <div class="settings-identity">
-          <img src="/assets/electravote-logo.png" alt="ElectraVote" class="settings-logo">
+          <span class="settings-wordmark">OpenVote</span>
           <div><span class="settings-eyebrow">YOUR ACCOUNT</span><h2>Account settings</h2><p>Manage your profile and account security.</p></div>
         </div>
         <a class="btn settings-action settings-back" href="#/elections"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10H4.5M9 5l-5 5 5 5"/></svg><span>Back to elections</span></a>
