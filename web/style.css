@@ -2232,13 +2232,33 @@ input,select,textarea { max-width:100%; }
 .about-page>h1 { max-width:18ch;color:var(--brand-ink);font-size:clamp(2rem,4vw,3rem);letter-spacing:-.045em; }
 .about-page>.muted { max-width:70ch;line-height:1.7; }
 .about-page .feature-grid { margin:26px 0; }
-.how-it-works-steps { display:grid;gap:14px;margin:28px 0;padding:0;list-style:none; }
-.how-it-works-steps li { display:grid;grid-template-columns:40px minmax(0,1fr);gap:15px;padding:18px;border:1px solid #e3ebe8;border-radius:14px;background:#fff; }
-.how-step-number { display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#eaf5f3;color:var(--brand-teal);font-weight:800; }
-.how-it-works-steps h2,.how-help h2 { margin:2px 0 6px;color:var(--brand-ink);font-size:1.05rem; }
-.how-it-works-steps p,.how-help p { margin:0;color:#687573;line-height:1.65; }
-.how-it-works-steps a,.how-help a { color:var(--brand-teal);font-weight:700; }
-.how-help { padding:20px;border-radius:14px;background:#eaf5f3; }
+.how-it-works-page { max-width:880px;padding:clamp(22px,5vw,48px); }
+.how-it-works-page>.section-kicker { display:inline-flex;margin-bottom:8px;padding:6px 10px;border:1px solid #cfe5e0;border-radius:999px;background:#f1f8f6;color:#0d5c63;letter-spacing:.07em; }
+.how-it-works-page>h1 { max-width:unset;margin:4px 0 10px;font-size:clamp(2.15rem,5vw,3.2rem);line-height:1.08; }
+.how-it-works-page>.muted { max-width:62ch;font-size:1.03rem; }
+.how-it-works-steps { display:grid;gap:12px;margin:30px 0;padding:0;list-style:none;counter-reset:guide-step; }
+.how-it-works-steps li { position:relative;display:grid;grid-template-columns:42px minmax(0,1fr);gap:16px;padding:19px;border:1px solid #dce9e6;border-radius:13px;background:linear-gradient(110deg,#f8fbfa 0%,#fff 48%);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease; }
+.how-it-works-steps li:hover { transform:translateX(3px);border-color:#8fc6bd;background:#fff;box-shadow:0 8px 22px rgba(13,92,99,.09); }
+.how-step-number { display:grid;place-items:center;width:38px;height:38px;border:1px solid #c7e1dc;border-radius:12px;background:#eaf5f3;color:#0d5c63;font-size:.95rem;font-weight:800;transition:background .18s ease,color .18s ease,border-color .18s ease; }
+.how-it-works-steps li:hover .how-step-number { border-color:#0d5c63;background:#0d5c63;color:#fff; }
+.how-it-works-steps h2,.how-help h2 { margin:2px 0 6px;color:var(--brand-ink);font-size:1.08rem;line-height:1.35; }
+.how-it-works-steps p,.how-help p { margin:0;color:#586966;line-height:1.7; }
+.how-it-works-steps a,.how-help a { color:#0d6870;font-weight:700;text-decoration-thickness:1px;text-underline-offset:3px; }
+.how-it-works-steps a:hover,.how-help a:hover { color:#08464b;text-decoration-thickness:2px; }
+.how-it-works-page a:focus-visible { outline:3px solid #14a99c;outline-offset:3px;border-radius:3px; }
+.how-help { margin-top:24px;padding:21px 23px;border:1px solid #cfe5e0;border-left:4px solid #0d7377;border-radius:12px;background:#eff8f6;transition:background .18s ease,border-color .18s ease; }
+.how-help:hover { border-color:#8fc6bd;background:#e8f5f2; }
+@media(max-width:620px) {
+  .how-it-works-page { padding:22px 17px; }
+  .how-it-works-steps { gap:10px;margin:22px 0; }
+  .how-it-works-steps li { grid-template-columns:34px minmax(0,1fr);gap:12px;padding:15px 13px; }
+  .how-step-number { width:32px;height:32px;border-radius:10px;font-size:.85rem; }
+  .how-help { padding:17px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .how-it-works-steps li,.how-step-number,.how-help,
+  .how-it-works-steps li:hover { transition:none;transform:none; }
+}
 .admin-election-controls,.admin-user-controls { display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0; }
 .admin-election-controls label,.admin-user-controls label { display:flex;flex-direction:column;gap:7px;color:var(--text);font-size:.83rem;font-weight:650; }
 .admin-election-controls input,.admin-election-controls select,.admin-user-controls input,.admin-user-controls select { min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#FFFFFA;color:var(--text); }

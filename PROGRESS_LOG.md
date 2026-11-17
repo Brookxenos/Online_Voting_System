@@ -1342,3 +1342,14 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review not performed.
 - **Next exact task:** Open the guide in a browser and review its content, links, and mobile layout.
+
+### 2026-11-17 --- Codex --- Polish How it works guide styling
+
+- **Status:** Guide steps are easier to scan, with restrained hover feedback, stronger links, and improved narrow-screen spacing.
+- **Files changed:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Kept the existing ElectraVote teal palette; hover motion is subtle and disabled for reduced-motion preferences. Keyboard focus on guide links is visible.
+- **Commands run:** `git diff --check` (passed).
+- **Tests:** Not run; focused styling change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Review hover, focus, reduced-motion, and mobile rendering in a browser.
