@@ -141,11 +141,42 @@ json::Value electionJson(const Election& e) {
     o["description"] = e.description;
     o["status"] = e.status;
     o["resultsPublic"] = e.resultsPublic;
+    o["discoverable"] = e.discoverable;
     o["showLiveResults"] = e.showLiveResults;
     o["startAt"] = e.startAt;
     o["endAt"] = e.endAt;
     o["createdAt"] = e.createdAt;
+    o["publishedAt"] = e.publishedAt;
     return json::Value(o);
+}
+
+bool validDateFilter(const std::string& value) {
+    if (value.empty()) return true;
+    if (value.size() != 10 || value[4] != '-' || value[7] != '-') return false;
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (i != 4 && i != 7 && !std::isdigit((unsigned char)value[i])) return false;
+    }
+    int month = std::stoi(value.substr(5, 2));
+    int day = std::stoi(value.substr(8, 2));
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+bool parsePage(const HttpServer::Request& req, int& limit, int& offset) {
+    try {
+        const std::string rawLimit = req.param("limit");
+        const std::string rawOffset = req.param("offset");
+        limit = rawLimit.empty() ? 20 : std::stoi(rawLimit);
+        offset = rawOffset.empty() ? 0 : std::stoi(rawOffset);
+        return limit >= 1 && limit <= 100 && offset >= 0 && offset <= 1000000 &&
+               (rawLimit.empty() || std::to_string(limit) == rawLimit) &&
+               (rawOffset.empty() || std::to_string(offset) == rawOffset);
+    } catch (...) { return false; }
+}
+
+json::Array electionListJson(const std::vector<Election>& elections) {
+    json::Array arr;
+    for (const auto& e : elections) arr.push_back(electionJson(e));
+    return arr;
 }
 
 json::Value candidateJson(const Candidate& c) {
@@ -447,6 +478,68 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(root);
     });
 
+    // Anonymous discovery is opt-in per election. Existing elections remain
+    // hidden until an administrator enables discoverable while it is a draft.
+    server.addRoute("GET", "/api/public/elections", [&](const HttpServer::Request& req) {
+        int limit, offset;
+        if (!parsePage(req, limit, offset)) return fail(400, "Invalid limit or offset");
+        std::string status = req.param("status");
+        if (!status.empty() && status != "open" && status != "closed" &&
+            status != "published" && status != "archived") return fail(400, "Invalid election status");
+        std::string from = req.param("from"), to = req.param("to");
+        if (!validDateFilter(from) || !validDateFilter(to) || (!from.empty() && !to.empty() && from > to))
+            return fail(400, "Dates must use YYYY-MM-DD and form a valid range");
+        std::string sort = req.param("sort");
+        if (sort.empty()) sort = "start-asc";
+        if (sort != "start-asc" && sort != "start-desc" && sort != "title" && sort != "newest")
+            return fail(400, "Invalid sort order");
+        std::string q = req.param("q");
+        if (q.size() > 100) return fail(400, "Search query is too long");
+        ElectionPage page = store.listPublicElections(q, status, from, to, sort, limit, offset);
+        return ok({{"elections", json::Value(electionListJson(page.elections))},
+                   {"total", json::Value((double)page.total)},
+                   {"limit", json::Value((double)limit)},
+                   {"offset", json::Value((double)offset)}});
+    });
+
+    server.addRoute("GET", "/api/public/elections/:id", [&](const HttpServer::Request& req) {
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
+        auto e = store.getElection(id);
+        if (!e || !e->discoverable || e->status == "draft") return fail(404, "Election not found");
+        json::Object o = electionJson(*e).asObject();
+        json::Array candidates;
+        for (const auto& c : store.listCandidates(id)) candidates.push_back(candidateJson(c));
+        o["candidates"] = candidates;
+        return ok(o);
+    });
+
+    server.addRoute("GET", "/api/public/results", [&](const HttpServer::Request& req) {
+        int limit, offset;
+        if (!parsePage(req, limit, offset)) return fail(400, "Invalid limit or offset");
+        std::string from = req.param("from"), to = req.param("to");
+        if (!validDateFilter(from) || !validDateFilter(to) || (!from.empty() && !to.empty() && from > to))
+            return fail(400, "Dates must use YYYY-MM-DD and form a valid range");
+        std::string sort = req.param("sort");
+        if (sort.empty()) sort = "newest";
+        if (sort != "start-asc" && sort != "start-desc" && sort != "title" && sort != "newest")
+            return fail(400, "Invalid sort order");
+        std::string q = req.param("q");
+        if (q.size() > 100) return fail(400, "Search query is too long");
+        ElectionPage page = store.listPublicResults(q, from, to, sort, limit, offset);
+        json::Array arr;
+        for (const auto& e : page.elections) {
+            json::Object jo;
+            jo["id"] = (double)e.id;
+            jo["name"] = e.name;
+            jo["status"] = e.status;
+            jo["publishedAt"] = e.publishedAt;
+            arr.push_back(json::Value(jo));
+        }
+        return ok({{"elections", json::Value(arr)}, {"total", json::Value((double)page.total)},
+                   {"limit", json::Value((double)limit)}, {"offset", json::Value((double)offset)}});
+    });
+
     server.addRoute("POST", "/api/elections", [&](const HttpServer::Request& req) {
         auto user = currentUser(req, store);
         if (!user) return fail(401, "Not authenticated");
@@ -469,6 +562,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         e.orgId = orgId;
         e.name = name;
         e.description = description;
+        e.discoverable = body.has("discoverable") ? body.at("discoverable").asBool() : false;
         e.showLiveResults = body.has("showLiveResults") ? body.at("showLiveResults").asBool() : false;
         e.startAt = body.getString("startAt");
         e.endAt = body.getString("endAt");
@@ -530,6 +624,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             if (!validTextField(changes.name, 1, 200)) return fail(400, "Election name required");
         }
         if (body.has("description")) changes.description = body.getString("description");
+        if (body.has("discoverable")) changes.discoverable = body.at("discoverable").asBool();
         if (body.has("showLiveResults")) changes.showLiveResults = body.at("showLiveResults").asBool();
         if (body.has("startAt")) changes.startAt = body.getString("startAt");
         if (body.has("endAt")) changes.endAt = body.getString("endAt");

@@ -51,11 +51,18 @@ struct Election {
     std::string description;
     std::string status;
     bool resultsPublic = false;    // results readable without authentication once published
+    bool discoverable = false;     // public election listing/details opt-in
     bool showLiveResults = false;  // live totals visible while open (must be configured deliberately)
     std::string startAt;           // ISO 8601 UTC, empty = no restriction
     std::string endAt;             // ISO 8601 UTC, empty = no restriction
     long long createdBy = 0;
     std::string createdAt;
+    std::string publishedAt;
+};
+
+struct ElectionPage {
+    std::vector<Election> elections;
+    long long total = 0;
 };
 
 struct Candidate {

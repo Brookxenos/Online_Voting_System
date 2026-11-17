@@ -51,11 +51,13 @@ static Election electionFromRow(const Database::Row& r) {
     e.description = r.at("description");
     e.status = r.at("status");
     e.resultsPublic = r.at("results_public") == "1";
+    e.discoverable = r.count("discoverable") && r.at("discoverable") == "1";
     e.showLiveResults = r.at("show_live_results") == "1";
     e.startAt = r.at("start_at");
     e.endAt = r.at("end_at");
     e.createdBy = r.at("created_by").empty() ? 0 : std::stoll(r.at("created_by"));
     e.createdAt = r.at("created_at");
+    e.publishedAt = r.count("published_at") ? r.at("published_at") : "";
     return e;
 }
 
@@ -195,6 +197,16 @@ CREATE TABLE IF NOT EXISTS migration_markers (
     name TEXT PRIMARY KEY,
     applied_at TEXT NOT NULL
 );
+)SQL",
+    // 3 — opt-in public discovery and publication timestamp. Existing
+    // elections stay private because discoverable defaults to false.
+    R"SQL(
+ALTER TABLE elections ADD COLUMN discoverable INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE elections ADD COLUMN published_at TEXT;
+CREATE INDEX idx_elections_public_status ON elections(discoverable, status, start_at);
+CREATE INDEX idx_elections_published ON elections(results_public, status, published_at);
+UPDATE elections SET published_at=(SELECT MAX(created_at) FROM tally_runs WHERE tally_runs.election_id=elections.id)
+WHERE results_public=1 AND status IN ('published','archived');
 )SQL",
 };
 
@@ -345,11 +357,11 @@ void Store::revokeAllSessions(long long userId) {
 Store::CreateElectionResult Store::createElection(Election& e) {
     if (!getOrganization(e.orgId)) return CreateElectionResult::OrgNotFound;
     db_.exec(
-        "INSERT INTO elections(org_id,name,description,status,results_public,show_live_results,"
-        "start_at,end_at,created_by,created_at) VALUES(?,?,?,?,?,?,COALESCE(NULLIF(?,''),NULL),"
+        "INSERT INTO elections(org_id,name,description,status,results_public,discoverable,show_live_results,"
+        "start_at,end_at,created_by,created_at) VALUES(?,?,?,?,?,?,?,COALESCE(NULLIF(?,''),NULL),"
         "COALESCE(NULLIF(?,''),NULL),?,?)",
         {DbValue(e.orgId), e.name, e.description, "draft",
-         e.resultsPublic ? "1" : "0", e.showLiveResults ? "1" : "0",
+         e.resultsPublic ? "1" : "0", e.discoverable ? "1" : "0", e.showLiveResults ? "1" : "0",
          e.startAt, e.endAt,
          e.createdBy == 0 ? DbValue::null() : DbValue(e.createdBy), nowIso()});
     e.id = db_.lastInsertId();
@@ -371,6 +383,48 @@ std::vector<Election> Store::listElectionsForOrg(long long orgId) {
         out.push_back(electionFromRow(r));
     }
     return out;
+}
+
+static ElectionPage pageElections(Database& db, const std::string& baseWhere,
+                                  std::vector<DbValue> binds, const std::string& query,
+                                  const std::string& from, const std::string& to,
+                                  const std::string& sort, int limit, int offset) {
+    std::string where = baseWhere;
+    if (!query.empty()) { where += " AND instr(lower(e.name || ' ' || e.description),lower(?))>0"; binds.emplace_back(query); }
+    if (!from.empty()) { where += " AND substr(COALESCE(e.start_at,e.created_at),1,10)>=?"; binds.emplace_back(from); }
+    if (!to.empty()) { where += " AND substr(COALESCE(e.start_at,e.created_at),1,10)<=?"; binds.emplace_back(to); }
+    auto count = db.query("SELECT COUNT(*) AS n FROM elections e WHERE " + where, binds);
+    ElectionPage page;
+    if (!count.empty()) page.total = std::stoll(count[0].at("n"));
+
+    std::string order = "e.start_at ASC,e.id ASC";
+    if (sort == "start-desc") order = "e.start_at DESC,e.id DESC";
+    else if (sort == "title") order = "lower(e.name) ASC,e.id ASC";
+    else if (sort == "newest") order = "e.created_at DESC,e.id DESC";
+    binds.emplace_back((long long)limit);
+    binds.emplace_back((long long)offset);
+    for (const auto& r : db.query("SELECT e.* FROM elections e WHERE " + where +
+                                  " ORDER BY " + order + " LIMIT ? OFFSET ?", binds)) {
+        page.elections.push_back(electionFromRow(r));
+    }
+    return page;
+}
+
+ElectionPage Store::listPublicElections(const std::string& query, const std::string& status,
+                                       const std::string& from, const std::string& to,
+                                       const std::string& sort, int limit, int offset) {
+    std::string where = "e.discoverable=1 AND e.status IN ('open','closed','published','archived')";
+    if (!status.empty()) where += " AND e.status=?";
+    std::vector<DbValue> binds;
+    if (!status.empty()) binds.emplace_back(status);
+    return pageElections(db_, where, std::move(binds), query, from, to, sort, limit, offset);
+}
+
+ElectionPage Store::listPublicResults(const std::string& query, const std::string& from,
+                                      const std::string& to, const std::string& sort,
+                                      int limit, int offset) {
+    return pageElections(db_, "e.results_public=1 AND e.status IN ('published','archived')",
+                         {}, query, from, to, sort, limit, offset);
 }
 
 std::vector<Election> Store::listElectionsVisibleTo(const User& user) {
@@ -407,9 +461,9 @@ bool Store::updateElectionDraft(long long electionId, const Election& changes) {
     auto eOpt = getElection(electionId);
     if (!eOpt || eOpt->status != "draft") return false;
     db_.exec(
-        "UPDATE elections SET name=?, description=?, show_live_results=?, "
+        "UPDATE elections SET name=?, description=?, discoverable=?, show_live_results=?, "
         "start_at=?, end_at=? WHERE id=? AND status='draft'",
-        {changes.name, changes.description, changes.showLiveResults ? "1" : "0",
+        {changes.name, changes.description, changes.discoverable ? "1" : "0", changes.showLiveResults ? "1" : "0",
          changes.startAt, changes.endAt, std::to_string(electionId)});
     return true;
 }
@@ -455,8 +509,8 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
                      "tally integrity check failed; results not published");
             return false;
         }
-        db_.exec("UPDATE elections SET status='published', results_public=1 WHERE id=?",
-                 {std::to_string(electionId)});
+        db_.exec("UPDATE elections SET status='published', results_public=1, published_at=? WHERE id=?",
+                 {nowIso(), std::to_string(electionId)});
         addAudit(actor, "ELECTION_PUBLISHED", electionId, "tally id " + std::to_string(tally->id));
         return true;
     }

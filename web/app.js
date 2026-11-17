@@ -614,7 +614,7 @@ async function renderElections(view) {
       <header class="page-head-inline">
         <div><p class="section-kicker">ElectraVote</p><h1>Discover Elections</h1></div>
       </header>
-      <p class="muted">Explore elections available to your account. Published results are shown when the election permits public access.</p>
+      <p class="muted">${state.user ? 'Explore elections available to your account.' : 'Browse elections that organizers have chosen to list publicly. Sign in to see elections shared with your account.'}</p>
       <div id="discovery-controls" class="discovery-controls" hidden>
         <label>Search elections<input type="search" id="election-search" placeholder="Search title or description"></label>
         <label>Status<select id="election-status"><option value="all">All statuses</option><option value="upcoming">Upcoming</option><option value="active">Active</option><option value="completed">Completed</option></select></label>
@@ -624,18 +624,14 @@ async function renderElections(view) {
       <div id="election-list" class="election-list"><div class="loading-state">Loading elections…</div></div>
     </section>`;
   try {
-    const data = await api('elections');
+    const data = await api(state.user ? 'elections' : 'public/elections?limit=100');
     const box = document.getElementById('election-list');
     const list = (data.elections || []).slice();
     if (state.view !== 'elections') return;
     if (state.user && ['platform_admin','org_admin'].includes(state.user.role)) { go('#/admin'); return; }
     if (state.user && state.user.role === 'observer') { go('#/observer'); return; }
-    if (!state.user) {
-      box.innerHTML = `<div class="empty-state"><h2>Sign in to see elections available to you</h2><p>Election visibility depends on your eligibility and organization settings. Sign in to view elections your account can access.</p><a class="btn btn-primary" href="#/login">Log in</a></div>`;
-      return;
-    }
     if (list.length === 0) {
-      box.innerHTML = '<div class="empty-state"><h2>No elections are available yet</h2><p>Elections available to your account will appear here.</p></div>';
+      box.innerHTML = `<div class="empty-state"><h2>No elections are available yet</h2><p>${state.user ? 'Elections available to your account will appear here.' : 'Publicly listed elections will appear here. Sign in to see elections shared with your account.'}</p>${!state.user ? '<a class="btn btn-secondary" href="#/login">Log in</a>' : ''}</div>`;
       return;
     }
     const controls = ['election-search','election-status','election-from','election-to','election-sort'].map(id => document.getElementById(id));
@@ -681,7 +677,7 @@ async function renderElectionDetail(view) {
   view.innerHTML = '<section class="card"><div class="empty">Loading…</div></section>';
   let e;
   try {
-    e = await api('elections/' + state.params.id);
+    e = await api((state.user ? 'elections/' : 'public/elections/') + state.params.id);
   } catch (err) {
     view.innerHTML = `<section class="card"><h2>Election unavailable</h2>
       <p class="muted">${escapeHtml(err.message)}</p>
@@ -840,7 +836,7 @@ async function renderElectionDetail(view) {
 async function renderResultsIndex(view) {
   view.innerHTML = `<section class="card results-discovery"><p class="section-kicker">ElectraVote</p><h1>Published Results</h1><p class="muted">Browse published outcomes for elections visible to your account.</p><label class="results-search-label">Search published results<input id="results-search" type="search" placeholder="Search by election title"></label><div id="results-election-list" class="election-list"><div class="loading-state">Loading published results…</div></div></section>`;
   try {
-    const data = await api('elections');
+    const data = await api(state.user ? 'elections' : 'public/results?limit=100');
     if (state.view !== 'resultsIndex') return;
     const published = (data.elections || []).filter(e => e.status === 'published' || e.status === 'archived');
     const box = document.getElementById('results-election-list');
@@ -854,7 +850,7 @@ async function renderResultsIndex(view) {
   } catch (err) {
     const box = document.getElementById('results-election-list');
     if (!box || state.view !== 'resultsIndex') return;
-    box.innerHTML = `<div class="${err.status === 401 ? 'empty-state' : 'error-state'}"><h2>${err.status === 401 ? 'Results discovery requires sign in' : 'Could not load results'}</h2><p>${escapeHtml(err.message)}</p>${err.status === 401 ? '<p>The current API allows public access to published results when an election ID is known, but does not provide a public results index.</p><a class="btn btn-primary" href="#/login">Log in to browse available results</a>' : '<button class="btn btn-secondary" id="retry-results-index">Try again</button>'}</div>`;
+    box.innerHTML = `<div class="${err.status === 401 ? 'empty-state' : 'error-state'}"><h2>${err.status === 401 ? 'Results discovery requires sign in' : 'Could not load results'}</h2><p>${escapeHtml(err.message)}</p>${err.status === 401 ? '<a class="btn btn-primary" href="#/login">Log in to browse available results</a>' : '<button class="btn btn-secondary" id="retry-results-index">Try again</button>'}</div>`;
     const retry = document.getElementById('retry-results-index');
     if (retry) retry.addEventListener('click', () => renderResultsIndex(view));
   }
@@ -961,6 +957,10 @@ async function renderAdmin(view) {
           </label>
           <label>Description
             <textarea name="description" rows="2" maxlength="2000"></textarea>
+          </label>
+          <label class="check-label">
+            <input type="checkbox" name="discoverable">
+            List election publicly for visitors
           </label>
           <label class="check-label">
             <input type="checkbox" name="showLiveResults">
@@ -1123,6 +1123,7 @@ async function renderAdmin(view) {
     const body = {
       name: fd.get('name'),
       description: fd.get('description') || '',
+      discoverable: fd.get('discoverable') === 'on',
       showLiveResults: fd.get('showLiveResults') === 'on',
     };
     try { Object.assign(body, readSchedule(neForm)); }
@@ -1331,6 +1332,10 @@ async function renderAdminElection(view) {
           <label>Name<input type="text" name="name" value="${escapeHtml(e.name)}" maxlength="200" required></label>
           <label>Description<textarea name="description" rows="2" maxlength="2000">${escapeHtml(e.description || '')}</textarea></label>
           <label class="check-label">
+            <input type="checkbox" name="discoverable" ${e.discoverable ? 'checked' : ''}>
+            List election publicly for visitors
+          </label>
+          <label class="check-label">
             <input type="checkbox" name="showLiveResults" ${e.showLiveResults ? 'checked' : ''}>
             Show live vote totals while the election is open
           </label>
@@ -1429,6 +1434,7 @@ async function renderAdminElection(view) {
         body: {
           name: fd.get('name'),
           description: fd.get('description') || '',
+          discoverable: fd.get('discoverable') === 'on',
           showLiveResults: fd.get('showLiveResults') === 'on',
           ...schedule,
         }

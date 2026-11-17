@@ -64,6 +64,12 @@ public:
     //          plus elections where they hold eligibility or participation
     std::vector<Election> listElectionsVisibleTo(const User& user);
     std::vector<Election> listElectionsForOrg(long long orgId);
+    ElectionPage listPublicElections(const std::string& query, const std::string& status,
+                                    const std::string& from, const std::string& to,
+                                    const std::string& sort, int limit, int offset);
+    ElectionPage listPublicResults(const std::string& query, const std::string& from,
+                                   const std::string& to, const std::string& sort,
+                                   int limit, int offset);
     bool updateElectionDraft(long long electionId, const Election& changes); // draft-only edits
     // Enforced lifecycle transition. Returns false on invalid transition.
     // Running the tally when moving closed -> published.
