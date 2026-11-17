@@ -119,6 +119,36 @@ legacy CSV files in that directory may be imported once into a fresh database;
 the CSV files are left in place. Historical votes imported from the legacy
 format remain identity-linked and are not anonymous.
 
+Development deployment boundary
+-------------------------------
+
+The built-in HTTP server is a development server. It binds to 0.0.0.0 and
+does not provide TLS, trusted-proxy client-IP handling, durable rate limiting,
+or production-grade operational controls. Do not expose its port directly to
+the internet. A production architecture would need an independently reviewed
+HTTPS reverse proxy, with the application port restricted by a host/network
+firewall to that proxy. Set OV_SECURE_COOKIES=1 only when HTTPS is correctly
+terminated and the browser reaches the app over HTTPS.
+
+The application's failed-login throttling is in memory and resets on restart.
+It cannot coordinate across multiple server processes, and requests forwarded
+by a proxy appear to come from that proxy's IP. Add reviewed gateway-side
+throttling and do not treat the application's limiter as a deployment control.
+
+The SQLite database uses WAL mode. Stop the server before making a simple
+filesystem backup, preserve the database and any SQLite sidecar files together,
+and keep the backup access-restricted. Do not remove WAL/SHM files by hand.
+For live backups, use SQLite's supported backup API; the application does not
+currently provide a backup command. Test restoration against a separate data
+directory before relying on a backup.
+
+Audit events include account names and timestamps. Restrict access to the
+database and server logs, rotate and retain them under a written policy, and
+never collect passwords, session tokens, or ballot choices in operational
+logs. Independent security, privacy, accessibility, legal, and operational
+reviews are required before any real election use; this guide is not a
+production deployment procedure.
+
 If you are trying the application for the first time and want to keep its
 database separate from any existing project data, run it with a new data path:
 

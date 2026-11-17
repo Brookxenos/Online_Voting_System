@@ -64,12 +64,12 @@ identity-linked.
 
 ## Security and deployment limits
 
-The local server speaks plain HTTP. Production use would require a reviewed
-HTTPS deployment, secure cookie configuration, persistent rate limiting,
-backup/restore and retention procedures, operational monitoring, accessibility
-testing, and independent security/legal review. Do not use this demo for a
-legally binding election or claim anonymity, end-to-end verifiability, or
-certification.
+The local server speaks plain HTTP and binds to all interfaces. It is a
+development server, not a production deployment. [How to run](HOW_TO_RUN.txt)
+documents the current boundary and the requirements still needed for HTTPS,
+durable rate limiting, backups/restores, log handling, and independent review.
+Do not use this demo for a legally binding election or claim anonymity,
+end-to-end verifiability, or certification.
 
 ## License
 

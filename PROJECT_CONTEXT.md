@@ -77,9 +77,10 @@ older handover notes. The checked-out source and tests are authoritative.
    proposed production direction and has not been approved or implemented.
 4. Ballot/participation separation is educational only. Timing, process access,
    database access, logs, and backups can still correlate identity and choice.
-5. The API currently uses a single-choice tally. Tie handling and a distinct
-   result-finalization state are not specified; the API does not claim an
-   official winner.
+5. The API currently uses a single-choice tally. For the current nonbinding
+   demo, retain `closed -> published` after the internal tally-integrity check;
+   there is no independent reviewer approval or tally verification. Tie
+   handling is not specified and the API does not claim an official winner.
 6. Password recovery, email verification, notifications, independent tally
    verification, operational backup/restore procedures, and deployment
    hardening are incomplete.
