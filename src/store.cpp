@@ -355,47 +355,6 @@ AdminSummary Store::adminSummary(std::optional<long long> orgId) {
     return s;
 }
 
-std::string Store::participationAt(long long electionId, long long userId) {
-    auto rows = db_.query("SELECT voted_at FROM participation WHERE election_id=? AND user_id=?",
-                          {std::to_string(electionId), std::to_string(userId)});
-    return rows.empty() ? "" : rows[0].at("voted_at");
-}
-
-AdminSummary Store::adminSummary(std::optional<long long> orgId) {
-    const std::string electionFilter = orgId ? " WHERE org_id=?" : "";
-    const std::string joinFilter = orgId ? " AND e.org_id=?" : "";
-    std::vector<DbValue> binds;
-    if (orgId) {
-        for (int i = 0; i < 5; ++i) binds.emplace_back(*orgId);
-    }
-    std::string sql =
-        "SELECT "
-        "(SELECT COUNT(*) FROM elections" + electionFilter + ") AS elections,"
-        "(SELECT COUNT(*) FROM elections WHERE status='open'" + joinFilter + ") AS active_elections,"
-        "(SELECT COUNT(*) FROM elections WHERE status='draft'" + joinFilter + ") AS upcoming_elections,"
-        "(SELECT COUNT(*) FROM elections WHERE status IN ('published','archived')" + joinFilter + ") AS published_elections,"
-        "(SELECT COUNT(*) FROM candidates c JOIN elections e ON e.id=c.election_id WHERE 1=1" + joinFilter + ") AS candidates,"
-        "(SELECT COUNT(*) FROM users WHERE role='voter' AND disabled=0" + (orgId ? " AND org_id=?" : "") + ") AS active_voters,"
-        "(SELECT COUNT(*) FROM eligibility el JOIN elections e ON e.id=el.election_id WHERE 1=1" + joinFilter + ") AS eligible_voters,"
-        "(SELECT COUNT(*) FROM participation p JOIN elections e ON e.id=p.election_id WHERE 1=1" + joinFilter + ") AS participations";
-    // There are seven scoped subqueries (the first count uses its own WHERE).
-    if (orgId) binds.emplace_back(*orgId);
-    auto rows = db_.query(sql, binds);
-    AdminSummary s;
-    if (!rows.empty()) {
-        const auto& r = rows[0];
-        s.elections = std::stoll(r.at("elections"));
-        s.activeElections = std::stoll(r.at("active_elections"));
-        s.upcomingElections = std::stoll(r.at("upcoming_elections"));
-        s.publishedElections = std::stoll(r.at("published_elections"));
-        s.candidates = std::stoll(r.at("candidates"));
-        s.activeVoters = std::stoll(r.at("active_voters"));
-        s.eligibleVoters = std::stoll(r.at("eligible_voters"));
-        s.participations = std::stoll(r.at("participations"));
-    }
-    return s;
-}
-
 // ---------------------------------------------------------------------------
 // Sessions
 // ---------------------------------------------------------------------------

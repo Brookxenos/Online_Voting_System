@@ -12,13 +12,13 @@ until an existing endpoint returns the requested data.
 | Registration | `POST /api/auth/register` | `username`, optional `displayName`, `password`; assigns the first organization allowing self-registration. No email. |
 | Login/session/logout | `POST /api/auth/login`, `GET /api/me`, `POST /api/auth/logout` | Username/password and HttpOnly session cookie; user fields are id, username, display name, role, org id. |
 | Profile/password | `POST /api/me/profile`, `POST /api/auth/password` | Display name edit and password change. |
-| Elections | `GET /api/elections`, `GET /api/elections/:id`, `POST /api/elections`, `POST /api/elections/:id` | Authenticated, visibility-scoped list/details; detail contains candidate records and voter eligibility/participation state where relevant; election edits are draft-only. |
+| Elections | `GET /api/elections`, `GET /api/elections/:id`, `POST /api/elections`, `POST /api/elections/:id` | Authenticated, visibility-scoped list/details; detail contains candidate records and voter eligibility/participation state where relevant; election edits are draft-only. `discoverable` is an explicit draft setting, default false. |
 | Lifecycle | `POST /api/elections/:id/status` | Server-validated lifecycle transition. |
 | Candidates | `GET /api/elections/:id/candidates`, `POST /api/elections/:id/candidates`, `POST /api/elections/:id/candidates/remove` | Read/add/remove in draft. Fields: name, party, description, position. |
 | Eligibility | `GET /api/elections/:id/eligibility`, `POST /api/elections/:id/eligibility` | Authorized admins/observers read the list; admins grant/revoke. |
 | Ballot | `POST /api/elections/:id/vote` | Authenticated eligible voter sends `candidateId`; successful response returns a real receipt. |
-| Results | `GET /api/elections/:id/results`, `GET /api/elections/:id/results.csv` | Published results are public by known id. Unpublished results require an authorized admin/observer or configured live-results policy. Response contains status, published flag, ballots/participations, integrity flag, and candidate vote totals. |
-| Admin operations | `GET/POST /api/orgs`, `GET/POST /api/users`, `POST /api/users/:id/disable`, `GET /api/audit` | Existing scoped organization/user management and read-only audit. |
+| Results | `GET /api/elections/:id/results`, `GET /api/elections/:id/results.csv`, `GET /api/public/results` | Published results are public by known id and are indexed anonymously after publication. Unpublished results require an authorized admin/observer or configured live-results policy. |
+| Admin operations | `GET/POST /api/orgs`, `GET/POST /api/users`, `POST /api/users/:id/disable`, `GET /api/audit`, `GET /api/admin/summary` | Existing scoped organization/user management, summary aggregates, and read-only audit. |
 
 ## Required backend support
 
@@ -30,7 +30,7 @@ until an existing endpoint returns the requested data.
 - **Response:** Only elections explicitly marked discoverable, with id, name, description, start/end, lifecycle status, and pagination metadata. Details may include candidate information and instructions approved for public display.
 - **Authorization:** Anonymous access only to public records; voter-specific eligibility/participation must remain session-scoped.
 - **Errors:** 400 invalid filter/cursor; 404 hidden/unavailable election; 429 rate limit; 5xx generic service error.
-- **Current behavior:** `/api/elections` and `/api/elections/:id` require authentication. The frontend shows a sign-in explanation rather than fake or empty public data.
+- **Current behavior:** `GET /api/public/elections` and `/api/public/elections/:id` return only explicitly discoverable, non-draft elections. Existing records default to private on migration. Filters include `q`, `status`, `from`, `to`, `sort`, `limit`, and `offset`; the frontend calls the public routes for visitors.
 
 ### Public results index
 
@@ -39,7 +39,7 @@ until an existing endpoint returns the requested data.
 - **Response:** Finalized/published elections only, with id, name, status, publication time, and pagination metadata. Detailed data can use the existing result response shape.
 - **Authorization:** Anonymous only when results are already public; never return unpublished/live totals.
 - **Errors:** 400 invalid filters; 404 unavailable result; 5xx generic error.
-- **Current behavior:** A published result can be read publicly if its id is known, but there is no public index.
+- **Current behavior:** `GET /api/public/results` indexes published public results, with search/date/sort/pagination filters; the frontend uses it for anonymous visitors.
 
 ### Voter dashboard and participation history
 
@@ -48,7 +48,7 @@ until an existing endpoint returns the requested data.
 - **Response:** Available/upcoming/cast/completed counts and election participation records with id/name/status and a timestamp when policy permits.
 - **Authorization:** Current user only. Never return a candidate choice or ballot-to-user join.
 - **Errors:** 401 expired session; 5xx generic error.
-- **Current behavior:** The frontend derives counts from the authenticated election list (`eligible` and `hasVoted`). No participation timestamp/history endpoint exists.
+- **Current behavior:** `GET /api/me/dashboard` returns session-scoped visible elections and own participation timestamps. It does not include ballot choices. The voter dashboard uses this endpoint.
 
 ### Candidate profiles
 
@@ -82,7 +82,7 @@ until an existing endpoint returns the requested data.
 - **Operation:** Scoped `GET /api/admin/summary` (or equivalent) returning elections by status, candidate count, active voter accounts, participation totals, and optional recent activity.
 - **Authorization:** Platform admins receive global totals; organization admins receive only their organization. Never return ballot selections or identity-choice links.
 - **Errors:** 401/403 unauthenticated or out-of-scope; 5xx generic error.
-- **Current behavior:** Frontend derives counts from the existing scoped election, detail, candidate, and user endpoints; it shows unavailable values when required data cannot load.
+- **Current behavior:** `GET /api/admin/summary` returns one scoped aggregate query for elections, candidates, active voters, eligibility, and participation totals. The administration dashboard uses this endpoint.
 
 ### Election deletion and candidate editing
 
@@ -93,10 +93,10 @@ until an existing endpoint returns the requested data.
 - **Errors:** 400 invalid fields; 403 unauthorized; 404 missing record; 409 lifecycle/constraint conflict.
 - **Current behavior:** No election-delete or candidate-update route exists. The frontend exposes existing draft create/edit and candidate add/remove operations only.
 
-## Stage 1 limitations
+## Remaining integration limitations
 
-- Public election discovery/details and results indexing need anonymous list endpoints.
+- Public discovery uses an opt-in flag; the interface only lists non-draft elections.
 - Registration has no email field or verification; password recovery is unsupported.
 - Candidate image, extended biography, manifesto, and priorities are absent from the current model/API.
-- Profile email/photo, notifications, participation timestamps, deletion, candidate editing, and a distinct admin summary API are unsupported.
+- Profile email/photo, notifications, election deletion, and candidate editing are unsupported.
 - The results response does not identify an official winner; the frontend does not invent one.
