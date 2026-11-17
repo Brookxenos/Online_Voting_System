@@ -1309,3 +1309,14 @@
 - **Security/privacy implications:** None. Existing untracked `data/openvote.db-shm` and `data/openvote.db-wal` were left untouched.
 - **Known gaps:** Browser visual review unavailable; screenshot shows a narrow/cropped login view, so the logo’s rendered position needs visual confirmation after hard refresh.
 - **Next exact task:** Hard-refresh the frontend and inspect the ElectraVote logo and admin controls on desktop and mobile.
+
+### 2026-11-17 --- Codex --- Add How it works navbar button
+
+- **Status:** Navbar includes a How it works link that scrolls to the existing homepage section, including when clicked from another page.
+- **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+- **Decisions:** Reused the existing homepage section and navbar button styling; no new route or page was needed.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Tests:** Not run; focused frontend navigation change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Verify How it works navigation and navbar wrapping on desktop and mobile.

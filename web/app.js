@@ -167,6 +167,7 @@ const app = document.getElementById('app');
 function navHtml() {
   const u = state.user;
   const links = [['#/', 'Home'], ['#/results', 'Results'], ['#/about', 'About']];
+  links.splice(1, 0, ['#/', 'How it works']);
   if (u && u.role === 'voter') links.splice(1, 0, ['#/dashboard', 'Dashboard']);
   if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.splice(1, 0, ['#/admin', 'Administration']);
   if (u && u.role === 'observer') links.splice(1, 0, ['#/observer', 'Observer view']);
@@ -179,7 +180,8 @@ function navHtml() {
       (route === 'admin' && (state.view === 'adminElection' || state.view === 'admin')) ||
       (route === 'elections' && (state.view === 'election' || state.view === 'candidate')) ||
       (route === 'results' && (state.view === 'results' || state.view === 'resultsIndex'));
-    html += `<a href="${href}"${active ? ' aria-current="page"' : ''}><span>${label}</span></a>`;
+    const howItWorks = label === 'How it works';
+    html += `<a href="${href}"${howItWorks ? ' id="nav-how-it-works"' : ''}${active && !howItWorks ? ' aria-current="page"' : ''}><span>${label}</span></a>`;
   }
   html += '</div>';
   html += '<div class="nav-user">';
@@ -196,6 +198,18 @@ function navHtml() {
 
 function render() {
   app.innerHTML = navHtml() + '<div id="view"></div>';
+  const howItWorksLink = document.getElementById('nav-how-it-works');
+  if (howItWorksLink) {
+    howItWorksLink.addEventListener('click', event => {
+      event.preventDefault();
+      const scrollToSection = () => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+      if (state.view === 'home') scrollToSection();
+      else {
+        go('#/');
+        window.setTimeout(scrollToSection, 0);
+      }
+    });
+  }
   const logout = document.getElementById('btn-logout');
   if (logout) {
     logout.addEventListener('click', async () => {
