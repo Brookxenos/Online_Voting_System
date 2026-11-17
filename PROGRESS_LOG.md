@@ -1330,3 +1330,15 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review not performed.
 - **Next exact task:** Verify the remaining homepage hero action at desktop and mobile widths.
+
+### 2026-11-17 --- Codex --- Create How it works user guide page
+
+- **Status:** Navbar How it works opens a dedicated guide with clear participant steps and links into the relevant parts of the app.
+- **Summary:** Added the `#/how-it-works` route, active navigation state, plain-language instructions for account access, election discovery, ballot review and submission, and published results. Added responsive-friendly guide styles.
+- **Files changed:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Replaced the previous home-page scroll behavior with a standalone page. Wording follows current single-choice ballot flow and avoids security assurances.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Tests:** Not run; focused frontend content and routing change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Open the guide in a browser and review its content, links, and mobile layout.
