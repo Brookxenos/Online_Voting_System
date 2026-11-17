@@ -2248,6 +2248,12 @@ input,select,textarea { max-width:100%; }
 .how-it-works-page a:focus-visible { outline:3px solid #14a99c;outline-offset:3px;border-radius:3px; }
 .how-help { margin-top:24px;padding:21px 23px;border:1px solid #cfe5e0;border-left:4px solid #0d7377;border-radius:12px;background:#eff8f6;transition:background .18s ease,border-color .18s ease; }
 .how-help:hover { border-color:#8fc6bd;background:#e8f5f2; }
+.candidate-admin-actions { display:flex;flex-wrap:wrap;align-items:center;gap:6px; }
+.candidate-edit-form { display:grid;gap:10px;min-width:220px;margin-top:10px;padding:13px;border:1px solid #cfe5e0;border-radius:10px;background:#f4f9f8; }
+.candidate-edit-form[hidden] { display:none; }
+.candidate-edit-form label { display:grid;gap:5px;color:var(--text);font-size:.82rem;font-weight:650; }
+.candidate-edit-form input,.candidate-edit-form textarea { width:100%;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text); }
+.candidate-edit-form input:focus,.candidate-edit-form textarea:focus { outline:2px solid #0d7377;outline-offset:1px; }
 @media(max-width:620px) {
   .how-it-works-page { padding:22px 17px; }
   .how-it-works-steps { gap:10px;margin:22px 0; }

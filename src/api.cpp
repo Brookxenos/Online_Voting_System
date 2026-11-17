@@ -921,7 +921,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         }
 
         auto tally = store.latestTally(id);
-        if (!tally) {
+        if (liveAllowed || !tally) {
             // A permitted reader may trigger the (idempotent) tally
             // computation; it is only run when someone is actually allowed
             // to see the results.
@@ -940,6 +940,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             jo["name"] = tr.name;
             jo["party"] = tr.party;
             jo["votes"] = (double)tr.votes;
+            jo["percentage"] = tally->totalBallots > 0
+                ? (double)tr.votes * 100.0 / (double)tally->totalBallots : 0.0;
             arr.push_back(json::Value(jo));
         }
 
@@ -977,9 +979,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         }
 
         auto tally = store.latestTally(id);
-        if (!tally) {
-            bool published = e->resultsPublic && (e->status == "published" || e->status == "archived");
-            bool liveAllowed = e->showLiveResults && (e->status == "open" || e->status == "closed");
+        if (liveAllowed || !tally) {
             bool maySee = published || liveAllowed ||
                           (userOpt && canObserveElection(*userOpt, *e));
             if (maySee) tally = store.tallyElection(id);
@@ -987,19 +987,23 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (!tally) return fail(404, "No tally has been run for this election yet");
 
         std::ostringstream out;
-        out << "election_id,election_name,election_status,tally_created_at,candidate_id,candidate_name,candidate_party,votes\n";
+        out << "election_id,election_name,election_status,tally_created_at,candidate_id,candidate_name,candidate_party,votes,percentage\n";
         for (const auto& tr : tally->candidates) {
             auto esc = [](const std::string& s){
                 std::string r;
+                size_t first = 0;
+                while (first < s.size() && std::isspace((unsigned char)s[first])) ++first;
+                if (first < s.size() && (s[first] == '=' || s[first] == '+' || s[first] == '-' || s[first] == '@')) r.push_back('\'');
                 for (char c : s) {
-                    if (c == ',' || c == '"' || c == '\n') { r += '"'; r += c; if (c=='"') r += '"'; }
+                    if (c == ',' || c == '"' || c == '\n' || c == '\r') { r += '"'; r += c; if (c=='"') r += '"'; }
                     else r += c;
                 }
                 return r;
             };
             out << id << ',' << esc(e->name) << ',' << e->status << ',' << tally->createdAt
                 << ',' << tr.candidateId << ',' << esc(tr.name) << ',' << esc(tr.party)
-                << ',' << tr.votes << '\n';
+                << ',' << tr.votes << ',' << (tally->totalBallots > 0
+                    ? (double)tr.votes * 100.0 / (double)tally->totalBallots : 0.0) << '\n';
         }
 
         HttpServer::Response r;

@@ -118,7 +118,7 @@ check "candidate added while draft" '"name":"Alice"' \
 check "candidate 2 added" '"name":"Bob"' \
   "$(jpost /api/elections/1/candidates '{"name":"Bob","party":"B"}' -b "$TMP/admin.jar")"
 check "candidate can be edited while draft" '"name":"Bobby"' \
-  "$(jpost /api/elections/1/candidates/2 '{"name":"Bobby","description":"Updated profile"}' -b "$TMP/admin.jar")"
+  "$(jpost /api/elections/1/candidates/2 '{"name":"Bobby","party":"=2+2","description":"Updated profile"}' -b "$TMP/admin.jar")"
 check "candidate update requires existing candidate" 'Candidate not found' \
   "$(jpost /api/elections/1/candidates/999 '{"name":"Missing"}' -b "$TMP/admin.jar")"
 check "voter cannot add candidate" "Administrator access required" \
@@ -178,8 +178,12 @@ check "published results are public without auth" '"totalBallots":1' "$(jget /ap
 check "published results appear in anonymous results index" '"name":"Election A1"' \
   "$(jget /api/public/results?limit=10)"
 check "tally counts Alice=1" '"votes":1' "$(jget /api/elections/1/results)"
+check "results include vote percentage" '"percentage":100' "$(jget /api/elections/1/results)"
 check "integrity ok" '"integrityOk":true' "$(jget /api/elections/1/results)"
 check "results csv downloadable" "text/csv" "$(jget /api/elections/1/results.csv -D - | tr -d '\r' | head -5)"
+check "CSV escapes formula-like candidate data" "'=2+2" "$(curl -s "$BASE/api/elections/1/results.csv")"
+check "admin summary reports accepted ballots" '"acceptedBallots":1' \
+  "$(jget /api/admin/summary -b "$TMP/admin.jar")"
 
 echo "-- concurrent voting (race safety) --"
 jpost /api/orgs '{"name":"Race Org","slug":"race-org"}' -b "$TMP/admin.jar" > /dev/null

@@ -764,10 +764,15 @@ std::optional<Tally> Store::tallyElection(long long electionId) {
                            {std::to_string(electionId)});
         auto p = db_.query("SELECT COUNT(*) AS n FROM participation WHERE election_id=?",
                            {std::to_string(electionId)});
+        auto valid = db_.query(
+            "SELECT COUNT(*) AS n FROM ballots b JOIN candidates c "
+            "ON c.id=b.candidate_id AND c.election_id=b.election_id WHERE b.election_id=?",
+            {std::to_string(electionId)});
         if (!b.empty()) totalBallots = std::stoll(b[0].at("n"));
         if (!p.empty()) totalParts = std::stoll(p[0].at("n"));
+        long long validBallots = valid.empty() ? 0 : std::stoll(valid[0].at("n"));
 
-        bool integrityOk = (totalBallots == totalParts);
+        bool integrityOk = (totalBallots == totalParts && totalBallots == validBallots);
 
         db_.exec("INSERT INTO tally_runs(election_id,total_ballots,total_participations,"
                  "integrity_ok,created_at) VALUES(?,?,?,?,?)",

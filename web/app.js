@@ -627,6 +627,7 @@ async function renderElections(view) {
     const data = await api(state.user ? 'elections' : 'public/elections?limit=100');
     const box = document.getElementById('election-list');
     const list = (data.elections || []).slice();
+    const publicTotal = Number(data.total || list.length);
     if (state.view !== 'elections') return;
     if (state.user && ['platform_admin','org_admin'].includes(state.user.role)) { go('#/admin'); return; }
     if (state.user && state.user.role === 'observer') { go('#/observer'); return; }
@@ -657,6 +658,17 @@ async function renderElections(view) {
       if (more) more.addEventListener('click', () => { visibleCount += 8; draw(); });
       const clear = document.getElementById('clear-election-filters');
       if (clear) clear.addEventListener('click', () => { controls.forEach(el => el.value = el.id === 'election-status' ? 'all' : el.id === 'election-sort' ? 'start-asc' : ''); draw(); });
+      if (!state.user && list.length < publicTotal) {
+        box.insertAdjacentHTML('beforeend', '<button class="btn btn-secondary" id="load-more-public-elections">Load more public elections</button>');
+        document.getElementById('load-more-public-elections').addEventListener('click', async ev => {
+          ev.currentTarget.disabled = true;
+          try {
+            const next = await api(`public/elections?limit=100&offset=${list.length}`);
+            list.push(...(next.elections || []));
+            draw();
+          } catch (err) { toast(err.message, 'error'); ev.currentTarget.disabled = false; }
+        });
+      }
     };
     controls.forEach(control => control.addEventListener('input',draw));
     draw();
@@ -839,11 +851,23 @@ async function renderResultsIndex(view) {
     const data = await api(state.user ? 'elections' : 'public/results?limit=100');
     if (state.view !== 'resultsIndex') return;
     const published = (data.elections || []).filter(e => e.status === 'published' || e.status === 'archived');
+    const publicTotal = Number(data.total || published.length);
     const box = document.getElementById('results-election-list');
     const draw = () => {
       const q = document.getElementById('results-search').value.trim().toLocaleLowerCase();
       const matches = published.filter(e => e.name.toLocaleLowerCase().includes(q));
       box.innerHTML = matches.length ? matches.map(e => `<article class="election-row"><div><h2>${escapeHtml(e.name)}</h2><p class="muted">${escapeHtml(e.description || '')}</p><span class="pill pill-info">${fmtStatus(e.status)}</span></div><a class="btn btn-primary" href="#/results/${e.id}">View Results</a></article>`).join('') : '<div class="empty-state"><h2>No matching results</h2><p>Try another election title.</p></div>';
+      if (!state.user && published.length < publicTotal) {
+        box.insertAdjacentHTML('beforeend', '<button class="btn btn-secondary" id="load-more-public-results">Load more results</button>');
+        document.getElementById('load-more-public-results').addEventListener('click', async ev => {
+          ev.currentTarget.disabled = true;
+          try {
+            const next = await api(`public/results?limit=100&offset=${published.length}`);
+            published.push(...(next.elections || []));
+            draw();
+          } catch (err) { toast(err.message, 'error'); ev.currentTarget.disabled = false; }
+        });
+      }
     };
     document.getElementById('results-search').addEventListener('input',draw);
     draw();
@@ -1458,10 +1482,38 @@ async function renderAdminElection(view) {
     const data = await api('elections/' + e.id + '/candidates');
     const cands = data.candidates || [];
     candList.innerHTML = cands.length === 0 ? '<div class="empty">No ballot options yet.</div>' :
-      `<table><thead><tr><th>#</th><th>Name</th><th>Party</th><th>Description</th>${e.status === 'draft' ? '<th></th>' : ''}</tr></thead><tbody>` +
+      `<table><thead><tr><th>#</th><th>Name</th><th>Party</th><th>Description</th>${e.status === 'draft' ? '<th>Actions</th>' : ''}</tr></thead><tbody>` +
       cands.map(c => `<tr><td>${c.position}</td><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.party || '—')}</td><td>${escapeHtml(c.description || '—')}</td>` +
-      (e.status === 'draft' ? `<td><button class="btn btn-link btn-danger" data-remove="${c.id}" data-name="${escapeHtml(c.name)}">Remove</button></td>` : '') + '</tr>').join('') +
+      (e.status === 'draft' ? `<td><div class="candidate-admin-actions"><button class="btn btn-secondary" type="button" data-edit="${c.id}" aria-expanded="false">Edit</button><button class="btn btn-link btn-danger" data-remove="${c.id}" data-name="${escapeHtml(c.name)}">Remove</button></div><form class="candidate-edit-form" data-edit-form="${c.id}" hidden><label>Name<input name="name" maxlength="200" value="${escapeHtml(c.name)}" required></label><label>Party / affiliation<input name="party" maxlength="200" value="${escapeHtml(c.party)}"></label><label>Description<textarea name="description" maxlength="2000" rows="3">${escapeHtml(c.description)}</textarea></label><div class="btn-row"><button class="btn btn-primary" type="submit">Save changes</button></div></form></td>` : '') + '</tr>').join('') +
       '</tbody></table>';
+    candList.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const form = candList.querySelector(`[data-edit-form="${btn.getAttribute('data-edit')}"]`);
+        if (!form) return;
+        form.hidden = !form.hidden;
+        btn.setAttribute('aria-expanded', String(!form.hidden));
+        if (!form.hidden) form.querySelector('input[name="name"]').focus();
+      });
+    });
+    candList.querySelectorAll('[data-edit-form]').forEach(form => {
+      form.addEventListener('submit', async ev => {
+        ev.preventDefault();
+        const fd = new FormData(form);
+        const button = form.querySelector('button[type="submit"]');
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          await api(`elections/${e.id}/candidates/${form.getAttribute('data-edit-form')}`, {
+            method: 'POST', body: { name: fd.get('name'), party: fd.get('party') || '', description: fd.get('description') || '' }
+          });
+          toast('Candidate updated.');
+          await loadCandidates();
+        } catch (err) {
+          toast(err.message, 'error');
+          button.disabled = false;
+        }
+      });
+    });
     candList.querySelectorAll('[data-remove]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!window.confirm('Remove option ' + btn.getAttribute('data-name') + '?')) return;
