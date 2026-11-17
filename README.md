@@ -1,132 +1,77 @@
-# 🗳️ ElectraVote — Online Voting System (C++ Client-Server + Responsive Web App)
+# ElectraVote
 
-A complete electronic voting system written in **C++17** with **zero external
-dependencies** — the HTTP server, JSON parser, SHA-256 implementation, and
-cipher are all hand-rolled. The frontend is a responsive HTML/CSS/JS single-page
-application served by the C++ backend.
+ElectraVote is an educational/demo voting and election-management application.
+It uses a C++17 backend, an HTML/CSS/vanilla JavaScript frontend, SQLite
+persistence, and libsodium for password hashing and secure random generation.
+It is not certified or approved for legally binding public elections.
 
-## Features
+## Current features
 
-- **Voter registration** with unique voter IDs + SHA-256-hashed passwords
-- **Voter login** + ballot casting with one-vote-per-voter enforcement
-- **Candidate management** (admin can add/remove candidates with party, symbol, position)
-- **Live results** with vote tally + percentage share + leader declaration
-- **Admin panel** with role-based access (separate admin credentials)
-- **Audit log** — every login, vote, and admin action is timestamped and persisted
-- **Vote encryption** — ballots are XOR-stream encrypted client-side before transmission
-  (and tamper-checked server-side via voter-id binding + signature hash)
-- **CSV file persistence** — `voters.csv`, `candidates.csv`, `votes.csv`,
-  `admins.csv`, `audit.log`
-- **Responsive web UI** — works on phones, tablets, desktops; dark-mode aware
-- **Multi-threaded** — one thread per client connection
+- Organization-scoped accounts with platform administrator, organization
+  administrator, observer, and voter roles.
+- Server-side sessions, password updates, one-time initial administrator
+  provisioning, and in-process login/registration throttling.
+- Independent elections with draft/open/closed/published/archived lifecycle
+  states, candidate management, and election-specific eligibility.
+- Transactional ballot and participation writes with one accepted ballot per
+  eligible voter in an election.
+- Tally integrity checks, controlled result publication, CSV result export,
+  and sanitized audit events.
+- Opt-in public election discovery and published-results browsing.
+- Responsive single-page frontend using the existing project visual design.
 
-## Quick start
+The separation between participation and ballot rows does not provide
+cryptographic anonymity. Timing, application/database access, logs, and
+backups can still correlate a voter with a choice. The current tally is
+single-choice and does not define tie resolution or claim an official winner.
 
-```bash
-cd voting_system
+## Build and run
+
+Requirements: Linux or WSL, `g++` with C++17 support, `make`, and the runtime
+libraries at the paths configured in the Makefile (`libsodium.so.23` and
+`libsqlite3.so.0`).
+
+```sh
 make
-./start.sh              # listens on http://localhost:8080
-# or specify a port:
-./start.sh 9000
+./start.sh
 ```
 
-Then open <http://localhost:8080> in your browser.
+Open <http://localhost:8080>. To use another port, run `./start.sh 9000` and
+open <http://localhost:9000>. `Ctrl+C` stops the server. `make test` runs the
+HTTP integration smoke suite and requires `bash` and `curl`.
 
-**Default admin credentials** (bootstrapped on first run):
-- username: `admin`
-- password: `admin123`
+On a fresh data directory the server creates the `admin` account. It generates
+a random password and prints it once in the server terminal. Save it securely.
+You can set `OV_INITIAL_ADMIN_PASSWORD` before first startup to supply a
+password; do not put a real password in shared shell history or documentation.
+There is no default `admin123` credential.
 
-Please change the admin password immediately via **Admin → Settings**.
+The default database is `data/openvote.db`. Set `OV_DATA_DIR` or `OV_DB_FILE`
+to select a different data location. Legacy CSV files may be imported into a
+fresh database and are preserved. Imported historical votes remain
+identity-linked.
 
-## Project layout
+## Documentation
 
-```
-voting_system/
-├── Makefile
-├── README.md
-├── start.sh                # build + run helper
-├── src/
-│   ├── main.cpp            # entry point
-│   ├── crypto.{h,cpp}      # SHA-256, XOR cipher, base64
-│   ├── models.h            # Voter / Candidate / Vote / Admin / AuditEntry
-│   ├── data_store.{h,cpp}  # thread-safe CSV-backed persistence
-│   ├── json.{h,cpp}        # tiny JSON parser + serializer
-│   └── http_server.{h,cpp} # POSIX-socket HTTP server + API handlers
-├── web/
-│   ├── index.html          # SPA shell with <template> views
-│   ├── style.css           # responsive + dark-mode aware
-│   └── app.js              # router + API client + ballot encryption
-└── data/                   # CSV files (auto-created on first run)
-    ├── voters.csv
-    ├── candidates.csv
-    ├── votes.csv
-    ├── admins.csv
-    └── audit.log
-```
+- [API reference](API.md): routes, authentication, request fields, responses,
+  and current security limits.
+- [How to run](HOW_TO_RUN.txt): setup, initial admin account, local password
+  recovery, and data-directory behavior.
+- [Project context](PROJECT_CONTEXT.md): architecture, decisions, security
+  boundaries, and handoff guidance.
+- [Backend checklist](BACKEND_STAGE2_CHECKLIST.md): implementation status and
+  remaining Stage 2 work.
 
-## API reference
+## Security and deployment limits
 
-All endpoints are JSON, under `/api/`.
-
-| Method | Endpoint                       | Description |
-|--------|--------------------------------|-------------|
-| POST   | `/api/register`                | Voter self-registration |
-| POST   | `/api/voter/login`             | Voter authentication |
-| POST   | `/api/admin/login`             | Admin authentication |
-| GET    | `/api/candidates`              | List all candidates |
-| POST   | `/api/vote`                    | Cast an encrypted ballot |
-| GET    | `/api/results`                 | Live tally + leader |
-| GET    | `/api/election/status`         | Poll open/closed state |
-| POST   | `/api/election/status`         | Open / close the election (body: `{open: bool}`) |
-| POST   | `/api/admin/candidates`        | Add a candidate |
-| POST   | `/api/admin/candidates/remove` | Remove a candidate |
-| POST   | `/api/admin/voters`            | Admin-add a voter |
-| GET    | `/api/admin/voters`            | List all voters |
-| GET    | `/api/admin/audit`             | Last 200 audit entries |
-| POST   | `/api/admin/password`          | Change admin password |
-
-## Example API usage (curl)
-
-```bash
-# Admin login
-curl -s localhost:8080/api/admin/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin123"}'
-
-# Add a candidate
-curl -s localhost:8080/api/admin/candidates \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Alice Anderson","party":"Reform","symbol":"🌹","position":"President"}'
-
-# Register a voter
-curl -s localhost:8080/api/register \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"John Doe","password":"secret123","nationalId":"N-9999"}'
-
-# Cast a vote (the "ballot" field is base64(xorCrypt("C001|V001", KEY)))
-curl -s localhost:8080/api/vote \
-  -H 'Content-Type: application/json' \
-  -d '{"voterId":"V001","password":"secret123","ballot":"...base64..."}'
-
-# Live results
-curl -s localhost:8080/api/results
-```
-
-## Security notes
-
-This is an **educational / demo** project. Before any real-world use you would need:
-
-1. **TLS** for transport encryption (the server speaks plain HTTP).
-2. A real **key exchange** instead of a shared hardcoded `VOTE_KEY`.
-3. **CSRF tokens** for state-changing endpoints.
-4. A vetted crypto library (e.g. libsodium / OpenSSL) instead of a hand-rolled SHA-256
-   and XOR stream cipher.
-5. Rate limiting on login + registration endpoints.
-
-The included measures (salted SHA-256 passwords, encrypted + signed ballots,
-one-vote enforcement, audit log) demonstrate the *mechanics* of a voting
-system but are not sufficient for a production election.
+The local server speaks plain HTTP. Production use would require a reviewed
+HTTPS deployment, secure cookie configuration, persistent rate limiting,
+backup/restore and retention procedures, operational monitoring, accessibility
+testing, and independent security/legal review. Do not use this demo for a
+legally binding election or claim anonymity, end-to-end verifiability, or
+certification.
 
 ## License
 
-MIT — use it, learn from it, improve it.
+The project context records the licensing choice as pending confirmation; this
+README does not assert a license that is not present in the checkout.

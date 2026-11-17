@@ -42,7 +42,8 @@ struct Session {
     bool revoked = false;
 };
 
-// Election lifecycle: draft -> open -> closed -> published -> archived
+// Election lifecycle: draft -> open -> closed -> published -> archived;
+// a cancelled draft may also be archived without deleting its record.
 // (transitions enforced server-side in store.cpp / api.cpp).
 struct Election {
     long long id = 0;

@@ -27,102 +27,67 @@
 -   Preferred architecture: a modular monolith first; avoid premature
     microservices.
 
-## 2. Existing repository --- facts observed in the uploaded ZIP
+## 2. Current repository --- verified 2026-11-17
 
-The original archive contains:
-
-``` text
-voting_system/
-├── web/
-│   ├── index.html
-│   ├── app.js
-│   └── style.css
-├── src/
-│   ├── data_store.h
-│   ├── data_store.cpp
-│   ├── http_server.h
-│   ├── http_server.cpp
-│   ├── main.cpp
-│   ├── json.h
-│   ├── json.cpp
-│   ├── crypto.h
-│   ├── crypto.cpp
-│   └── models.h
-├── .vscode/
-├── start.sh
-├── Makefile
-├── README.md
-└── HOW_TO_RUN.txt
-```
+The repository has moved on from the original CSV-only archive described in
+older handover notes. The checked-out source and tests are authoritative.
 
 ### Current implementation facts
 
--   Backend language: C++17.
--   HTTP server: hand-written POSIX-socket HTTP server, multi-threaded
-    (one worker thread per client connection, according to the source
-    comments).
--   Frontend: HTML, CSS, vanilla JavaScript single-page application.
--   JSON: custom JSON parser/serializer in `json.cpp` and `json.h`.
--   Persistence: CSV files and `audit.log` under a runtime `data/`
-    directory.
--   Build: Makefile using `g++`, C++17, pthreads; `start.sh` starts the
-    application.
--   Current API prefix: `/api/` (legacy routes).
--   Current data models include `Voter`, `Candidate`, `Admin`, `Vote`,
-    and `AuditEntry`.
--   The current `Vote` model includes `voterId`, `candidateId`,
-    `timestamp`, and `signature`.
--   Current election state is a single boolean `electionOpen_`, not a
-    multi-election state machine.
--   Current candidate records include a vote count.
--   Current README describes voter registration/login, admin login,
-    candidate management, ballot casting, live results, election
-    open/close, audit logging and responsive UI.
--   Current README describes the system as educational/demo software and
-    identifies security limitations.
+- Backend: C++17 modular monolith with a hand-written POSIX HTTP server and
+  JSON parser; the server handles requests on worker threads.
+- Frontend: existing HTML/CSS/vanilla JavaScript single-page app in `web/`.
+  Preserve its current UI, palette, assets, and visual identity unless a
+  confirmed functional or accessibility defect requires a narrow change.
+- Persistence: SQLite through `src/db.*` and `src/store.*`; schema migrations,
+  bound SQL parameters, transactions, foreign keys, and WAL mode are used.
+- Security dependencies: system libsodium for Argon2id password hashes and
+  cryptographic random generation; SQLite runtime for persistence. See
+  `Makefile` for the current link paths.
+- API routes are registered in `src/api.cpp` under `/api/`. `API.md` documents
+  the current route set.
+- Accounts have platform-admin, organization-admin, observer, and voter roles.
+  Protected operations perform server-side session and organization/election
+  authorization checks.
+- Authentication uses one-time administrator provisioning, database-backed
+  sessions, HttpOnly SameSite cookies, password update/revocation, and
+  in-process login/registration throttling.
+- Elections are independent records with draft/open/closed/published/archived
+  lifecycle states. Drafts can be configured, and candidates and eligibility
+  are election-scoped.
+- Ballot and participation rows are written transactionally with a uniqueness
+  constraint preventing duplicate participation. The rows do not share a
+  direct reference, but this is not cryptographic anonymity.
+- Results are tallied and persisted; publication is gated on a tally integrity
+  check. Public discovery is opt-in. Draft archiving retains its records and
+  clears public discovery and live-results flags.
+- Legacy CSV import preserves the CSV files and labels imported vote records
+  as identity-linked historical records.
+- `make` builds `voting_server`; `make test` runs the HTTP smoke suite.
+  Runtime data defaults to `data/openvote.db`; do not run tests against or
+  replace the user's runtime data.
 
-### Current security limitations observed in source
+### Current security and operational limitations
 
-These are existing weaknesses to fix, not features to preserve:
+1. The service is a development HTTP server; production must terminate HTTPS
+   correctly and set `OV_SECURE_COOKIES=1` behind that trusted TLS boundary.
+2. Login throttling is in-process and does not persist across restarts or
+   coordinate across multiple server instances.
+3. SQLite is the current development persistence choice. PostgreSQL remains a
+   proposed production direction and has not been approved or implemented.
+4. Ballot/participation separation is educational only. Timing, process access,
+   database access, logs, and backups can still correlate identity and choice.
+5. The API currently uses a single-choice tally. Tie handling and a distinct
+   result-finalization state are not specified; the API does not claim an
+   official winner.
+6. Password recovery, email verification, notifications, independent tally
+   verification, operational backup/restore procedures, and deployment
+   hardening are incomplete.
+7. The app is not certified or approved for legally binding public elections.
 
-1.  `crypto.cpp` implements SHA-256 password hashing as
-    `salt + password` followed by SHA-256. This is not a modern password
-    hashing/KDF design.
-2.  `crypto.cpp` generates salts using `std::mt19937_64` seeded from a
-    clock. This is not a cryptographically secure random generator.
-3.  `crypto.cpp` implements a repeating-key XOR cipher.
-4.  `web/app.js` contains a hardcoded `VOTE_KEY` and performs
-    client-side XOR ballot encryption. A key embedded in browser
-    JavaScript is public to users and cannot protect ballot secrecy.
-5.  `Vote` stores voter identity and candidate choice together, directly
-    linking voter and choice.
-6.  CSV files are not an adequate long-term transactional foundation for
-    concurrent voting.
-7.  `DataStore` returns raw pointers from lookup methods after its lock
-    guard has gone out of scope (for example `findVoter`,
-    `findCandidate`, `findAdmin`); this creates lifetime/concurrency
-    hazards.
-8.  Some `DataStore` methods access or mutate shared vectors without
-    consistently acquiring the mutex; review all methods rather than
-    assuming the class is thread-safe.
-9.  The initial admin account is bootstrapped with username `admin` and
-    password `admin123`, using a fixed salt. Remove predictable default
-    credentials and replace with a secure one-time setup process.
-10. Frontend state such as `state.admin` is not proof of authentication.
-    Every protected operation must be authorized by the backend.
-11. The current server is documented as plain HTTP. Production
-    deployment requires correctly configured HTTPS/TLS.
-12. The existing design exposes live results/leader information. Do not
-    show partial election results during an active election unless a
-    specific election type explicitly permits it and the risk is
-    documented.
-13. Audit records currently include actor and detail fields. Redesign
-    logging to avoid recording passwords, session secrets, ballot
-    selections, or identity-to-choice associations.
-
-Do not assume that a previous AI's analysis is correct without verifying
-the current checked-out source. Repository code and tests are the
-authority.
+Do not assume a previous agent's analysis is correct without verifying the
+current source and tests. Historical archive notes are not descriptions of the
+current implementation.
 
 ## 3. Product principles
 

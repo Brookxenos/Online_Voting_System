@@ -52,6 +52,7 @@ fi
 
 echo "-- static and auth --"
 check "serves ElectraVote index.html" "<title>ElectraVote" "$(jget /)"
+check "serves ElectraVote participant access label" "ELECTRAVOTE · PARTICIPANT ACCESS" "$(jget /app.js)"
 check "serves ElectraVote logo asset" "Content-Type: image/png" "$(curl -s "$BASE/assets/electravote-logo.png" -D - -o /dev/null | tr -d '\r')"
 check "serves ElectraVote favicon" "Content-Type: image/png" "$(curl -s "$BASE/favicon.png" -D - -o /dev/null | tr -d '\r')"
 check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"
@@ -224,8 +225,14 @@ RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
 check "tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
 
 echo "-- lifecycle timing and minimum ballot configuration --"
-jpost /api/elections '{"orgId":1,"name":"No options"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections '{"orgId":1,"name":"No options","discoverable":true}' -b "$TMP/admin.jar" > /dev/null
 check "election cannot open without candidates" "Invalid transition" \
+  "$(jpost /api/elections/3/status '{"status":"open"}' -b "$TMP/admin.jar")"
+check "draft can be archived without deletion" '"status":"archived"' \
+  "$(jpost /api/elections/3/status '{"status":"archived"}' -b "$TMP/admin.jar")"
+check "archived draft is removed from public discovery" '"total":0' \
+  "$(jget '/api/public/elections?status=archived')"
+check "archived draft cannot be reopened" "Invalid transition from 'archived' to 'open'" \
   "$(jpost /api/elections/3/status '{"status":"open"}' -b "$TMP/admin.jar")"
 jpost /api/elections '{"orgId":1,"name":"Scheduled","startAt":"2099-01-01T00:00:00Z"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/elections/4/candidates '{"name":"Scheduled option"}' -b "$TMP/admin.jar" > /dev/null

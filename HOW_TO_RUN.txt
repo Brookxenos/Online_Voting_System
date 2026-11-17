@@ -1,7 +1,7 @@
-OpenVote — How to Build and Run
+ElectraVote — How to Build and Run
 ================================
 
-OpenVote is an educational/demo voting application. It is not certified or
+ElectraVote is an educational/demo voting application. It is not certified or
 approved for legally binding public elections. The application uses a C++17
 backend, a vanilla HTML/CSS/JavaScript frontend, SQLite persistence, and
 libsodium for password hashing and secure random generation.

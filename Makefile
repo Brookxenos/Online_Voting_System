@@ -1,4 +1,4 @@
-# OpenVote — Makefile
+# ElectraVote — Makefile
 # Build:   make
 # Run:     make run        (port 8080)
 # Test:    make test       (integration smoke tests; requires bash + curl)

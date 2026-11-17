@@ -533,7 +533,7 @@ function renderRegister(view) {
     <section class="login-layout registration-layout" aria-labelledby="register-title">
       <aside class="login-aside">
         <img class="login-photo" src="/assets/vote-teal-studio-backdrop.png" alt="">
-        <span class="login-eyebrow">OPENVOTE · PARTICIPANT ACCESS</span>
+        <span class="login-eyebrow">ELECTRAVOTE · PARTICIPANT ACCESS</span>
         <div class="login-aside-copy"><h2>Your voice matters.</h2></div>
       </aside>
       <div class="login-panel">
@@ -1315,7 +1315,10 @@ async function renderAdminElection(view) {
   }
 
   const lifecycleButtons = [];
-  if (e.status === 'draft') lifecycleButtons.push(['open', 'Open election', 'btn-primary', 'Open the election and accept ballots?']);
+  if (e.status === 'draft') {
+    lifecycleButtons.push(['open', 'Open election', 'btn-primary', 'Open the election and accept ballots?']);
+    lifecycleButtons.push(['archived', 'Archive draft', 'btn-secondary', 'Archive this draft? It will be removed from public discovery and retained in the records. This cannot be reversed.']);
+  }
   if (e.status === 'open') lifecycleButtons.push(['closed', 'Close election', 'btn-danger', 'Close the election? No further ballots will be accepted.']);
   if (e.status === 'closed') lifecycleButtons.push(['published', 'Publish results', 'btn-primary', 'Run the tally and publish the results? This makes them publicly visible.']);
   if (e.status === 'published') lifecycleButtons.push(['archived', 'Archive election', 'btn-secondary', 'Archive this election?']);
@@ -1339,7 +1342,7 @@ async function renderAdminElection(view) {
 
       <div id="tab-lifecycle" class="tab-panel active">
         <h3>Lifecycle</h3>
-        <p class="muted small">Lifecycle: draft → open → closed → published → archived.
+        <p class="muted small">Lifecycle: draft → open → closed → published → archived. A cancelled draft can also be archived; its record is retained and removed from public discovery.
         Configuration can only be edited in draft. Results can only be published
         from a closed election after a successful integrity check.</p>
         <div class="btn-row" id="lifecycle-buttons">

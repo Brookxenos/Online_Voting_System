@@ -1353,3 +1353,15 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review not performed.
 - **Next exact task:** Review hover, focus, reduced-motion, and mobile rendering in a browser.
+
+### 2026-11-17 --- Codex --- Verify How it works guide and current build
+
+- **Status:** Source-level guide review completed; visual browser review remains blocked because the browser access host is unavailable.
+- **Approved scope:** Continue from the current handoff task: review the existing How it works guide's focus, reduced-motion, and responsive behavior. No UI redesign or palette changes were authorized or needed.
+- **Summary:** Confirmed the `#/how-it-works` route and guide markup are present, with existing mobile layout rules, visible focus treatment, and reduced-motion overrides. Left the frontend unchanged because no source-level defect was established and a browser was unavailable for visual verification.
+- **Files changed:** `PROGRESS_LOG.md` only.
+- **Commands run:** `make` (passed; already up to date); `make test` (sandbox run blocked at local socket bind with `Operation not permitted`); `make test` with local socket access (passed); `git diff --check` (passed).
+- **Tests:** HTTP smoke suite: **79 passed, 0 failed**. The suite uses a temporary database and did not touch project data files.
+- **Security/privacy implications:** None; no application behavior changed. Existing limits on ballot anonymity and demo-only status remain.
+- **Known gaps:** The browser access host returned unavailable, so hover/focus screenshots, reduced-motion rendering, and mobile layout were not visually inspected. `README.md` still describes a legacy CSV API rather than the current SQLite API; current docs `API.md` and `BACKEND_STAGE2_CHECKLIST.md` are untracked and were left as supplied.
+- **Next exact task:** Open `#/how-it-works` in an available browser and review the page, links, keyboard focus, reduced-motion behavior, and mobile layout at narrow and desktop widths; fix only confirmed defects while preserving current colors and UI.

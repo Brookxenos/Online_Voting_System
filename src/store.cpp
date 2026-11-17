@@ -524,11 +524,12 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
 
     // Valid lifecycle transitions:
     //   draft -> open            (election starts)
+    //   draft -> archived        (cancelled draft; retain record privately)
     //   open -> closed           (voting ends; no more ballots)
     //   closed -> published      (tally run + results publication)
     //   published -> archived    (record keeping)
     static const std::map<std::string, std::vector<std::string>> valid = {
-        {"draft",     {"open"}},
+        {"draft",     {"open", "archived"}},
         {"open",      {"closed"}},
         {"closed",    {"published"}},
         {"published", {"archived"}},
@@ -569,6 +570,20 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
         auto changed = db_.query("SELECT changes() AS n");
         if (changed.empty() || std::stoll(changed[0].at("n")) != 1) return;
         addAudit(actor, "ELECTION_PUBLISHED", electionId, "tally id " + std::to_string(tally->id));
+        transitioned = true;
+        return;
+    }
+
+    if (cur == "draft" && newStatus == "archived") {
+        // Archiving retains the complete draft record while making sure a
+        // previously opted-in draft does not become visible through public
+        // discovery when its status changes.
+        db_.exec("UPDATE elections SET status='archived', discoverable=0, "
+                 "show_live_results=0, results_public=0 WHERE id=? AND status='draft'",
+                 {std::to_string(electionId)});
+        auto changed = db_.query("SELECT changes() AS n");
+        if (changed.empty() || std::stoll(changed[0].at("n")) != 1) return;
+        addAudit(actor, "ELECTION_ARCHIVED", electionId, "draft archived");
         transitioned = true;
         return;
     }
