@@ -82,6 +82,7 @@ public:
     enum class AddCandidateResult { Ok, ElectionNotFound, NotEditable };
     AddCandidateResult addCandidate(Candidate& c); // fills id
     std::vector<Candidate> listCandidates(long long electionId);
+    bool updateCandidateDraft(long long electionId, Candidate& changes);
     bool removeCandidate(long long candidateId, long long electionId);
 
     // --- Eligibility --------------------------------------------------------

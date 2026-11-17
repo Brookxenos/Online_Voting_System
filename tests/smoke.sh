@@ -61,6 +61,13 @@ check "me requires session" "Not authenticated" "$(jget /api/me)"
 check "me works with session" "platform_admin" "$(jget /api/me -b "$TMP/admin.jar")"
 
 echo "-- registration and login --"
+check "registration unavailable until an organization enables it" "Registration is not available" \
+  "$(jpost /api/auth/register '{"username":"voterA","password":"password123"}')"
+
+echo "-- organizations and RBAC --"
+check "admin creates org A" '"slug":"org-a"' \
+  "$(jpost /api/orgs '{"name":"Org A","slug":"org-a"}' -b "$TMP/admin.jar")"
+echo "-- registration and login --"
 check "register voter" '"role":"voter"' \
   "$(jpost /api/auth/register '{"username":"voterA","password":"password123","displayName":"Voter A"}')"
 check "duplicate username rejected" "already taken" \
@@ -71,18 +78,16 @@ check "bad username rejected" "3-32" \
   "$(jpost /api/auth/register '{"username":"x","password":"password123"}')"
 jpost /api/auth/login '{"username":"voterA","password":"password123"}' -c "$TMP/voterA.jar" > /dev/null
 check "voter login works" '"role":"voter"' "$(jget /api/me -b "$TMP/voterA.jar")"
-
-echo "-- organizations and RBAC --"
 check "voter cannot create org" "Platform administrator" \
   "$(jpost /api/orgs '{"name":"Nope","slug":"nope1"}' -b "$TMP/voterA.jar")"
-check "admin creates org A" '"slug":"org-a"' \
-  "$(jpost /api/orgs '{"name":"Org A","slug":"org-a"}' -b "$TMP/admin.jar")"
 check "admin creates org B" '"slug":"org-b"' \
   "$(jpost /api/orgs '{"name":"Org B","slug":"org-b"}' -b "$TMP/admin.jar")"
 check "duplicate slug rejected" "already exists" \
   "$(jpost /api/orgs '{"name":"Org A2","slug":"org-a"}' -b "$TMP/admin.jar")"
 check "org admin created in org B" '"role":"org_admin"' \
   "$(jpost /api/users '{"username":"admb","password":"password123","role":"org_admin","orgId":2}' -b "$TMP/admin.jar")"
+check "create voter in org B" '"role":"voter"' \
+  "$(jpost /api/users '{"username":"outsider","password":"password123","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
 check "admin summary is organization scoped" '"totalElections":0' \
@@ -112,6 +117,10 @@ check "candidate added while draft" '"name":"Alice"' \
   "$(jpost /api/elections/1/candidates '{"name":"Alice","party":"A"}' -b "$TMP/admin.jar")"
 check "candidate 2 added" '"name":"Bob"' \
   "$(jpost /api/elections/1/candidates '{"name":"Bob","party":"B"}' -b "$TMP/admin.jar")"
+check "candidate can be edited while draft" '"name":"Bobby"' \
+  "$(jpost /api/elections/1/candidates/2 '{"name":"Bobby","description":"Updated profile"}' -b "$TMP/admin.jar")"
+check "candidate update requires existing candidate" 'Candidate not found' \
+  "$(jpost /api/elections/1/candidates/999 '{"name":"Missing"}' -b "$TMP/admin.jar")"
 check "voter cannot add candidate" "Administrator access required" \
   "$(jpost /api/elections/1/candidates '{"name":"Evil"}' -b "$TMP/voterA.jar")"
 check "org admin B cannot see election A1" "Election not found" "$(jget /api/elections/1 -b "$TMP/admb.jar")"
@@ -123,6 +132,10 @@ check "vote while draft rejected" "not open for voting" \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
 check "grant eligibility" '"ok":true' \
   "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
+check "cross-organization voter cannot be made eligible" "in this election's organization" \
+  "$(jpost /api/elections/1/eligibility '{"username":"outsider","action":"grant"}' -b "$TMP/admin.jar")"
+check "administrator account cannot be made eligible" "active voter" \
+  "$(jpost /api/elections/1/eligibility '{"username":"admb","action":"grant"}' -b "$TMP/admin.jar")"
 check "unknown user eligibility rejected" "User not found" \
   "$(jpost /api/elections/1/eligibility '{"username":"ghost","action":"grant"}' -b "$TMP/admin.jar")"
 check "org admin B cannot grant eligibility on A1" "Administrator access required" \
@@ -176,11 +189,11 @@ jpost /api/elections '{"orgId":3,"name":"Race Election"}' -b "$TMP/admin.jar" > 
 jpost /api/elections/2/candidates '{"name":"Only"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/elections/2/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
 for i in 1 2 3 4 5; do
-  jpost /api/auth/register "{\"username\":\"rv$i\",\"password\":\"password123\"}" > /dev/null
+  jpost /api/users "{\"username\":\"rv$i\",\"password\":\"password123\",\"role\":\"voter\",\"orgId\":3}" -b "$TMP/admin.jar" > /dev/null
   jpost /api/elections/2/eligibility "{\"username\":\"rv$i\",\"action\":\"grant\"}" -b "$TMP/admin.jar" > /dev/null
   jpost /api/auth/login "{\"username\":\"rv$i\",\"password\":\"password123\"}" -c "$TMP/rv$i.jar" > /dev/null
 done
-jpost /api/auth/register '{"username":"rv6","password":"password123"}' > /dev/null
+jpost /api/users '{"username":"rv6","password":"password123","role":"voter","orgId":3}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/elections/2/eligibility '{"username":"rv6","action":"grant"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/auth/login '{"username":"rv6","password":"password123"}' -c "$TMP/rv6.jar" > /dev/null
 PIDS=()
@@ -205,6 +218,15 @@ DUPE_SUCC=$(grep -ho '"ok":true' "$TMP"/dupe*.out | wc -l)
 check "one ballot accepted from eight simultaneous requests by one voter" "1" "$DUPE_SUCC"
 RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
 check "tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
+
+echo "-- lifecycle timing and minimum ballot configuration --"
+jpost /api/elections '{"orgId":1,"name":"No options"}' -b "$TMP/admin.jar" > /dev/null
+check "election cannot open without candidates" "Invalid transition" \
+  "$(jpost /api/elections/3/status '{"status":"open"}' -b "$TMP/admin.jar")"
+jpost /api/elections '{"orgId":1,"name":"Scheduled","startAt":"2099-01-01T00:00:00Z"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections/4/candidates '{"name":"Scheduled option"}' -b "$TMP/admin.jar" > /dev/null
+check "election cannot open before scheduled start" "Invalid transition" \
+  "$(jpost /api/elections/4/status '{"status":"open"}' -b "$TMP/admin.jar")"
 
 echo "-- audit hygiene --"
 AUDIT=$(jget /api/audit -b "$TMP/admin.jar")

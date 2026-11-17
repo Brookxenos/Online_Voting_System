@@ -1091,7 +1091,7 @@ async function renderAdmin(view) {
     let summary = null;
     try { summary = (await summaryRequest).summary; } catch (_) { /* keep summary unavailable */ }
     adminElectionMetrics = Object.fromEntries(detailPairs.filter(Boolean).map(x => [x.id,x]));
-    const values = summary ? [summary.totalElections,summary.activeElections,summary.totalCandidates,summary.activeVoters,summary.participations] : [null,null,null,null,null];
+    const values = summary ? [summary.totalElections,summary.activeElections,summary.totalCandidates,summary.activeVoters,summary.acceptedBallots] : [null,null,null,null,null];
     const labels = ['Total Elections','Active Elections','Total Candidates','Registered Voters','Votes Cast'];
     container.innerHTML = labels.map((label,i) => `<div class="stat-card"><span>${label}</span><strong>${values[i] === null ? '—' : values[i]}</strong></div>`).join('');
     drawAdminElections();

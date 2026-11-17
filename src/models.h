@@ -74,6 +74,7 @@ struct AdminSummary {
     long long activeVoters = 0;
     long long eligibleVoters = 0;
     long long participations = 0;
+    long long acceptedBallots = 0;
 };
 
 struct Candidate {

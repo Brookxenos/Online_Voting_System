@@ -291,13 +291,14 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         User u;
         u.username = username;
         u.displayName = displayName;
-        u.passwordHash = crypto::hashPassword(password);
         u.role = "voter";
 
         // Self-registration joins the first organization that allows it.
         for (const auto& org : store.listOrganizations()) {
             if (org.allowSelfRegistration) { u.orgId = org.id; break; }
         }
+        if (u.orgId == 0) return fail(400, "Registration is not available");
+        u.passwordHash = crypto::hashPassword(password);
 
         auto res = store.createUser(u);
         if (res == Store::CreateUserResult::DuplicateUsername) {
@@ -749,6 +750,35 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"candidate", candidateJson(c)}});
     });
 
+    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&](const HttpServer::Request& req) {
+        auto user = currentUser(req, store);
+        if (!user) return fail(401, "Not authenticated");
+        long long electionId, candidateId;
+        try {
+            electionId = std::stoll(req.param("id"));
+            candidateId = std::stoll(req.param("candidateId"));
+        } catch (...) { return fail(400, "Invalid election or candidate id"); }
+        auto election = store.getElection(electionId);
+        if (!election || !canAdminElection(*user, *election)) return fail(403, "Administrator access required for this election");
+        json::Value body;
+        HttpServer::Response err;
+        if (!parseBody(req, body, err)) return err;
+        auto candidates = store.listCandidates(electionId);
+        auto it = std::find_if(candidates.begin(), candidates.end(), [&](const Candidate& c){ return c.id == candidateId; });
+        if (it == candidates.end()) return fail(404, "Candidate not found");
+        Candidate changes = *it;
+        if (body.has("name")) changes.name = trimStr(body.getString("name"));
+        if (body.has("party")) changes.party = trimStr(body.getString("party"));
+        if (body.has("description")) changes.description = body.getString("description");
+        if (body.has("position")) changes.position = body.getInt("position", (int)changes.position);
+        if (!validTextField(changes.name, 1, 200)) return fail(400, "Candidate name required (1-200 chars)");
+        if (changes.party.size() > 200 || changes.description.size() > 2000 || changes.position < 0)
+            return fail(400, "Candidate fields are invalid or too long");
+        if (!store.updateCandidateDraft(electionId, changes)) return fail(409, "Candidates can only be edited in a draft election");
+        store.addAudit(user->username, "CANDIDATE_UPDATED", electionId, changes.name);
+        return ok({{"candidate", candidateJson(changes)}});
+    });
+
     server.addRoute("POST", "/api/elections/:id/candidates/remove", [&](const HttpServer::Request& req) {
         auto user = currentUser(req, store);
         if (!user) return fail(401, "Not authenticated");
@@ -810,6 +840,12 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             userId = u->id;
         }
         if (userId <= 0) return fail(400, "userId or username required");
+
+        auto target = store.findUserById(userId);
+        if (!target) return fail(404, "User not found");
+        if (action == "grant" && (target->role != "voter" || target->disabled || target->orgId != e->orgId)) {
+            return fail(400, "Eligibility can only be granted to an active voter in this election's organization");
+        }
 
         bool okRes;
         if (action == "grant") okRes = store.grantEligibility(id, userId);
@@ -1024,6 +1060,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         summary["activeVoters"] = (double)s.activeVoters;
         summary["eligibleVoters"] = (double)s.eligibleVoters;
         summary["participations"] = (double)s.participations;
+        summary["acceptedBallots"] = (double)s.acceptedBallots;
         return ok({{"summary", json::Value(summary)}});
     });
 

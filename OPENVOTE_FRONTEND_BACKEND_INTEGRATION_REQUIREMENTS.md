@@ -14,8 +14,8 @@ until an existing endpoint returns the requested data.
 | Profile/password | `POST /api/me/profile`, `POST /api/auth/password` | Display name edit and password change. |
 | Elections | `GET /api/elections`, `GET /api/elections/:id`, `POST /api/elections`, `POST /api/elections/:id` | Authenticated, visibility-scoped list/details; detail contains candidate records and voter eligibility/participation state where relevant; election edits are draft-only. `discoverable` is an explicit draft setting, default false. |
 | Lifecycle | `POST /api/elections/:id/status` | Server-validated lifecycle transition. |
-| Candidates | `GET /api/elections/:id/candidates`, `POST /api/elections/:id/candidates`, `POST /api/elections/:id/candidates/remove` | Read/add/remove in draft. Fields: name, party, description, position. |
-| Eligibility | `GET /api/elections/:id/eligibility`, `POST /api/elections/:id/eligibility` | Authorized admins/observers read the list; admins grant/revoke. |
+| Candidates | `GET /api/elections/:id/candidates`, `POST /api/elections/:id/candidates`, `POST /api/elections/:id/candidates/:candidateId`, `POST /api/elections/:id/candidates/remove` | Read/add/edit/remove in draft. Fields: name, party, description, position. |
+| Eligibility | `GET /api/elections/:id/eligibility`, `POST /api/elections/:id/eligibility` | Authorized admins/observers read the list; admins grant/revoke only for active voters in the election's organization. |
 | Ballot | `POST /api/elections/:id/vote` | Authenticated eligible voter sends `candidateId`; successful response returns a real receipt. |
 | Results | `GET /api/elections/:id/results`, `GET /api/elections/:id/results.csv`, `GET /api/public/results` | Published results are public by known id and are indexed anonymously after publication. Unpublished results require an authorized admin/observer or configured live-results policy. |
 | Admin operations | `GET/POST /api/orgs`, `GET/POST /api/users`, `POST /api/users/:id/disable`, `GET /api/audit`, `GET /api/admin/summary` | Existing scoped organization/user management, summary aggregates, and read-only audit. |
@@ -91,12 +91,12 @@ until an existing endpoint returns the requested data.
 - **Request fields:** Election id and deletion preconditions; candidate id plus supported candidate fields.
 - **Authorization:** Election administrator scoped to the organization; backend enforces state and referential constraints.
 - **Errors:** 400 invalid fields; 403 unauthorized; 404 missing record; 409 lifecycle/constraint conflict.
-- **Current behavior:** No election-delete or candidate-update route exists. The frontend exposes existing draft create/edit and candidate add/remove operations only.
+- **Current behavior:** Candidate update is supported in draft. No election-delete route exists; the frontend exposes draft create/edit and candidate add/edit/remove operations.
 
 ## Remaining integration limitations
 
 - Public discovery uses an opt-in flag; the interface only lists non-draft elections.
 - Registration has no email field or verification; password recovery is unsupported.
 - Candidate image, extended biography, manifesto, and priorities are absent from the current model/API.
-- Profile email/photo, notifications, election deletion, and candidate editing are unsupported.
+- Profile email/photo, notifications, and election deletion are unsupported.
 - The results response does not identify an official winner; the frontend does not invent one.

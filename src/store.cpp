@@ -327,7 +327,7 @@ AdminSummary Store::adminSummary(std::optional<long long> orgId) {
     const std::string joinFilter = orgId ? " AND e.org_id=?" : "";
     std::vector<DbValue> binds;
     if (orgId) {
-    for (int i = 0; i < 8; ++i) binds.emplace_back(*orgId);
+        for (int i = 0; i < 9; ++i) binds.emplace_back(*orgId);
     }
     std::string sql =
         "SELECT "
@@ -338,7 +338,8 @@ AdminSummary Store::adminSummary(std::optional<long long> orgId) {
         "(SELECT COUNT(*) FROM candidates c JOIN elections e ON e.id=c.election_id WHERE 1=1" + joinFilter + ") AS candidates,"
         "(SELECT COUNT(*) FROM users WHERE role='voter' AND disabled=0" + (orgId ? " AND org_id=?" : "") + ") AS active_voters,"
         "(SELECT COUNT(*) FROM eligibility el JOIN elections e ON e.id=el.election_id WHERE 1=1" + joinFilter + ") AS eligible_voters,"
-        "(SELECT COUNT(*) FROM participation p JOIN elections e ON e.id=p.election_id WHERE 1=1" + joinFilter + ") AS participations";
+        "(SELECT COUNT(*) FROM participation p JOIN elections e ON e.id=p.election_id WHERE 1=1" + joinFilter + ") AS participations,"
+        "(SELECT COUNT(*) FROM ballots b JOIN elections e ON e.id=b.election_id WHERE 1=1" + joinFilter + ") AS accepted_ballots";
     auto rows = db_.query(sql, binds);
     AdminSummary s;
     if (!rows.empty()) {
@@ -351,6 +352,7 @@ AdminSummary Store::adminSummary(std::optional<long long> orgId) {
         s.activeVoters = std::stoll(r.at("active_voters"));
         s.eligibleVoters = std::stoll(r.at("eligible_voters"));
         s.participations = std::stoll(r.at("participations"));
+        s.acceptedBallots = std::stoll(r.at("accepted_ballots"));
     }
     return s;
 }
@@ -532,6 +534,10 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
     }
 
     if (newStatus == "open") {
+        if (!eOpt->startAt.empty() && eOpt->startAt > nowIso()) return false;
+        auto candidates = db_.query("SELECT COUNT(*) AS n FROM candidates WHERE election_id=?",
+                                    {std::to_string(electionId)});
+        if (candidates.empty() || std::stoll(candidates[0].at("n")) == 0) return false;
         // Stamp actual open time if no start time was configured.
         db_.exec("UPDATE elections SET status='open', "
                  "start_at=COALESCE(NULLIF(start_at,''), ?) WHERE id=? AND status='draft'",
@@ -592,6 +598,22 @@ std::vector<Candidate> Store::listCandidates(long long electionId) {
         out.push_back(c);
     }
     return out;
+}
+
+bool Store::updateCandidateDraft(long long electionId, Candidate& changes) {
+    bool updated = false;
+    db_.tx([&]{
+        auto eOpt = getElection(electionId);
+        if (!eOpt || eOpt->status != "draft") return;
+        auto existing = db_.query("SELECT 1 AS present FROM candidates WHERE id=? AND election_id=?",
+                                  {std::to_string(changes.id), std::to_string(electionId)});
+        if (existing.empty()) return;
+        db_.exec("UPDATE candidates SET name=?,party=?,description=?,position=? WHERE id=? AND election_id=?",
+                 {changes.name, changes.party, changes.description, std::to_string(changes.position),
+                  std::to_string(changes.id), std::to_string(electionId)});
+        updated = true;
+    });
+    return updated;
 }
 
 bool Store::removeCandidate(long long candidateId, long long electionId) {
