@@ -1320,3 +1320,13 @@
 - **Security/privacy implications:** None.
 - **Known gaps:** Browser visual review not performed.
 - **Next exact task:** Verify How it works navigation and navbar wrapping on desktop and mobile.
+
+### 2026-11-17 --- Codex --- Remove About button from homepage hero
+
+- **Status:** Removed the homepage hero About action; navbar About navigation remains.
+- **Files changed:** `web/app.js`, `PROGRESS_LOG.md`.
+- **Commands run:** `node --check web/app.js` (passed); `git diff --check` (passed).
+- **Tests:** Not run; focused homepage action change.
+- **Security/privacy implications:** None.
+- **Known gaps:** Browser visual review not performed.
+- **Next exact task:** Verify the remaining homepage hero action at desktop and mobile widths.
