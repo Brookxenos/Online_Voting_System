@@ -499,20 +499,27 @@ std::vector<Election> Store::listElectionsVisibleTo(const User& user) {
 }
 
 bool Store::updateElectionDraft(long long electionId, const Election& changes) {
-    auto eOpt = getElection(electionId);
-    if (!eOpt || eOpt->status != "draft") return false;
-    db_.exec(
-        "UPDATE elections SET name=?, description=?, discoverable=?, show_live_results=?, "
-        "start_at=?, end_at=? WHERE id=? AND status='draft'",
-        {changes.name, changes.description, changes.discoverable ? "1" : "0", changes.showLiveResults ? "1" : "0",
-         changes.startAt, changes.endAt, std::to_string(electionId)});
-    return true;
+    bool updated = false;
+    db_.tx([&]{
+        auto eOpt = getElection(electionId);
+        if (!eOpt || eOpt->status != "draft") return;
+        db_.exec(
+            "UPDATE elections SET name=?, description=?, discoverable=?, show_live_results=?, "
+            "start_at=?, end_at=? WHERE id=? AND status='draft'",
+            {changes.name, changes.description, changes.discoverable ? "1" : "0", changes.showLiveResults ? "1" : "0",
+             changes.startAt, changes.endAt, std::to_string(electionId)});
+        auto count = db_.query("SELECT changes() AS n");
+        updated = !count.empty() && std::stoll(count[0].at("n")) == 1;
+    });
+    return updated;
 }
 
 bool Store::transitionElection(long long electionId, const std::string& newStatus,
                                const std::string& actor) {
+    bool transitioned = false;
+    db_.tx([&]{
     auto eOpt = getElection(electionId);
-    if (!eOpt) return false;
+    if (!eOpt) return;
     const std::string cur = eOpt->status;
 
     // Valid lifecycle transitions:
@@ -528,22 +535,25 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
     };
 
     auto it = valid.find(cur);
-    if (it == valid.end()) return false;
+    if (it == valid.end()) return;
     if (std::find(it->second.begin(), it->second.end(), newStatus) == it->second.end()) {
-        return false;
+        return;
     }
 
     if (newStatus == "open") {
-        if (!eOpt->startAt.empty() && eOpt->startAt > nowIso()) return false;
+        if (!eOpt->startAt.empty() && eOpt->startAt > nowIso()) return;
         auto candidates = db_.query("SELECT COUNT(*) AS n FROM candidates WHERE election_id=?",
                                     {std::to_string(electionId)});
-        if (candidates.empty() || std::stoll(candidates[0].at("n")) == 0) return false;
+        if (candidates.empty() || std::stoll(candidates[0].at("n")) == 0) return;
         // Stamp actual open time if no start time was configured.
         db_.exec("UPDATE elections SET status='open', "
                  "start_at=COALESCE(NULLIF(start_at,''), ?) WHERE id=? AND status='draft'",
                  {nowIso(), std::to_string(electionId)});
+        auto changed = db_.query("SELECT changes() AS n");
+        if (changed.empty() || std::stoll(changed[0].at("n")) != 1) return;
         addAudit(actor, "ELECTION_OPEN", electionId, "");
-        return true;
+        transitioned = true;
+        return;
     }
 
     if (newStatus == "published") {
@@ -552,19 +562,26 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
         if (!tally || !tally->integrityOk) {
             addAudit(actor, "PUBLISH_BLOCKED", electionId,
                      "tally integrity check failed; results not published");
-            return false;
+            return;
         }
-        db_.exec("UPDATE elections SET status='published', results_public=1, published_at=? WHERE id=?",
+        db_.exec("UPDATE elections SET status='published', results_public=1, published_at=? WHERE id=? AND status='closed'",
                  {nowIso(), std::to_string(electionId)});
+        auto changed = db_.query("SELECT changes() AS n");
+        if (changed.empty() || std::stoll(changed[0].at("n")) != 1) return;
         addAudit(actor, "ELECTION_PUBLISHED", electionId, "tally id " + std::to_string(tally->id));
-        return true;
+        transitioned = true;
+        return;
     }
 
-    db_.exec("UPDATE elections SET status=? WHERE id=?",
-             {newStatus, std::to_string(electionId)});
+    db_.exec("UPDATE elections SET status=? WHERE id=? AND status=?",
+             {newStatus, std::to_string(electionId), cur});
+    auto changed = db_.query("SELECT changes() AS n");
+    if (changed.empty() || std::stoll(changed[0].at("n")) != 1) return;
     addAudit(actor, newStatus == "closed" ? "ELECTION_CLOSED" : "ELECTION_ARCHIVED",
              electionId, "");
-    return true;
+    transitioned = true;
+    });
+    return transitioned;
 }
 
 // ---------------------------------------------------------------------------
@@ -572,15 +589,19 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
 // ---------------------------------------------------------------------------
 
 Store::AddCandidateResult Store::addCandidate(Candidate& c) {
-    auto eOpt = getElection(c.electionId);
-    if (!eOpt) return AddCandidateResult::ElectionNotFound;
-    if (eOpt->status != "draft") return AddCandidateResult::NotEditable;
-    db_.exec(
-        "INSERT INTO candidates(election_id,name,party,description,position) VALUES(?,?,?,?,?)",
-        {std::to_string(c.electionId), c.name, c.party, c.description,
-         std::to_string(c.position)});
-    c.id = db_.lastInsertId();
-    return AddCandidateResult::Ok;
+    AddCandidateResult result = AddCandidateResult::ElectionNotFound;
+    db_.tx([&]{
+        auto eOpt = getElection(c.electionId);
+        if (!eOpt) return;
+        if (eOpt->status != "draft") { result = AddCandidateResult::NotEditable; return; }
+        db_.exec(
+            "INSERT INTO candidates(election_id,name,party,description,position) VALUES(?,?,?,?,?)",
+            {std::to_string(c.electionId), c.name, c.party, c.description,
+             std::to_string(c.position)});
+        c.id = db_.lastInsertId();
+        result = AddCandidateResult::Ok;
+    });
+    return result;
 }
 
 std::vector<Candidate> Store::listCandidates(long long electionId) {
@@ -617,11 +638,16 @@ bool Store::updateCandidateDraft(long long electionId, Candidate& changes) {
 }
 
 bool Store::removeCandidate(long long candidateId, long long electionId) {
-    auto eOpt = getElection(electionId);
-    if (!eOpt || eOpt->status != "draft") return false;
-    db_.exec("DELETE FROM candidates WHERE id=? AND election_id=?",
-             {std::to_string(candidateId), std::to_string(electionId)});
-    return true;
+    bool removed = false;
+    db_.tx([&]{
+        auto eOpt = getElection(electionId);
+        if (!eOpt || eOpt->status != "draft") return;
+        db_.exec("DELETE FROM candidates WHERE id=? AND election_id=?",
+                 {std::to_string(candidateId), std::to_string(electionId)});
+        auto changed = db_.query("SELECT changes() AS n");
+        removed = !changed.empty() && std::stoll(changed[0].at("n")) == 1;
+    });
+    return removed;
 }
 
 // ---------------------------------------------------------------------------
