@@ -335,7 +335,7 @@ function renderDashboard(view) {
       <div class="dashboard-stats" id="voter-stats" aria-label="Election summary"><div class="stat-card"><span>Available Elections</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div><div class="stat-card"><span>Upcoming Elections</span><strong>—</strong></div><div class="stat-card"><span>Completed Elections</span><strong>—</strong></div></div>
       <div id="voter-dashboard-content" class="dashboard-content" aria-live="polite"><div class="loading-state">Loading your elections…</div></div>
     </section>`;
-  api('elections').then(data => {
+  api('me/dashboard').then(data => {
     if (state.view !== 'dashboard') return;
     const list = data.elections || [];
     const now = Date.now();
@@ -350,11 +350,11 @@ function renderDashboard(view) {
     const activeItems = phases.filter(x => x.phase === 'active');
     const upcomingItems = phases.filter(x => x.phase === 'upcoming');
     const activityItems = list.filter(e => e.hasVoted === true);
-    const section = (title, items, empty, actionFor) => `<section class="dashboard-section"><h2>${title}</h2>${items.length ? `<div class="dashboard-election-list">${items.map(({e}) => `<article class="dashboard-election"><div><h3>${escapeHtml(e.name)}</h3><p>${escapeHtml(e.description || '')}</p><span class="muted small">${escapeHtml(electionWhen(e))}</span>${e.eligible === false && !e.hasVoted ? '<span class="muted small">Not on the voter list</span>' : ''}</div><a class="btn btn-secondary" href="#/election/${e.id}">${actionFor(e)}</a></article>`).join('')}</div>` : `<p class="empty">${empty}</p>`}</section>`;
+    const section = (title, items, empty, actionFor) => `<section class="dashboard-section"><h2>${title}</h2>${items.length ? `<div class="dashboard-election-list">${items.map(({e}) => `<article class="dashboard-election"><div><h3>${escapeHtml(e.name)}</h3><p>${escapeHtml(e.description || '')}</p><span class="muted small">${escapeHtml(electionWhen(e))}</span>${e.hasVoted && e.votedAt ? `<span class="muted small">Participation recorded ${escapeHtml(new Date(e.votedAt).toLocaleString())}</span>` : ''}${e.eligible === false && !e.hasVoted ? '<span class="muted small">Not on the voter list</span>' : ''}</div><a class="btn btn-secondary" href="#/election/${e.id}">${actionFor(e)}</a></article>`).join('')}</div>` : `<p class="empty">${empty}</p>`}</section>`;
     document.getElementById('voter-dashboard-content').innerHTML =
       section('Active Elections', activeItems.filter(({e}) => !e.hasVoted), 'No active elections are available for participation right now.', e => e.eligible ? 'View Election' : 'View Details') +
       section('Upcoming Elections', upcomingItems, 'There are no upcoming elections available to you.', () => 'View Details') +
-      section('My Voting Activity', activityItems.map(e => ({e})), 'Your participation history will appear here after you vote.', () => 'View Details');
+        section('My Voting Activity', activityItems.map(e => ({e})), 'Your participation history will appear here after you vote.', () => 'View Details');
   }).catch(err => {
     if (state.view !== 'dashboard') return;
     const box = document.getElementById('voter-dashboard-content');
@@ -1081,17 +1081,17 @@ async function renderAdmin(view) {
   document.getElementById('admin-election-sort').addEventListener('change',() => { adminElectionPageSize = 10; drawAdminElections(); });
   async function updateAdminStats() {
     const container = document.getElementById('admin-statistics');
+    const summaryRequest = api('admin/summary');
     const detailPairs = await Promise.all(adminElectionRecords.map(async e => {
       try {
-        const [detail,candidates,eligible] = await Promise.all([api('elections/' + e.id),api('elections/' + e.id + '/candidates'),api('elections/' + e.id + '/eligibility')]);
-        return {id:e.id,votes: detail.participationCount, candidates: (candidates.candidates || []).length, eligible:(eligible.eligible || []).length};
+        const [detail,eligible] = await Promise.all([api('elections/' + e.id),api('elections/' + e.id + '/eligibility')]);
+        return {id:e.id,votes: detail.participationCount, eligible:(eligible.eligible || []).length};
       } catch (_) { return null; }
     }));
-    const complete = detailPairs.every(Boolean);
+    let summary = null;
+    try { summary = (await summaryRequest).summary; } catch (_) { /* keep summary unavailable */ }
     adminElectionMetrics = Object.fromEntries(detailPairs.filter(Boolean).map(x => [x.id,x]));
-    const candidateCount = complete ? detailPairs.reduce((sum,x) => sum + x.candidates,0) : null;
-    const voteCount = complete ? detailPairs.reduce((sum,x) => sum + (Number(x.votes) >= 0 ? Number(x.votes) : 0),0) : null;
-    const values = [adminElectionRecords.length, adminElectionRecords.filter(e => electionPhase(e,Date.now()) === 'active').length,candidateCount,adminUsersLoaded ? adminUsers.filter(u => u.role === 'voter').length : null,voteCount];
+    const values = summary ? [summary.totalElections,summary.activeElections,summary.totalCandidates,summary.activeVoters,summary.participations] : [null,null,null,null,null];
     const labels = ['Total Elections','Active Elections','Total Candidates','Registered Voters','Votes Cast'];
     container.innerHTML = labels.map((label,i) => `<div class="stat-card"><span>${label}</span><strong>${values[i] === null ? '—' : values[i]}</strong></div>`).join('');
     drawAdminElections();

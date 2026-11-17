@@ -85,7 +85,11 @@ check "org admin created in org B" '"role":"org_admin"' \
   "$(jpost /api/users '{"username":"admb","password":"password123","role":"org_admin","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
+check "admin summary is organization scoped" '"totalElections":0' \
+  "$(jget /api/admin/summary -b "$TMP/admb.jar")"
 check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"
+check "voter cannot read admin summary" "Administrator access required" \
+  "$(jget /api/admin/summary -b "$TMP/voterA.jar")"
 
 echo "-- election creation and lifecycle --"
 check "org admin B cannot create election in org A" "do not administer" \
@@ -133,6 +137,13 @@ check "candidate change after open rejected" "draft" \
   "$(jpost /api/elections/1/candidates '{"name":"Late","party":"L"}' -b "$TMP/admin.jar")"
 check "ballot cast successfully" '"ok":true' \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
+check "voter dashboard returns participation metadata" '"votedAt"' \
+  "$(jget /api/me/dashboard -b "$TMP/voterA.jar")"
+if [[ "$(jget /api/me/dashboard -b "$TMP/voterA.jar")" == *'"candidateId"'* ]]; then
+  FAIL=$((FAIL+1)); echo "  FAIL: voter dashboard exposes candidate choice"
+else
+  PASS=$((PASS+1)); echo "  PASS: voter dashboard does not expose candidate choice"
+fi
 check "duplicate ballot rejected" "already voted" \
   "$(jpost /api/elections/1/vote '{"candidateId":2}' -b "$TMP/voterA.jar")"
 check "invalid candidate rejected" "Unknown candidate" \

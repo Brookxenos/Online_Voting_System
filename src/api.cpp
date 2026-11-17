@@ -378,6 +378,33 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
+    server.addRoute("GET", "/api/me/dashboard", [&](const HttpServer::Request& req) {
+        auto user = currentUser(req, store);
+        if (!user) return fail(401, "Not authenticated");
+        if (user->role != "voter") return fail(403, "Voter access required");
+        json::Array elections, participation;
+        for (const auto& e : store.listElectionsVisibleTo(*user)) {
+            json::Object jo = electionJson(e).asObject();
+            bool eligible = store.isEligible(e.id, user->id);
+            bool hasVoted = store.hasParticipation(e.id, user->id);
+            jo["eligible"] = eligible;
+            jo["hasVoted"] = hasVoted;
+            if (hasVoted) {
+                const std::string votedAt = store.participationAt(e.id, user->id);
+                jo["votedAt"] = votedAt;
+                json::Object item;
+                item["electionId"] = (double)e.id;
+                item["electionName"] = e.name;
+                item["status"] = e.status;
+                item["votedAt"] = votedAt;
+                participation.push_back(json::Value(item));
+            }
+            elections.push_back(json::Value(jo));
+        }
+        return ok({{"elections", json::Value(elections)},
+                   {"participation", json::Value(participation)}});
+    });
+
     server.addRoute("POST", "/api/me/profile", [&](const HttpServer::Request& req) {
         auto user = currentUser(req, store);
         if (!user) return fail(401, "Not authenticated");
@@ -978,6 +1005,26 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             arr.push_back(json::Value(jo));
         }
         return ok({{"users", json::Value(arr)}});
+    });
+
+    server.addRoute("GET", "/api/admin/summary", [&](const HttpServer::Request& req) {
+        auto user = currentUser(req, store);
+        if (!user) return fail(401, "Not authenticated");
+        std::optional<long long> scope;
+        if (isPlatformAdmin(*user)) scope = std::nullopt;
+        else if (user->role == "org_admin" && user->orgId > 0) scope = user->orgId;
+        else return fail(403, "Administrator access required");
+        AdminSummary s = store.adminSummary(scope);
+        json::Object summary;
+        summary["totalElections"] = (double)s.elections;
+        summary["activeElections"] = (double)s.activeElections;
+        summary["upcomingElections"] = (double)s.upcomingElections;
+        summary["publishedElections"] = (double)s.publishedElections;
+        summary["totalCandidates"] = (double)s.candidates;
+        summary["activeVoters"] = (double)s.activeVoters;
+        summary["eligibleVoters"] = (double)s.eligibleVoters;
+        summary["participations"] = (double)s.participations;
+        return ok({{"summary", json::Value(summary)}});
     });
 
     server.addRoute("POST", "/api/users", [&](const HttpServer::Request& req) {
