@@ -105,7 +105,8 @@ std::vector<Database::Row> Database::query(const std::string& sql,
     }
     bindParams(stmt, binds);
     int cols = sqlite3_column_count(stmt);
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    int rc = SQLITE_OK;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
         Row row;
         for (int c = 0; c < cols; ++c) {
             const char* name = sqlite3_column_name(stmt, c);
@@ -119,6 +120,9 @@ std::vector<Database::Row> Database::query(const std::string& sql,
         out.push_back(std::move(row));
     }
     sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) {
+        throw std::runtime_error(std::string("SQL query error: ") + sqlite3_errmsg((sqlite3*)db_));
+    }
     return out;
 }
 
@@ -141,8 +145,10 @@ void Database::migrate(const std::vector<std::string>& migrations) {
     for (size_t i = 0; i < migrations.size(); ++i) {
         int target = (int)(i + 1);
         if (target <= v) continue;
-        exec(migrations[i]);
-        exec("PRAGMA user_version=" + std::to_string(target) + ";");
+        tx([&]{
+            exec(migrations[i]);
+            exec("PRAGMA user_version=" + std::to_string(target) + ";");
+        });
         v = target;
         std::cout << "[db] applied migration " << target << "\n";
     }

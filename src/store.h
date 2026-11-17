@@ -44,6 +44,8 @@ public:
     void updateDisplayName(long long userId, const std::string& displayName);
     void updatePasswordHash(long long userId, const std::string& hash);
     void setUserDisabled(long long userId, bool disabled);
+    std::string participationAt(long long electionId, long long userId);
+    AdminSummary adminSummary(std::optional<long long> orgId = std::nullopt);
 
     // --- Sessions -----------------------------------------------------------
     // Creates a session for the user and returns the raw token (sent to the

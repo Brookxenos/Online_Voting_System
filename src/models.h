@@ -65,6 +65,17 @@ struct ElectionPage {
     long long total = 0;
 };
 
+struct AdminSummary {
+    long long elections = 0;
+    long long activeElections = 0;
+    long long upcomingElections = 0;
+    long long publishedElections = 0;
+    long long candidates = 0;
+    long long activeVoters = 0;
+    long long eligibleVoters = 0;
+    long long participations = 0;
+};
+
 struct Candidate {
     long long id = 0;
     long long electionId = 0;

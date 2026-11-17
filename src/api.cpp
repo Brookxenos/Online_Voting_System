@@ -156,9 +156,26 @@ bool validDateFilter(const std::string& value) {
     for (size_t i = 0; i < value.size(); ++i) {
         if (i != 4 && i != 7 && !std::isdigit((unsigned char)value[i])) return false;
     }
+    int year = std::stoi(value.substr(0, 4));
     int month = std::stoi(value.substr(5, 2));
     int day = std::stoi(value.substr(8, 2));
-    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+    if (month < 1 || month > 12) return false;
+    static const int days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    int maxDay = days[month - 1];
+    if (month == 2 && (year % 400 == 0 || (year % 4 == 0 && year % 100 != 0))) maxDay = 29;
+    return day >= 1 && day <= maxDay;
+}
+
+bool validIsoTimestamp(const std::string& s) {
+    if (s.empty()) return true;
+    if (s.size() != 20 || s[4] != '-' || s[7] != '-' || s[10] != 'T' ||
+        s[13] != ':' || s[16] != ':' || s[19] != 'Z' || !validDateFilter(s.substr(0, 10))) return false;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i == 4 || i == 7 || i == 10 || i == 13 || i == 16 || i == 19) continue;
+        if (!std::isdigit((unsigned char)s[i])) return false;
+    }
+    int hour = std::stoi(s.substr(11, 2)), minute = std::stoi(s.substr(14, 2)), second = std::stoi(s.substr(17, 2));
+    return hour <= 23 && minute <= 59 && second <= 59;
 }
 
 bool parsePage(const HttpServer::Request& req, int& limit, int& offset) {
@@ -567,11 +584,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         e.startAt = body.getString("startAt");
         e.endAt = body.getString("endAt");
         e.createdBy = user->id;
-        // Basic ISO-timestamp shape validation when provided.
-        auto validIso = [](const std::string& s){
-            return s.empty() || (s.size() == 20 && s[4] == '-' && s[10] == 'T' && s.back() == 'Z');
-        };
-        if (!validIso(e.startAt) || !validIso(e.endAt)) {
+        if (!validIsoTimestamp(e.startAt) || !validIsoTimestamp(e.endAt) ||
+            (!e.startAt.empty() && !e.endAt.empty() && e.endAt <= e.startAt)) {
             return fail(400, "Dates must be empty or ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ)");
         }
 
@@ -628,6 +642,10 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (body.has("showLiveResults")) changes.showLiveResults = body.at("showLiveResults").asBool();
         if (body.has("startAt")) changes.startAt = body.getString("startAt");
         if (body.has("endAt")) changes.endAt = body.getString("endAt");
+        if (!validIsoTimestamp(changes.startAt) || !validIsoTimestamp(changes.endAt) ||
+            (!changes.startAt.empty() && !changes.endAt.empty() && changes.endAt <= changes.startAt)) {
+            return fail(400, "Dates must be valid ISO 8601 UTC timestamps and end after start");
+        }
 
         // Published/open ballot configuration must not be silently changed:
         // draft-only edits are enforced by the store.
