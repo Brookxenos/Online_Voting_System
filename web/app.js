@@ -121,6 +121,7 @@ function bindPasswordToggles(form) {
 
 const routes = [
   { name: 'home',       pattern: /^#?\/?$/ },
+  { name: 'howItWorks', pattern: /^#\/how-it-works$/ },
   { name: 'about',      pattern: /^#\/about$/ },
   { name: 'login',      pattern: /^#\/login$/ },
   { name: 'register',   pattern: /^#\/register$/ },
@@ -166,8 +167,7 @@ const app = document.getElementById('app');
 
 function navHtml() {
   const u = state.user;
-  const links = [['#/', 'Home'], ['#/results', 'Results'], ['#/about', 'About']];
-  links.splice(1, 0, ['#/', 'How it works']);
+  const links = [['#/', 'Home'], ['#/how-it-works', 'How it works'], ['#/results', 'Results'], ['#/about', 'About']];
   if (u && u.role === 'voter') links.splice(1, 0, ['#/dashboard', 'Dashboard']);
   if (u && (u.role === 'org_admin' || u.role === 'platform_admin')) links.splice(1, 0, ['#/admin', 'Administration']);
   if (u && u.role === 'observer') links.splice(1, 0, ['#/observer', 'Observer view']);
@@ -177,11 +177,11 @@ function navHtml() {
   for (const [href, label] of links) {
     const route = href === '#/' ? 'home' : href.slice(2).split('/')[0];
     const active = state.view === route ||
+      (route === 'how-it-works' && state.view === 'howItWorks') ||
       (route === 'admin' && (state.view === 'adminElection' || state.view === 'admin')) ||
       (route === 'elections' && (state.view === 'election' || state.view === 'candidate')) ||
       (route === 'results' && (state.view === 'results' || state.view === 'resultsIndex'));
-    const howItWorks = label === 'How it works';
-    html += `<a href="${href}"${howItWorks ? ' id="nav-how-it-works"' : ''}${active && !howItWorks ? ' aria-current="page"' : ''}><span>${label}</span></a>`;
+    html += `<a href="${href}"${active ? ' aria-current="page"' : ''}><span>${label}</span></a>`;
   }
   html += '</div>';
   html += '<div class="nav-user">';
@@ -198,18 +198,6 @@ function navHtml() {
 
 function render() {
   app.innerHTML = navHtml() + '<div id="view"></div>';
-  const howItWorksLink = document.getElementById('nav-how-it-works');
-  if (howItWorksLink) {
-    howItWorksLink.addEventListener('click', event => {
-      event.preventDefault();
-      const scrollToSection = () => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-      if (state.view === 'home') scrollToSection();
-      else {
-        go('#/');
-        window.setTimeout(scrollToSection, 0);
-      }
-    });
-  }
   const logout = document.getElementById('btn-logout');
   if (logout) {
     logout.addEventListener('click', async () => {
@@ -232,6 +220,7 @@ function render() {
   const view = document.getElementById('view');
   const renderers = {
     home: renderHome,
+    howItWorks: renderHowItWorks,
     about: renderAbout,
     login: renderLogin,
     register: renderRegister,
@@ -271,6 +260,23 @@ function renderAbout(view) {
         <article class="feature-card"><h2>Review</h2><p>Published results are available through the results page.</p></article>
       </div>
       <div class="btn-row"><a class="btn btn-primary" href="#/elections">Discover Elections</a><a class="btn btn-secondary" href="#/register">Get Started</a></div>
+    </section>`;
+}
+
+function renderHowItWorks(view) {
+  view.innerHTML = `
+    <section class="card about-page how-it-works-page">
+      <p class="section-kicker">A simple guide</p>
+      <h1>How to use ElectraVote</h1>
+      <p class="muted">Follow these steps to find an election, cast a ballot when you are eligible, and check results when they are published.</p>
+      <ol class="how-it-works-steps">
+        <li><span class="how-step-number">1</span><div><h2>Sign in or create an account</h2><p>Use your account to see elections available to you. If your organization has not provided an account, choose <a href="#/register">Get started</a> to register.</p></div></li>
+        <li><span class="how-step-number">2</span><div><h2>Find an election</h2><p>Open <a href="#/elections">Discover Elections</a> or your dashboard. Select an election to read its description, schedule, and ballot options. If you cannot see an election, ask its organizer to check your access.</p></div></li>
+        <li><span class="how-step-number">3</span><div><h2>Review the ballot</h2><p>When voting is open and you are eligible, choose one option. Read your selection carefully on the review screen. You can go back and change it before submitting.</p></div></li>
+        <li><span class="how-step-number">4</span><div><h2>Confirm your vote</h2><p>Select <strong>Confirm and submit vote</strong> only when you are ready. The app will show a confirmation after submission. The ballot cannot be changed after it is submitted.</p></div></li>
+        <li><span class="how-step-number">5</span><div><h2>Check published results</h2><p>Use <a href="#/results">Results</a> to browse outcomes once they have been published. Results may not be available while an election is still open.</p></div></li>
+      </ol>
+      <aside class="how-help"><h2>Need help?</h2><p>For account access or election eligibility questions, contact the organization running the election. For sign-in trouble, return to <a href="#/login">Log in</a>.</p></aside>
     </section>`;
 }
 
