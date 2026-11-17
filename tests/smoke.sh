@@ -18,10 +18,12 @@ cp "$HERE"/web/assets/* "$TMP/web/assets/"
 
 PASS=0; FAIL=0
 SERVER_PID=""
+MIGTMP=""
 
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
   rm -rf "$TMP"
+  [ -n "$MIGTMP" ] && rm -rf "$MIGTMP"
 }
 trap cleanup EXIT
 
@@ -265,6 +267,56 @@ check "invalid JSON body rejected" "Invalid JSON" \
   "$(jpost /api/auth/login '{invalid')"
 check "session logout revokes access" "Not authenticated" \
   "$(jpost /api/auth/logout '{}' -b "$TMP/voterB.jar"; jget /api/me -b "$TMP/voterB.jar")"
+
+echo "-- legacy CSV migration (isolated fake records) --"
+kill "$SERVER_PID" 2>/dev/null || true
+wait "$SERVER_PID" 2>/dev/null || true
+SERVER_PID=""
+MIG_PORT=$((PORT + 1))
+BASE="localhost:$MIG_PORT"
+MIGTMP="$(mktemp -d /tmp/opencode/ovmigration.XXXXXX)" || exit 1
+mkdir -p "$MIGTMP/data"
+cat > "$MIGTMP/data/voters.csv" <<'CSV'
+id,name,passwordHash,nationalId,hasVoted
+V001,Legacy Example,pepper$0123456789abcdef,N-TEST-001,1
+CSV
+cat > "$MIGTMP/data/candidates.csv" <<'CSV'
+id,name,party,symbol,position,votes
+C001,Legacy Option,Independent,star,1,12
+CSV
+cat > "$MIGTMP/data/votes.csv" <<'CSV'
+voterId,candidateId,timestamp,signature
+V001,C001,2020-01-01T00:00:00Z,legacy-signature
+CSV
+OV_INITIAL_ADMIN_PASSWORD="$ADMIN_PW" "$HERE/voting_server" "$MIG_PORT" "$TMP/web" "$MIGTMP/data" > "$MIGTMP/server.log" 2>&1 &
+SERVER_PID=$!
+sleep 0.8
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "FATAL: migration test server did not start:"; cat "$MIGTMP/server.log"; exit 1
+fi
+jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$MIGTMP/admin.jar" > /dev/null
+IMPORTED=$(jget /api/elections/1 -b "$MIGTMP/admin.jar")
+check "legacy election imported as closed" '"status":"closed"' "$IMPORTED"
+check "legacy election marked identity-linked" "NOT anonymous" "$IMPORTED"
+check "legacy ballot and participation counts preserved" '"totalBallots":1' \
+  "$(jget /api/elections/1/results -b "$MIGTMP/admin.jar")"
+if [[ -f "$MIGTMP/data/voters.csv" && -f "$MIGTMP/data/candidates.csv" && -f "$MIGTMP/data/votes.csv" ]]; then
+  PASS=$((PASS+1)); echo "  PASS: source CSV files preserved"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL: source CSV files preserved"
+fi
+kill "$SERVER_PID" 2>/dev/null || true
+wait "$SERVER_PID" 2>/dev/null || true
+OV_INITIAL_ADMIN_PASSWORD="$ADMIN_PW" "$HERE/voting_server" "$MIG_PORT" "$TMP/web" "$MIGTMP/data" > "$MIGTMP/restart.log" 2>&1 &
+SERVER_PID=$!
+sleep 0.8
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "FATAL: migration restart failed:"; cat "$MIGTMP/restart.log"; exit 1
+fi
+jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$MIGTMP/admin-restart.jar" > /dev/null
+RESTART_ELECTIONS=$(jget /api/elections -b "$MIGTMP/admin-restart.jar")
+IMPORTED_COUNT=$(grep -o 'Imported legacy election' <<< "$RESTART_ELECTIONS" | wc -l)
+check "legacy import is idempotent after restart" "1" "$IMPORTED_COUNT"
 
 echo
 echo "===================================================="
