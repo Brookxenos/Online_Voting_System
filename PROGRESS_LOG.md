@@ -55,6 +55,19 @@
 
 ## Session entries
 
+### 2026-11-18 --- Codex --- Fix the legacy nested startup entry point
+
+- **Status:** The nested `voting_system/start.sh` now delegates to the current repository launcher.
+- **Approved scope:** Diagnose why the existing code is not running and fix only that startup failure.
+- **Summary:** Confirmed the C++ application builds and the top-level `./start.sh` responds with HTTP 200 when run with a temporary data directory. Found that the nested launcher changed into a directory with no Makefile and hardcoded old paths/port; replaced it with a direct delegation to `../start.sh`, preserving forwarded arguments and environment configuration.
+- **Files changed:** `voting_system/start.sh`, `PROGRESS_LOG.md`.
+- **Decisions:** Kept the C++17 and vanilla frontend stack; no application behavior or persistent project data was changed.
+- **Commands run:** `make` (passed; up to date); `OV_DATA_DIR=/tmp/electravote-run-check-20261118 ... ./start.sh 18080` (started after network permission was granted; first sandbox attempt could not bind a socket); `curl ... http://127.0.0.1:18080/` (HTTP 200, 611 bytes); `bash -n voting_system/start.sh`; `git diff --check`.
+- **Tests:** No automated test suite run; this was a launcher-only fix. Temporary runtime database is under `/tmp`, not project data.
+- **Security/privacy implications:** None; startup path only. Temporary bootstrap password was explicitly supplied and not printed by the launcher.
+- **Known gaps:** The nested entry point delegates to the top-level launcher and relies on the repository layout remaining unchanged.
+- **Next exact task:** Retry startup through the entry point that previously failed; if another concrete startup error appears, fix only that error.
+
 ### 2026-11-16 --- Codex --- Align profile redesign with site palette
 
 - **Status:** Updated per owner direction; browser visual review pending.
