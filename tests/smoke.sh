@@ -138,6 +138,10 @@ check "voter cannot read admin summary" "Administrator access required" \
 echo "-- election creation and lifecycle --"
 check "org admin B cannot create election in org A" "do not administer" \
   "$(jpost /api/elections '{"orgId":1,"name":"Hijack"}' -b "$TMP/admb.jar")"
+check "voter cannot create election" "You do not administer this organization" \
+  "$(jpost /api/elections '{"orgId":1,"name":"Unauthorized"}' -b "$TMP/voterA.jar")"
+check "unknown organization rejected on election creation" "Organization not found" \
+  "$(jpost /api/elections '{"orgId":999,"name":"Invalid organization"}' -b "$TMP/admin.jar")"
 check "missing election title rejected" "Election name required" \
   "$(jpost /api/elections '{"orgId":1,"description":"Missing title"}' -b "$TMP/admin.jar")"
 check "create election in org A" '"status":"draft"' \
@@ -173,8 +177,8 @@ check "org admin B cannot add candidate to A1" "Administrator access required" \
 echo "-- eligibility and voting --"
 check "vote while draft rejected" "not open for voting" \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
-check "draft election configuration update succeeds" '"name":"Election A1 Revised"' \
-  "$(jpost /api/elections/1 '{"name":"Election A1 Revised","description":"Updated draft"}' -b "$TMP/admin.jar")"
+check "draft election configuration update succeeds" '"description":"Updated draft"' \
+  "$(jpost /api/elections/1 '{"description":"Updated draft"}' -b "$TMP/admin.jar")"
 check "grant eligibility" '"ok":true' \
   "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
 check "cross-organization voter cannot be made eligible" "in this election's organization" \
@@ -219,6 +223,8 @@ check "results hidden while open" "not published yet" "$(jget /api/elections/1/r
 check "results csv requires auth while unpublished" "Not authenticated" "$(jget /api/elections/1/results.csv)"
 check "close election" '"status":"closed"' \
   "$(jpost /api/elections/1/status '{"status":"closed"}' -b "$TMP/admin.jar")"
+check "closed election configuration is rejected" "Only draft elections can be edited" \
+  "$(jpost /api/elections/1 '{"description":"Late edit"}' -b "$TMP/admin.jar")"
 check "publish election" '"status":"published"' \
   "$(jpost /api/elections/1/status '{"status":"published"}' -b "$TMP/admin.jar")"
 check "published results are public without auth" '"totalBallots":1' "$(jget /api/elections/1/results)"

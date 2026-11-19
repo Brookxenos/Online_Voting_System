@@ -1454,3 +1454,16 @@
 - **Security/privacy implications:** All organization reads/updates are authorized using session-derived roles and organization IDs. SQL uses Store bound parameters. No database records were reset/deleted and no UI files changed.
 - **Known gaps:** Organization activation is unsupported by the current data model; adding it would need a separately reviewed migration and decisions about election/user behavior for inactive organizations. Organization Admins can manage their organization's users through existing UserService routes.
 - **Next exact task:** Wait for owner approval before beginning Step 4B election management.
+
+### 2026-11-19 --- Codex --- Step 4B election creation and configuration
+
+- **Status:** Added ElectionService and ElectionRepository boundaries for election listing, detail authorization, creation, validation, and draft configuration. Existing lifecycle/status endpoints remain unchanged.
+- **Approved scope:** Step 4B only; no UI changes, no schema reset, and no Step 4C work.
+- **Files created:** `src/repositories/election_repository.h`, `src/services/election_service.h`, `src/services/election_service.cpp`.
+- **Files modified:** `src/api.cpp`, `tests/smoke.sh`, `PROGRESS_LOG.md`.
+- **Decisions:** Existing election schema already supports requested configuration; no migration. Elections start in draft via the existing Store method. Start/end timestamps are validated in ElectionService as UTC ISO values and end must follow start. Store's transactional draft-only update remains the final persistence guard. Route callbacks retain both shared service and repository ownership.
+- **Commands run:** `make -j2` (passed); `bash -n tests/smoke.sh` (passed); `make test` (passed); `git diff --check` (passed).
+- **Tests:** Complete suite passed: six AuthService checks plus **114 HTTP smoke checks**, total 120 passing. Added election create/list/detail, org-admin own-org creation, cross-org and voter creation denial, bad org ID, missing title, invalid date/range, draft configuration, and open/closed edit rejection. Existing lifecycle/vote/results tests passed.
+- **Security/privacy implications:** Election creation and draft edits use session-derived role/org scope; cross-org operations rejected. Election reads use existing visibility rules, including voter eligibility/self-registration constraints. SQL remains in Store and uses bound parameters.
+- **Known issues:** No visual frontend changes. ElectionController responsibilities remain in `api.cpp` route handlers; service/repository seams now own election decisions and storage calls. No deletion/rewrites of elections.
+- **Next exact task:** Await owner approval before Step 4C.
