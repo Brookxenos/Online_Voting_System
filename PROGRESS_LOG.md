@@ -1416,3 +1416,16 @@
 - **Security/privacy implications:** No plaintext passwords or raw session tokens are persisted; current schema retained. Existing Secure cookie opt-in deployment setting and SameSite/HttpOnly behavior unchanged.
 - **Known issues:** Login throttling remains in-process and does not coordinate across restarts/instances. CSRF protection remains as before and was not expanded in this task. User management extraction remains deferred.
 - **Next exact task:** Review and extract user management operations into services/repositories as the separately approved next phase; do not change authentication contracts without a new requirement.
+
+### 2026-11-19 --- Codex --- Step 3B user management module
+
+- **Status:** Added service and repository boundaries for account administration and wired existing user routes plus scoped detail/update/password operations through them.
+- **Approved scope:** Step 3B user management; preserve current frontend, schema/data, C++17, SQLite, libsodium, authentication behavior, and existing API contracts. Do not begin Step 4.
+- **Files created:** `src/repositories/user_repository.h`, `src/services/user_service.h`, `src/services/user_service.cpp`.
+- **Files modified:** `src/store.h`, `src/store.cpp`, `src/api.cpp`, `tests/smoke.sh`, `PROGRESS_LOG.md`.
+- **Decisions:** Existing `users` and `sessions` schema is sufficient; no migration. Admin password reset reuses libsodium hashing and existing repository session revocation; self password change remains on AuthService. Existing handlers in `api.cpp` remain the HTTP controller boundary, while business authorization now resides in UserService.
+- **Commands run:** `make -j2` (passed); `bash -n tests/smoke.sh` (passed); `make test` (passed); `git diff --check` (passed).
+- **Tests:** Full suite passed: auth service checks plus HTTP smoke suite expanded from 88 to 94 checks. Added organization-scoped user detail, self-detail, cross-organization rejection, privilege escalation rejection, and organization-scoped update checks.
+- **Security/privacy implications:** User JSON remains allowlisted and does not expose password hashes. Organization admins cannot cross org or assign platform_admin; role/status/password operations use backend session identity. Disabling and administrative password changes revoke all sessions.
+- **Known issues:** No frontend UI was changed. New management operations use API routes without current UI controls. Observer list access is scoped to own organization; observer detail access remains own account or permitted management scope. Test coverage does not yet exercise every admin password reset and account reactivation combination through HTTP.
+- **Next exact task:** Review Step 3A and 3B together for architecture and authorization consistency; wait for owner approval before starting Step 4.

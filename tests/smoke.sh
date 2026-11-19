@@ -93,14 +93,14 @@ check "create voter in org B" '"role":"voter"' \
   "$(jpost /api/users '{"username":"outsider","password":"password123","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
-check "org admin can view own organization user" '"username":"outsider"' "$(jget /api/users/3 -b "$TMP/admb.jar")"
+check "org admin can view own organization user" '"username":"outsider"' "$(jget /api/users/4 -b "$TMP/admb.jar")"
 check "org admin cannot view user in another organization" "Access denied" "$(jget /api/users/2 -b "$TMP/admb.jar")"
 check "voter can view own account details" '"username":"voterA"' "$(jget /api/users/2 -b "$TMP/voterA.jar")"
-check "voter cannot view another account" "Access denied" "$(jget /api/users/3 -b "$TMP/voterA.jar")"
+check "voter cannot view another account" "Access denied" "$(jget /api/users/4 -b "$TMP/voterA.jar")"
 check "org admin cannot assign platform administrator role" "Access denied" \
-  "$(jpost /api/users/3 '{"displayName":"Blocked","role":"platform_admin","orgId":2}' -b "$TMP/admb.jar")"
+  "$(jpost /api/users/4 '{"displayName":"Blocked","role":"platform_admin","orgId":2}' -b "$TMP/admb.jar")"
 check "org admin can update own organization user" '"displayName":"Outsider Updated"' \
-  "$(jpost /api/users/3 '{"displayName":"Outsider Updated","role":"voter","orgId":2}' -b "$TMP/admb.jar")"
+  "$(jpost /api/users/4 '{"displayName":"Outsider Updated","role":"voter","orgId":2}' -b "$TMP/admb.jar")"
 check "admin summary is organization scoped" '"totalElections":0' \
   "$(jget /api/admin/summary -b "$TMP/admb.jar")"
 check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"
