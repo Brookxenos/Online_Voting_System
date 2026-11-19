@@ -780,7 +780,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Voting ========================================
 
-    server.addRoute("POST", "/api/elections/:id/vote", [&, votingService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/vote", [&, votingService, authService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         if (user->role != "voter") return fail(403, "Only voters can cast ballots");

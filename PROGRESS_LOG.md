@@ -1403,3 +1403,16 @@
 - **Security/privacy implications:** Existing vote transaction and uniqueness behavior preserved; no schema/data changes. Service lifetime is explicit. Ballot/participation separation remains educational, not anonymity.
 - **Known gaps:** `Store` remains monolithic and still owns SQL and substantial business rules; only VotingService seam extracted. Other target directories are placeholders. `src/api.cpp` still combines controller/middleware responsibilities. Test suite was run with local socket permission.
 - **Next exact task:** Extract auth/session behavior behind an `AuthService` while preserving existing cookie, throttling, error, and response contracts; run build and isolated HTTP smoke suite.
+
+### 2026-11-19 --- Codex --- Step 3 authentication and session extraction
+
+- **Status:** Authentication and session business logic now runs through `AuthService`; current API routes and response contracts are preserved.
+- **Approved scope:** Extract existing auth/session behavior only. Preserve C++17, SQLite schema and records, libsodium, routes, frontend, and existing behavior. Do not start user management.
+- **Files created:** `src/services/auth_service.h`, `src/services/auth_service.cpp`, `tests/auth_service.cpp`.
+- **Files modified:** `src/api.cpp`, `Makefile`, `PROGRESS_LOG.md`.
+- **Decisions:** Retained `Store` as the SQL persistence boundary; no schema migration. Preserved in-process rate limiting, Argon2id hashing and legacy hash upgrade, opaque random session tokens, hashed-token storage, expiry/revocation, and password-change revocation. Route callbacks retain shared AuthService ownership because handlers outlive route registration.
+- **Commands run:** `make -j2` (passed); `make test-auth` (passed, six service checks); `make test` (passed; six service checks and 88 HTTP smoke checks); `git diff --check` (passed).
+- **Tests:** Registration, duplicate registration, login, session validation, logout invalidation, repeat login, auth/rate limiting integration, and full existing application smoke coverage passed.
+- **Security/privacy implications:** No plaintext passwords or raw session tokens are persisted; current schema retained. Existing Secure cookie opt-in deployment setting and SameSite/HttpOnly behavior unchanged.
+- **Known issues:** Login throttling remains in-process and does not coordinate across restarts/instances. CSRF protection remains as before and was not expanded in this task. User management extraction remains deferred.
+- **Next exact task:** Review and extract user management operations into services/repositories as the separately approved next phase; do not change authentication contracts without a new requirement.

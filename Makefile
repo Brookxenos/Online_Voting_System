@@ -24,7 +24,7 @@ SOURCES := $(shell find $(SRCDIR) -path '$(SRCDIR)/legacy_impl' -prune -o -name 
 HEADERS := $(shell find $(SRCDIR) -path '$(SRCDIR)/legacy_impl' -prune -o -name '*.h' -print)
 OBJECTS := $(SOURCES:.cpp=.o)
 
-.PHONY: all run run-port test clean data
+.PHONY: all run run-port test test-auth clean data
 
 all: $(TARGET)
 
@@ -43,7 +43,12 @@ run-port: all
 	@mkdir -p $(DATADIR)
 	./$(TARGET) $(PORT) $(WEBDIR) $(DATADIR)
 
-test: all
+test-auth: all
+	$(CXX) $(CXXFLAGS) -Isrc -o /tmp/electravote-auth-service-test tests/auth_service.cpp src/db.cpp src/store.cpp src/crypto.cpp src/services/auth_service.cpp $(LDFLAGS) -Wl,-rpath,/usr/lib/x86_64-linux-gnu $(SODIUM) $(SQLITE)
+	@/tmp/electravote-auth-service-test
+	@rm -f /tmp/electravote-auth-service-test /tmp/electravote-auth-service-test.db /tmp/electravote-auth-service-test.db-shm /tmp/electravote-auth-service-test.db-wal
+
+test: all test-auth
 	@bash tests/smoke.sh
 
 data:
