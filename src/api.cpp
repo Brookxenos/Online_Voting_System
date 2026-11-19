@@ -3,10 +3,10 @@
 #include "crypto.h"
 #include "models.h"
 #include "services/voting_service.h"
+#include "services/auth_service.h"
 
 #include <algorithm>
 #include <iostream>
-#include <mutex>
 #include <memory>
 #include <sstream>
 
@@ -77,52 +77,15 @@ bool validTextField(const std::string& s, size_t min, size_t max) {
 // Rate limiting (login/registration brute-force resistance)
 // ---------------------------------------------------------------------------
 
-struct RateBucket {
-    std::vector<long long> failures;   // unix timestamps of recent failures
-};
-
-std::mutex g_rateMtx;
-std::map<std::string, RateBucket> g_rateBuckets;
-
-static long long unixNow() {
-    return (long long)std::time(nullptr);
-}
-
-// 5 failures per key within 5 minutes blocks further attempts for 5 minutes.
-bool rateLimited(const std::string& key) {
-    std::lock_guard<std::mutex> lk(g_rateMtx);
-    auto it = g_rateBuckets.find(key);
-    if (it == g_rateBuckets.end()) return false;
-    long long now = unixNow();
-    auto& f = it->second.failures;
-    f.erase(std::remove_if(f.begin(), f.end(),
-                           [&](long long t){ return now - t > 300; }), f.end());
-    if (f.size() >= 5 && now - f.back() < 300) return true;
-    return false;
-}
-
-void recordFailure(const std::string& key) {
-    std::lock_guard<std::mutex> lk(g_rateMtx);
-    g_rateBuckets[key].failures.push_back(unixNow());
-    // Keep memory bounded.
-    if (g_rateBuckets.size() > 10000) g_rateBuckets.clear();
-}
-
-void clearFailures(const std::string& key) {
-    std::lock_guard<std::mutex> lk(g_rateMtx);
-    g_rateBuckets.erase(key);
-}
-
 // ---------------------------------------------------------------------------
 // Authentication helpers
 // ---------------------------------------------------------------------------
 
 const char* kSessionCookie = "ov_session";
 
-std::optional<User> currentUser(const HttpServer::Request& req, Store& store) {
+std::optional<User> currentUser(const HttpServer::Request& req, AuthService& auth) {
     std::string token = req.cookie(kSessionCookie);
-    if (token.empty()) return std::nullopt;
-    return store.userForSessionToken(token);
+    return auth.userForSession(token);
 }
 
 json::Value userJson(const User& u) {
@@ -272,6 +235,7 @@ bool parseBody(const HttpServer::Request& req, json::Value& out, HttpServer::Res
 
 void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     auto votingService = std::make_shared<VotingService>(store);
+    auto authService = std::make_shared<AuthService>(store);
 
     // ======================= Authentication ================================
 
