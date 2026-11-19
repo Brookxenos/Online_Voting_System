@@ -600,8 +600,15 @@ bool Store::transitionElection(long long electionId, const std::string& newStatu
         return;
     }
 
-    db_.exec("UPDATE elections SET status=? WHERE id=? AND status=?",
-             {newStatus, std::to_string(electionId), cur});
+    if (cur == "published" && newStatus == "archived") {
+        // Keep the published tally and result visibility for the historical
+        // record, while removing the archived election from active discovery.
+        db_.exec("UPDATE elections SET status='archived', discoverable=0 WHERE id=? AND status='published'",
+                 {std::to_string(electionId)});
+    } else {
+        db_.exec("UPDATE elections SET status=? WHERE id=? AND status=?",
+                 {newStatus, std::to_string(electionId), cur});
+    }
     auto changed = db_.query("SELECT changes() AS n");
     if (changed.empty() || std::stoll(changed[0].at("n")) != 1) return;
     addAudit(actor, newStatus == "closed" ? "ELECTION_CLOSED" : "ELECTION_ARCHIVED",

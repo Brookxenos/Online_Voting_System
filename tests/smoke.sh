@@ -284,6 +284,7 @@ DUPE_SUCC=$(grep -ho '"ok":true' "$TMP"/dupe*.out | wc -l)
 check "one ballot accepted from eight simultaneous requests by one voter" "1" "$DUPE_SUCC"
 RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
 check "tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
+jpost /api/elections/2/status '{"status":"closed"}' -b "$TMP/admin.jar" > /dev/null
 check "closed election rejects new ballot" "not open for voting" \
   "$(jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv1.jar")"
 
