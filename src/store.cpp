@@ -257,6 +257,12 @@ Organization Store::createOrganization(const std::string& name, const std::strin
     return o;
 }
 
+void Store::updateOrganization(long long id, const std::string& name, const std::string& slug,
+                               bool allowSelfRegistration) {
+    db_.exec("UPDATE organizations SET name=?, slug=?, allow_self_registration=? WHERE id=?",
+             {name, slug, allowSelfRegistration ? "1" : "0", std::to_string(id)});
+}
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------

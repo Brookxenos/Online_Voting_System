@@ -87,12 +87,26 @@ check "admin creates org B" '"slug":"org-b"' \
   "$(jpost /api/orgs '{"name":"Org B","slug":"org-b"}' -b "$TMP/admin.jar")"
 check "duplicate slug rejected" "already exists" \
   "$(jpost /api/orgs '{"name":"Org A2","slug":"org-a"}' -b "$TMP/admin.jar")"
+check "platform admin views organization detail" '"slug":"org-a"' "$(jget /api/orgs/1 -b "$TMP/admin.jar")"
+check "voter views own organization only" '"slug":"org-a"' "$(jget /api/orgs/1 -b "$TMP/voterA.jar")"
+check "voter cannot view another organization" "Access denied" "$(jget /api/orgs/2 -b "$TMP/voterA.jar")"
+check "invalid organization ID rejected" "Invalid organization id" "$(jget /api/orgs/not-an-id -b "$TMP/admin.jar")"
+check "platform admin updates organization settings" '"allowSelfRegistration":false' \
+  "$(jpost /api/orgs/1 '{"name":"Org A Updated","slug":"org-a","allowSelfRegistration":false}' -b "$TMP/admin.jar")"
+check "platform admin restores self-registration setting" '"allowSelfRegistration":true' \
+  "$(jpost /api/orgs/1 '{"name":"Org A","slug":"org-a","allowSelfRegistration":true}' -b "$TMP/admin.jar")"
 check "org admin created in org B" '"role":"org_admin"' \
   "$(jpost /api/users '{"username":"admb","password":"password123","role":"org_admin","orgId":2}' -b "$TMP/admin.jar")"
 check "create voter in org B" '"role":"voter"' \
   "$(jpost /api/users '{"username":"outsider","password":"password123","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
+check "organization admin views own organization" '"slug":"org-b"' "$(jget /api/orgs/2 -b "$TMP/admb.jar")"
+check "organization admin cannot view another organization" "Access denied" "$(jget /api/orgs/1 -b "$TMP/admb.jar")"
+check "organization admin updates self-registration setting" '"allowSelfRegistration":false' \
+  "$(jpost /api/orgs/2 '{"allowSelfRegistration":false}' -b "$TMP/admb.jar")"
+check "organization admin cannot rename own organization" "Access denied" \
+  "$(jpost /api/orgs/2 '{"name":"Renamed","allowSelfRegistration":true}' -b "$TMP/admb.jar")"
 check "org admin can view own organization user" '"username":"outsider"' "$(jget /api/users/4 -b "$TMP/admb.jar")"
 check "org admin cannot view user in another organization" "Access denied" "$(jget /api/users/2 -b "$TMP/admb.jar")"
 check "voter can view own account details" '"username":"voterA"' "$(jget /api/users/2 -b "$TMP/voterA.jar")"
@@ -101,6 +115,20 @@ check "org admin cannot assign platform administrator role" "Access denied" \
   "$(jpost /api/users/4 '{"displayName":"Blocked","role":"platform_admin","orgId":2}' -b "$TMP/admb.jar")"
 check "org admin can update own organization user" '"displayName":"Outsider Updated"' \
   "$(jpost /api/users/4 '{"displayName":"Outsider Updated","role":"voter","orgId":2}' -b "$TMP/admb.jar")"
+ jpost /api/auth/login '{"username":"outsider","password":"password123"}' -c "$TMP/outsider.jar" > /dev/null
+check "org admin cannot reset password outside organization" "Access denied" \
+  "$(jpost /api/users/2/password '{"password":"new-password-123"}' -b "$TMP/admb.jar")"
+check "org admin deactivates organization user" '"ok":true' \
+  "$(jpost /api/users/4/disable '{"disabled":true}' -b "$TMP/admb.jar")"
+check "deactivation revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"
+check "org admin reactivates organization user" '"ok":true' \
+  "$(jpost /api/users/4/disable '{"disabled":false}' -b "$TMP/admb.jar")"
+jpost /api/auth/login '{"username":"outsider","password":"password123"}' -c "$TMP/outsider.jar" > /dev/null
+check "platform admin resets user password" '"ok":true' \
+  "$(jpost /api/users/4/password '{"password":"reset-password-123"}' -b "$TMP/admin.jar")"
+check "administrative password reset revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"
+jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}' -c "$TMP/outsider-new.jar" > /dev/null
+check "administrative password reset enables new password login" '"role":"voter"' "$(jget /api/me -b "$TMP/outsider-new.jar")"
 check "admin summary is organization scoped" '"totalElections":0' \
   "$(jget /api/admin/summary -b "$TMP/admb.jar")"
 check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"

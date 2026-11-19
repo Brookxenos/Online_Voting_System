@@ -34,6 +34,8 @@ public:
     std::vector<Organization> listOrganizations();
     Organization createOrganization(const std::string& name, const std::string& slug,
                                     bool allowSelfRegistration);
+    void updateOrganization(long long id, const std::string& name, const std::string& slug,
+                            bool allowSelfRegistration);
 
     // --- Users --------------------------------------------------------------
     enum class CreateUserResult { Ok, DuplicateUsername, OrgNotFound };

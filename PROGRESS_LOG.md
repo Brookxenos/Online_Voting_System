@@ -1429,3 +1429,28 @@
 - **Security/privacy implications:** User JSON remains allowlisted and does not expose password hashes. Organization admins cannot cross org or assign platform_admin; role/status/password operations use backend session identity. Disabling and administrative password changes revoke all sessions.
 - **Known issues:** No frontend UI was changed. New management operations use API routes without current UI controls. Observer list access is scoped to own organization; observer detail access remains own account or permitted management scope. Test coverage does not yet exercise every admin password reset and account reactivation combination through HTTP.
 - **Next exact task:** Review Step 3A and 3B together for architecture and authorization consistency; wait for owner approval before starting Step 4.
+
+### 2026-11-19 --- Codex --- Step 3 completion security checks
+
+- **Status:** Completed targeted verification of activation/deactivation, admin password reset, organization scoping, and session revocation.
+- **Approved scope:** Finish remaining Step 3 authentication/user-management checks; no Step 4 work and no UI changes.
+- **Files modified:** `tests/smoke.sh`, `PROGRESS_LOG.md`.
+- **Decisions:** Confirmed the existing UserService admin password operation hashes through libsodium and revokes sessions; reused it without schema or API contract changes. Account reactivation permits new login; disabled account sessions remain revoked and require a fresh login.
+- **Commands run:** `bash -n tests/smoke.sh` (passed); `make -j2` (passed; up to date); `make test` (passed); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 auth service checks and **101 HTTP smoke checks**. Added coverage for organization-admin password reset denial across organizations, deactivation revocation, reactivation, platform-admin reset, revoked sessions, and login with the replacement password.
+- **Security/privacy implications:** Administrative password reset never returns or logs plaintext/hash; reset revokes all existing sessions. Organization-admin operations remain scoped to the actor organization.
+- **Known issues:** In-process login throttling and deployment-dependent Secure cookie configuration remain known limitations. No database records were reset or deleted.
+- **Next exact task:** Await owner approval before beginning Step 4.
+
+### 2026-11-19 --- Codex --- Step 4A organization management
+
+- **Status:** Added organization repository/service boundaries and wired create/list/detail/update routes with role and tenant checks.
+- **Approved scope:** Step 4A only; preserve UI, existing organization records/API behavior, SQLite, and avoid election management.
+- **Files created:** `src/repositories/organization_repository.h`, `src/services/organization_service.h`, `src/services/organization_service.cpp`.
+- **Files modified:** `src/store.h`, `src/store.cpp`, `src/api.cpp`, `tests/smoke.sh`, `PROGRESS_LOG.md`.
+- **Decisions:** Existing organizations table supports name, slug, and self-registration configuration. It has no active/disabled column, so no activation feature or migration was introduced. Organization admins may change only their own organization's self-registration setting; platform admins may also rename and change slug. Existing GET/POST `/api/orgs` response shapes are preserved.
+- **Commands run:** `make -j2` (passed); `bash -n tests/smoke.sh` (passed); `make test` (passed); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService checks and **111 HTTP smoke checks**. Added organization create/list/detail/update, own-org visibility, cross-org denials, voter read-only scope, invalid ID, self-registration setting, and organization-admin restriction checks.
+- **Security/privacy implications:** All organization reads/updates are authorized using session-derived roles and organization IDs. SQL uses Store bound parameters. No database records were reset/deleted and no UI files changed.
+- **Known gaps:** Organization activation is unsupported by the current data model; adding it would need a separately reviewed migration and decisions about election/user behavior for inactive organizations. Organization Admins can manage their organization's users through existing UserService routes.
+- **Next exact task:** Wait for owner approval before beginning Step 4B election management.

@@ -5,6 +5,7 @@
 #include "services/voting_service.h"
 #include "services/auth_service.h"
 #include "services/user_service.h"
+#include "services/organization_service.h"
 
 #include <algorithm>
 #include <iostream>
@@ -239,6 +240,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     auto authService = std::make_shared<AuthService>(store);
     auto userRepository = std::make_shared<UserRepository>(store);
     auto userService = std::make_shared<UserService>(*userRepository);
+    auto organizationRepository = std::make_shared<OrganizationRepository>(store);
+    auto organizationService = std::make_shared<OrganizationService>(*organizationRepository);
 
     // ======================= Authentication ================================
 
@@ -368,31 +371,16 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Organizations =================================
 
-    server.addRoute("GET", "/api/orgs", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/orgs", [&, authService, organizationService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Array arr;
-        if (isPlatformAdmin(*user)) {
-            for (const auto& o : store.listOrganizations()) {
-                json::Object jo;
-                jo["id"] = (double)o.id;
-                jo["name"] = o.name;
-                jo["slug"] = o.slug;
-                jo["allowSelfRegistration"] = o.allowSelfRegistration;
-                jo["createdAt"] = o.createdAt;
-                arr.push_back(json::Value(jo));
-            }
-        } else if (user->orgId != 0) {
-            auto o = store.getOrganization(user->orgId);
-            if (o) {
-                json::Object jo;
-                jo["id"] = (double)o->id;
-                jo["name"] = o->name;
-                jo["slug"] = o->slug;
-                jo["allowSelfRegistration"] = o->allowSelfRegistration;
-                jo["createdAt"] = o->createdAt;
-                arr.push_back(json::Value(jo));
-            }
+        OrganizationService::Status status;
+        for (const auto& o : organizationService->list(*user, status)) {
+            json::Object jo;
+            jo["id"] = (double)o.id; jo["name"] = o.name; jo["slug"] = o.slug;
+            jo["allowSelfRegistration"] = o.allowSelfRegistration; jo["createdAt"] = o.createdAt;
+            arr.push_back(json::Value(jo));
         }
         json::Object root;
         root["ok"] = true;
@@ -400,7 +388,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(root);
     });
 
-    server.addRoute("POST", "/api/orgs", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/orgs", [&, authService, organizationService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user || !isPlatformAdmin(*user)) return fail(403, "Platform administrator access required");
         json::Value body;
@@ -410,11 +398,11 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         std::string name = trimStr(body.getString("name"));
         std::string slug = trimStr(body.getString("slug"));
         bool selfReg = body.has("allowSelfRegistration") ? body.at("allowSelfRegistration").asBool() : true;
-        if (!validTextField(name, 1, 100)) return fail(400, "Organization name required (1-100 chars)");
-        if (!validUsername(slug)) return fail(400, "Slug must be 3-32 URL-safe characters");
-
-        if (store.getOrganizationBySlug(slug)) return fail(409, "Slug already exists");
-        Organization o = store.createOrganization(name, slug, selfReg);
+        auto result = organizationService->create(*user, name, slug, selfReg);
+        if (result.status == OrganizationService::Status::Invalid) return fail(400, "Organization name required (1-100 chars) and slug must be 3-32 URL-safe characters");
+        if (result.status == OrganizationService::Status::Duplicate) return fail(409, "Slug already exists");
+        if (result.status != OrganizationService::Status::Ok) return fail(403, "Platform administrator access required");
+        Organization o = result.organization;
         store.addAudit(user->username, "ORG_CREATED", 0, "slug " + slug);
 
         json::Object jo;
@@ -422,6 +410,40 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         jo["name"] = o.name;
         jo["slug"] = o.slug;
         return created({{"org", json::Value(jo)}});
+    });
+
+    server.addRoute("GET", "/api/orgs/:id", [&, authService, organizationService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
+        if (!user) return fail(401, "Not authenticated");
+        long long id; try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid organization id"); }
+        auto result = organizationService->get(*user, id);
+        if (result.status == OrganizationService::Status::NotFound) return fail(404, "Organization not found");
+        if (result.status != OrganizationService::Status::Ok) return fail(403, "Access denied");
+        const auto& o = result.organization;
+        json::Object jo{{"id", (double)o.id}, {"name", o.name}, {"slug", o.slug},
+                        {"allowSelfRegistration", o.allowSelfRegistration}, {"createdAt", o.createdAt}};
+        return ok({{"org", json::Value(jo)}});
+    });
+
+    server.addRoute("POST", "/api/orgs/:id", [&, authService, organizationService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
+        if (!user) return fail(401, "Not authenticated");
+        long long id; try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid organization id"); }
+        json::Value body; HttpServer::Response err; if (!parseBody(req, body, err)) return err;
+        const auto current = store.getOrganization(id);
+        const std::string name = trimStr(body.getString("name", current ? current->name : ""));
+        const std::string slug = trimStr(body.getString("slug", current ? current->slug : ""));
+        const bool selfReg = body.has("allowSelfRegistration") ? body.at("allowSelfRegistration").asBool() : (current && current->allowSelfRegistration);
+        auto result = organizationService->update(*user, id, name, slug, selfReg);
+        if (result.status == OrganizationService::Status::NotFound) return fail(404, "Organization not found");
+        if (result.status == OrganizationService::Status::Forbidden) return fail(403, "Access denied");
+        if (result.status == OrganizationService::Status::Duplicate) return fail(409, "Slug already exists");
+        if (result.status != OrganizationService::Status::Ok) return fail(400, "Invalid organization information");
+        store.addAudit(user->username, "ORG_UPDATED", 0, "slug " + result.organization.slug);
+        const auto& o = result.organization;
+        json::Object jo{{"id", (double)o.id}, {"name", o.name}, {"slug", o.slug},
+                        {"allowSelfRegistration", o.allowSelfRegistration}, {"createdAt", o.createdAt}};
+        return ok({{"org", json::Value(jo)}});
     });
 
     // ======================= Elections =====================================
