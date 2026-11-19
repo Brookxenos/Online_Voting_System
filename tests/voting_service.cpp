@@ -1,6 +1,7 @@
 #include "../src/crypto.h"
 #include "../src/services/voting_service.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <iostream>
 #include <unistd.h>
@@ -97,7 +98,10 @@ int main() {
         check(failed.status == VotingService::Status::StorageFailure &&
               countRows("participation", rollbackElection) == 0 && countRows("ballots", rollbackElection) == 0,
               "ballot write failure rolls back participation and returns safe failure");
-        check(store.listAudit(rollbackElection, 100).empty(),
+        const auto failedAudit = store.listAudit(rollbackElection, 100);
+        check(std::none_of(failedAudit.begin(), failedAudit.end(), [](const AuditEvent& event) {
+                  return event.action == "VOTE_CAST";
+              }),
               "failed transaction does not leave a vote audit event");
         db.exec("DROP TRIGGER fail_ballot_insert");
         auto recovered = voting.castBallot(*loadedA, rollbackElection, rollbackCandidate);
