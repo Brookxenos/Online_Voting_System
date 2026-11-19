@@ -7,6 +7,8 @@
 #include "services/user_service.h"
 #include "services/organization_service.h"
 #include "services/election_service.h"
+#include "services/election_lifecycle_service.h"
+#include "services/results_service.h"
 
 #include <algorithm>
 #include <iostream>
@@ -233,6 +235,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     auto organizationService = std::make_shared<OrganizationService>(*organizationRepository);
     auto electionRepository = std::make_shared<ElectionRepository>(store);
     auto electionService = std::make_shared<ElectionService>(*electionRepository);
+    auto electionLifecycleService = std::make_shared<ElectionLifecycleService>(*electionRepository);
+    auto resultsService = std::make_shared<ResultsService>(store);
 
     // ======================= Authentication ================================
 
@@ -609,13 +613,11 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"election", electionJson(result.election)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/status", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/status", [&, authService, electionLifecycleService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !canAdminElection(*user, *e)) return fail(403, "Administrator access required for this election");
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -624,11 +626,13 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (newStatus != "open" && newStatus != "closed" && newStatus != "published" && newStatus != "archived") {
             return fail(400, "status must be open, closed, published, or archived");
         }
-        if (!store.transitionElection(id, newStatus, user->username)) {
-            return fail(409, "Invalid transition from '" + e->status + "' to '" + newStatus + "'");
-        }
-        e = store.getElection(id);
-        return ok({{"election", electionJson(*e)}});
+        auto result = electionLifecycleService->transition(*user, id, newStatus);
+        if (result.status == ElectionLifecycleService::Status::Forbidden || result.status == ElectionLifecycleService::Status::NotFound)
+            return fail(403, "Administrator access required for this election");
+        if (result.status == ElectionLifecycleService::Status::Invalid) return fail(400, "Invalid election id");
+        if (result.status == ElectionLifecycleService::Status::Conflict)
+            return fail(409, "Invalid transition from '" + result.election.status + "' to '" + newStatus + "'");
+        return ok({{"election", electionJson(result.election)}});
     });
 
     // ======================= Candidates ====================================
@@ -818,7 +822,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Results =======================================
 
-    server.addRoute("GET", "/api/elections/:id/results", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id/results", [&, authService, resultsService](const HttpServer::Request& req) {
         auto userOpt = currentUser(req, *authService);
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -844,14 +848,14 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             }
         }
 
-        auto tally = store.latestTally(id);
+        auto tally = resultsService->latest(id);
         if (liveAllowed || !tally) {
             // A permitted reader may trigger the (idempotent) tally
             // computation; it is only run when someone is actually allowed
             // to see the results.
             bool maySee = published || liveAllowed ||
                           (userOpt && canObserveElection(*userOpt, *e));
-            if (maySee) tally = store.tallyElection(id);
+            if (maySee) tally = resultsService->tally(id);
         }
         if (!tally) {
             return fail(404, "No tally has been run for this election yet");
@@ -884,7 +888,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
-    server.addRoute("GET", "/api/elections/:id/results.csv", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id/results.csv", [&, authService, resultsService](const HttpServer::Request& req) {
         auto userOpt = currentUser(req, *authService);
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -902,11 +906,11 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             }
         }
 
-        auto tally = store.latestTally(id);
+        auto tally = resultsService->latest(id);
         if (liveAllowed || !tally) {
             bool maySee = published || liveAllowed ||
                           (userOpt && canObserveElection(*userOpt, *e));
-            if (maySee) tally = store.tallyElection(id);
+            if (maySee) tally = resultsService->tally(id);
         }
         if (!tally) return fail(404, "No tally has been run for this election yet");
 

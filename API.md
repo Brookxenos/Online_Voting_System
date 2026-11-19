@@ -43,7 +43,7 @@ are not discoverable after migration unless opted in.
 | `POST /api/elections` | Platform admin or organization admin for `orgId` | `orgId`, `name`, optional `description`, `discoverable`, `showLiveResults`, `startAt`, `endAt` | Created draft election |
 | `GET /api/elections/:id` | Authenticated and election-visible | — | Election, candidates, permitted participation state |
 | `POST /api/elections/:id` | Election administrator; draft only | Any supported election fields: `name`, `description`, `discoverable`, `showLiveResults`, `startAt`, `endAt` | Updated election; 409 outside draft |
-| `POST /api/elections/:id/status` | Election administrator | `status`: `open`, `closed`, `published`, or `archived` | Updated lifecycle state; invalid transitions return 409. A draft may be archived; the record is retained and removed from public discovery. |
+| `POST /api/elections/:id/status` | Organization administrator for its organization or platform administrator | `status`: `open`, `closed`, `published`, or `archived` | Updated lifecycle state; invalid transitions return 409. A draft may be archived; the record is retained and removed from public discovery. Rejected authorized lifecycle requests are audited. |
 | `GET /api/elections/:id/candidates` | Authenticated and election-visible | — | Candidates and election status |
 | `POST /api/elections/:id/candidates` | Election administrator; draft only | `name`, optional `party`, `description`, `position` | Created candidate |
 | `POST /api/elections/:id/candidates/:candidateId` | Election administrator; draft only | Optional `name`, `party`, `description`, `position` | Updated candidate |
@@ -56,7 +56,8 @@ are not discoverable after migration unless opted in.
 
 Election timestamps use UTC `YYYY-MM-DDTHH:MM:SSZ`; end must follow start.
 An election cannot be opened before its configured start or without at least
-one candidate. Archiving a draft is terminal and does not delete its election,
+one candidate. Ballot submission is rejected by the backend outside the
+configured start/end window and whenever the election is not open. Archiving a draft is terminal and does not delete its election,
 candidate, or audit records; it clears public discovery and live-results flags.
 Ballot, participation, eligibility and publication checks happen on the server.
 For the current nonbinding demo, `closed -> published` runs the tally and makes

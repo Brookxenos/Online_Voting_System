@@ -156,6 +156,10 @@ check "public detail hides draft election" 'Election not found' \
   "$(jget /api/public/elections/1)"
 check "invalid status transition draft->closed rejected" "Invalid transition" \
   "$(jpost /api/elections/1/status '{"status":"closed"}' -b "$TMP/admin.jar")"
+check "voter cannot change election lifecycle" "Administrator access required" \
+  "$(jpost /api/elections/1/status '{"status":"archived"}' -b "$TMP/voterA.jar")"
+check "publishing before closure rejected" "Invalid transition" \
+  "$(jpost /api/elections/1/status '{"status":"published"}' -b "$TMP/admin.jar")"
 check "invalid calendar date rejected" "Dates must be" \
   "$(jpost /api/elections '{"orgId":1,"name":"Bad date","startAt":"2026-02-31T10:00:00Z"}' -b "$TMP/admin.jar")"
 check "end before start rejected" "Dates must be" \
@@ -227,6 +231,8 @@ check "closed election configuration is rejected" "Only draft elections can be e
   "$(jpost /api/elections/1 '{"description":"Late edit"}' -b "$TMP/admin.jar")"
 check "publish election" '"status":"published"' \
   "$(jpost /api/elections/1/status '{"status":"published"}' -b "$TMP/admin.jar")"
+check "duplicate publish request rejected" "Invalid transition from 'published' to 'published'" \
+  "$(jpost /api/elections/1/status '{"status":"published"}' -b "$TMP/admin.jar")"
 check "published results are public without auth" '"totalBallots":1' "$(jget /api/elections/1/results)"
 check "published results appear in anonymous results index" '"name":"Election A1"' \
   "$(jget /api/public/results?limit=10)"
@@ -237,6 +243,9 @@ check "results csv downloadable" "text/csv" "$(jget /api/elections/1/results.csv
 check "CSV escapes formula-like candidate data" "'=2+2" "$(curl -s "$BASE/api/elections/1/results.csv")"
 check "admin summary reports accepted ballots" '"acceptedBallots":1' \
   "$(jget /api/admin/summary -b "$TMP/admin.jar")"
+check "published election archives with records retained" '"status":"archived"' \
+  "$(jpost /api/elections/1/status '{"status":"archived"}' -b "$TMP/admin.jar")"
+check "archiving preserves published tally" '"totalBallots":1' "$(jget /api/elections/1/results)"
 
 echo "-- concurrent voting (race safety) --"
 jpost /api/orgs '{"name":"Race Org","slug":"race-org"}' -b "$TMP/admin.jar" > /dev/null
@@ -275,6 +284,8 @@ DUPE_SUCC=$(grep -ho '"ok":true' "$TMP"/dupe*.out | wc -l)
 check "one ballot accepted from eight simultaneous requests by one voter" "1" "$DUPE_SUCC"
 RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
 check "tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
+check "closed election rejects new ballot" "not open for voting" \
+  "$(jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv1.jar")"
 
 echo "-- lifecycle timing and minimum ballot configuration --"
 jpost /api/elections '{"orgId":1,"name":"No options","discoverable":true}' -b "$TMP/admin.jar" > /dev/null
@@ -290,10 +301,18 @@ jpost /api/elections '{"orgId":1,"name":"Scheduled","startAt":"2099-01-01T00:00:
 jpost /api/elections/4/candidates '{"name":"Scheduled option"}' -b "$TMP/admin.jar" > /dev/null
 check "election cannot open before scheduled start" "Invalid transition" \
   "$(jpost /api/elections/4/status '{"status":"open"}' -b "$TMP/admin.jar")"
+jpost /api/elections '{"orgId":1,"name":"Expired window","endAt":"2000-01-01T00:00:00Z"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections/5/candidates '{"name":"Candidate"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections/5/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/elections/5/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
+check "vote after configured end time rejected by backend" "Voting is not open at this time" \
+  "$(jpost /api/elections/5/vote '{"candidateId":5}' -b "$TMP/voterA.jar")"
 
 echo "-- audit hygiene --"
 AUDIT=$(jget /api/audit -b "$TMP/admin.jar")
 check "audit records ballot event" "VOTE_CAST" "$AUDIT"
+check "audit records lifecycle open, close, publish, archive and rejected events" "LIFECYCLE_REJECTED" "$AUDIT"
+check "audit records lifecycle action names" "ELECTION_PUBLISHED" "$AUDIT"
 if [[ "$AUDIT" == *"password"* ]]; then
   FAIL=$((FAIL+1)); echo "  FAIL: audit contains the word password"
 else
