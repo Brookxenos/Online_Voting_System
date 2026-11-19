@@ -741,7 +741,8 @@ bool Store::hasParticipation(long long electionId, long long userId) {
 // Voting — the transactional core
 // ---------------------------------------------------------------------------
 
-Store::CastResult Store::castBallot(long long electionId, long long userId, long long candidateId) {
+Store::CastResult Store::castBallot(long long electionId, long long userId, long long candidateId,
+                                   const std::string& actor) {
     CastResult res;
     res.status = CastResult::Status::ElectionNotFound;
 
@@ -757,6 +758,11 @@ Store::CastResult Store::castBallot(long long electionId, long long userId, long
         if (!e.startAt.empty() && now < e.startAt) { res.status = CastResult::Status::OutsideVotingWindow; return; }
         if (!e.endAt.empty() && now > e.endAt)     { res.status = CastResult::Status::OutsideVotingWindow; return; }
 
+        auto voter = findUserById(userId);
+        if (!voter || voter->disabled || voter->role != "voter" || voter->orgId != e.orgId) {
+            res.status = CastResult::Status::NotEligible;
+            return;
+        }
         if (!isEligible(electionId, userId)) { res.status = CastResult::Status::NotEligible; return; }
 
         auto cand = db_.query("SELECT id FROM candidates WHERE id=? AND election_id=?",
@@ -785,12 +791,9 @@ Store::CastResult Store::castBallot(long long electionId, long long userId, long
         res.receipt = crypto::sha256Hex(
             "ov-receipt|" + std::to_string(ballotId) + "|" +
             std::to_string(candidateId) + "|" + nonce).substr(0, 24);
+        addAudit(actor, "VOTE_CAST", electionId, "");
         res.status = CastResult::Status::Ok;
     });
-
-    if (res.status == CastResult::Status::Ok) {
-        addAudit("voter", "VOTE_CAST", electionId, "");
-    }
     return res;
 }
 

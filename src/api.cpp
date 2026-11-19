@@ -229,7 +229,8 @@ bool parseBody(const HttpServer::Request& req, json::Value& out, HttpServer::Res
 // ---------------------------------------------------------------------------
 
 void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
-    auto votingService = std::make_shared<VotingService>(store);
+    auto ballotRepository = std::make_shared<BallotRepository>(store);
+    auto votingService = std::make_shared<VotingService>(*ballotRepository);
     auto authService = std::make_shared<AuthService>(store);
     auto userRepository = std::make_shared<UserRepository>(store);
     auto userService = std::make_shared<UserService>(*userRepository);
@@ -795,10 +796,9 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Voting ========================================
 
-    server.addRoute("POST", "/api/elections/:id/vote", [&, votingService, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/vote", [&, votingService, ballotRepository, authService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
-        if (user->role != "voter") return fail(403, "Only voters can cast ballots");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
         json::Value body;
@@ -807,21 +807,24 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         long long candidateId = body.getInt("candidateId", 0);
         if (candidateId <= 0) return fail(400, "candidateId required");
 
-        auto res = votingService->castBallot(id, user->id, candidateId);
+        auto res = votingService->castBallot(*user, id, candidateId);
         switch (res.status) {
-            case Store::CastResult::Status::Ok: {
+            case VotingService::Status::Ok: {
                 json::Object o;
                 o["ok"] = true;
                 o["receipt"] = res.receipt;
                 o["message"] = json::Value(std::string("Your vote has been recorded. Save this receipt code."));
                 return ok(o);
             }
-            case Store::CastResult::Status::ElectionNotFound:   return fail(404, "Election not found");
-            case Store::CastResult::Status::ElectionNotOpen:    return fail(409, "This election is not open for voting");
-            case Store::CastResult::Status::OutsideVotingWindow:return fail(409, "Voting is not open at this time");
-            case Store::CastResult::Status::NotEligible:        return fail(403, "You are not eligible to vote in this election");
-            case Store::CastResult::Status::AlreadyVoted:       return fail(409, "You have already voted in this election");
-            case Store::CastResult::Status::InvalidCandidate:   return fail(400, "Unknown candidate for this election");
+            case VotingService::Status::Forbidden:               return fail(403, "Only voters can cast ballots");
+            case VotingService::Status::InvalidRequest:           return fail(400, "Invalid election or candidate id");
+            case VotingService::Status::ElectionNotFound:         return fail(404, "Election not found");
+            case VotingService::Status::ElectionNotOpen:          return fail(409, "This election is not open for voting");
+            case VotingService::Status::OutsideVotingWindow:      return fail(409, "Voting is not open at this time");
+            case VotingService::Status::NotEligible:              return fail(403, "You are not eligible to vote in this election");
+            case VotingService::Status::AlreadyVoted:             return fail(409, "You have already voted in this election");
+            case VotingService::Status::InvalidCandidate:         return fail(400, "Unknown candidate for this election");
+            case VotingService::Status::StorageFailure:           return fail(500, "Vote could not be recorded");
         }
         return fail(500, "Unexpected state");
     });

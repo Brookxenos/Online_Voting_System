@@ -189,6 +189,10 @@ check "org admin B cannot add candidate to A1" "Administrator access required" \
   "$(jpost /api/elections/1/candidates '{"name":"Evil"}' -b "$TMP/admb.jar")"
 
 echo "-- eligibility and voting --"
+check "unauthenticated vote submission rejected" "Not authenticated" \
+  "$(jpost /api/elections/1/vote '{"candidateId":1}')"
+check "administrator role cannot submit voter ballot" "Only voters can cast ballots" \
+  "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/admin.jar")"
 check "vote while draft rejected" "not open for voting" \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
 check "draft election configuration update succeeds" '"description":"Updated draft"' \
