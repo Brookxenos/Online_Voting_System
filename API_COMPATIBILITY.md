@@ -1,0 +1,7 @@
+# API compatibility baseline
+
+`API.md` is the route contract; `src/api.cpp` registers the live handlers. Keep method, path, request fields, status codes, JSON keys, cookie name/attributes, and visibility rules unchanged during internal restructuring. Success uses `ok:true`; failure uses `ok:false,error`. Session cookie is `ov_session` (HttpOnly, SameSite behavior configured in API; Secure is opt-in).
+
+Routes: bootstrap `GET /api/bootstrap/status`, `POST /api/bootstrap/setup`; auth `POST /api/auth/register`, `/login`, `/logout`, `/password`; `GET /api/me`, `/api/me/dashboard`; `POST /api/me/profile`; public discovery `GET /api/public/elections`, `/api/public/elections/:id`, `/api/public/results`; organizations `GET/POST /api/orgs`; elections `GET/POST /api/elections`, `GET/POST /api/elections/:id`, `POST /api/elections/:id/status`; candidates `GET/POST /api/elections/:id/candidates`, `POST .../:candidateId`, `POST .../remove`; eligibility `GET/POST /api/elections/:id/eligibility`; vote `POST /api/elections/:id/vote`; results `GET /api/elections/:id/results` and `.csv`; administration `GET /api/admin/summary`, `GET/POST /api/users`, `POST /api/users/:id/disable`, `GET /api/audit`.
+
+The route list and detailed fields/access/results are maintained in `API.md`. Compatibility verification must compare actual handler output and frontend consumption in `web/app.js`; do not infer that documentation alone guarantees implementation. Vote success returns a receipt without candidate choice. No frontend files are in scope.
