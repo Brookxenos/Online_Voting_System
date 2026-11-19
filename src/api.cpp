@@ -4,6 +4,7 @@
 #include "models.h"
 #include "services/voting_service.h"
 #include "services/auth_service.h"
+#include "services/user_service.h"
 
 #include <algorithm>
 #include <iostream>
@@ -236,6 +237,8 @@ bool parseBody(const HttpServer::Request& req, json::Value& out, HttpServer::Res
 void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     auto votingService = std::make_shared<VotingService>(store);
     auto authService = std::make_shared<AuthService>(store);
+    auto userRepository = std::make_shared<UserRepository>(store);
+    auto userService = std::make_shared<UserService>(*userRepository);
 
     // ======================= Authentication ================================
 
@@ -936,7 +939,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Users administration ==========================
 
-    server.addRoute("GET", "/api/users", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/users", [&, authService, userService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long orgId = 0;
@@ -944,16 +947,11 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (it != req.params.end()) {
             try { orgId = std::stoll(it->second); } catch (...) { return fail(400, "Invalid orgId"); }
         }
-        std::optional<long long> scope;
-        if (isPlatformAdmin(*user)) {
-            scope = orgId != 0 ? std::optional<long long>(orgId) : std::nullopt;
-        } else if (user->role == "org_admin") {
-            scope = user->orgId;
-        } else {
-            return fail(403, "Administrator access required");
-        }
+        UserService::Status status;
+        auto users = userService->list(*user, orgId, status);
+        if (status != UserService::Status::Ok) return fail(403, "Administrator access required");
         json::Array arr;
-        for (const auto& u : store.listUsers(scope)) {
+        for (const auto& u : users) {
             json::Object jo;
             jo["id"] = (double)u.id;
             jo["username"] = u.username;
@@ -987,12 +985,20 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"summary", json::Value(summary)}});
     });
 
-    server.addRoute("POST", "/api/users", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/users/:id", [&, authService, userService](const HttpServer::Request& req) {
+        auto actor = currentUser(req, *authService);
+        if (!actor) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
+        auto result = userService->get(*actor, id);
+        if (result.status == UserService::Status::NotFound) return fail(404, "User not found");
+        if (result.status != UserService::Status::Ok) return fail(403, "Access denied");
+        return ok({{"user", userJson(result.user)}});
+    });
+
+    server.addRoute("POST", "/api/users", [&, authService, userService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
-        if (!isPlatformAdmin(*user) && user->role != "org_admin") {
-            return fail(403, "Administrator access required");
-        }
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -1003,58 +1009,64 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         u.role = body.getString("role", "voter");
         std::string password = body.getString("password");
 
-        if (!validUsername(u.username)) return fail(400, "Username must be 3-32 characters (letters, digits, _ . -)");
         if (u.displayName.empty()) u.displayName = u.username;
-        if (!validTextField(u.displayName, 1, 100)) return fail(400, "Display name too long");
-        if (!validPassword(password)) return fail(400, "Password must be at least 8 characters");
-
-        long long orgId = body.getInt("orgId", 0);
-        if (isPlatformAdmin(*user)) {
-            // Platform admins may place users anywhere; default no org.
-            u.orgId = orgId;
-            if (u.role != "voter" && u.role != "org_admin" && u.role != "observer" &&
-                u.role != "platform_admin") {
-                return fail(400, "Invalid role");
-            }
-        } else {
-            // Org admins manage only their own organization and only its roles.
-            u.orgId = user->orgId;
-            if (u.role != "voter" && u.role != "org_admin" && u.role != "observer") {
-                return fail(403, "Organization administrators cannot create platform administrators");
-            }
-        }
-        if (u.role == "voter" && u.orgId == 0) return fail(400, "Voters must belong to an organization");
-
-        u.passwordHash = crypto::hashPassword(password);
-        auto res = store.createUser(u);
-        if (res == Store::CreateUserResult::DuplicateUsername) return fail(409, "Username is already taken");
-        if (res == Store::CreateUserResult::OrgNotFound) return fail(404, "Organization not found");
+        u.orgId = body.getInt("orgId", 0);
+        auto result = userService->create(*user, u, password);
+        if (result.status == UserService::Status::Forbidden) return fail(403, "Organization administrators cannot create platform administrators");
+        if (result.status == UserService::Status::Duplicate) return fail(409, "Username is already taken");
+        if (result.status == UserService::Status::OrgNotFound) return fail(404, "Organization not found");
+        if (result.status != UserService::Status::Ok) return fail(400, "Invalid user information");
+        u = result.user;
         store.addAudit(user->username, "USER_CREATED", 0, u.username + " role " + u.role);
         return created({{"user", userJson(u)}});
     });
 
-    server.addRoute("POST", "/api/users/:id/disable", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/users/:id", [&, authService, userService](const HttpServer::Request& req) {
+        auto actor = currentUser(req, *authService);
+        if (!actor) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
+        json::Value body; HttpServer::Response err;
+        if (!parseBody(req, body, err)) return err;
+        auto result = userService->update(*actor, id, trimStr(body.getString("displayName")),
+                                          body.getString("role"), body.getInt("orgId", actor->orgId));
+        if (result.status == UserService::Status::NotFound) return fail(404, "User not found");
+        if (result.status == UserService::Status::Forbidden) return fail(403, "Access denied");
+        if (result.status == UserService::Status::OrgNotFound) return fail(404, "Organization not found");
+        if (result.status != UserService::Status::Ok) return fail(400, "Invalid user information");
+        store.addAudit(actor->username, "USER_UPDATED", 0, result.user.username);
+        return ok({{"user", userJson(result.user)}});
+    });
+
+    server.addRoute("POST", "/api/users/:id/disable", [&, authService, userService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
-        auto target = store.findUserById(id);
-        if (!target) return fail(404, "User not found");
-        if (isPlatformAdmin(*user)) {
-            // ok
-        } else if (user->role == "org_admin") {
-            if (target->orgId != user->orgId) return fail(403, "Not in your organization");
-            if (target->role == "platform_admin") return fail(403, "Cannot disable platform administrators");
-        } else {
-            return fail(403, "Administrator access required");
-        }
-        if (target->id == user->id) return fail(400, "Cannot disable your own account");
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
         bool disabled = body.has("disabled") ? body.at("disabled").asBool() : true;
-        store.setUserDisabled(target->id, disabled);
+        auto status = userService->setDisabled(*user, id, disabled);
+        if (status == UserService::Status::NotFound) return fail(404, "User not found");
+        if (status != UserService::Status::Ok) return fail(403, "Access denied");
+        auto target = store.findUserById(id);
         store.addAudit(user->username, disabled ? "USER_DISABLED" : "USER_ENABLED", 0, target->username);
+        return ok();
+    });
+
+    server.addRoute("POST", "/api/users/:id/password", [&, authService, userService](const HttpServer::Request& req) {
+        auto actor = currentUser(req, *authService);
+        if (!actor) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
+        json::Value body; HttpServer::Response err;
+        if (!parseBody(req, body, err)) return err;
+        auto status = userService->changePassword(*actor, id, body.getString("password"));
+        if (status == UserService::Status::NotFound) return fail(404, "User not found");
+        if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
+        if (status != UserService::Status::Ok) return fail(400, "Password must be between 8 and 256 characters");
+        store.addAudit(actor->username, "USER_PASSWORD_CHANGED", 0, std::to_string(id));
         return ok();
     });
 

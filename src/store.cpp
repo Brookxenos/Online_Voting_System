@@ -307,6 +307,12 @@ void Store::updateDisplayName(long long userId, const std::string& displayName) 
              {displayName, std::to_string(userId)});
 }
 
+void Store::updateUserRoleAndOrg(long long userId, const std::string& role, long long orgId) {
+    if (orgId != 0 && !getOrganization(orgId)) throw std::runtime_error("Organization not found");
+    db_.exec("UPDATE users SET role=?, org_id=? WHERE id=?",
+             {role, orgId == 0 ? DbValue::null() : DbValue(orgId), std::to_string(userId)});
+}
+
 void Store::updatePasswordHash(long long userId, const std::string& hash) {
     db_.exec("UPDATE users SET password_hash=? WHERE id=?", {hash, std::to_string(userId)});
 }
