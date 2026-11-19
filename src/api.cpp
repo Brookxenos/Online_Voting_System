@@ -687,6 +687,31 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"candidate", candidateJson(result.candidate)}});
     });
 
+    // Register the fixed /remove suffix before the parameterized candidate
+    // route so the router does not treat "remove" as a candidate ID.
+    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService, candidateService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
+        if (!user) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
+        json::Value body;
+        HttpServer::Response err;
+        if (!parseBody(req, body, err)) return err;
+        long long candidateId;
+        try { candidateId = static_cast<long long>(body.getInt("candidateId", 0)); }
+        catch (...) { return fail(400, "Invalid candidateId"); }
+        if (candidateId <= 0) return fail(400, "candidateId required");
+        auto result = candidateService->remove(*user, id, candidateId);
+        if (result.status == CandidateService::Status::Forbidden)
+            return fail(403, "Administrator access required for this election");
+        if (result.status == CandidateService::Status::Conflict)
+            return fail(409, "Candidate could not be removed (draft election only)");
+        if (result.status != CandidateService::Status::Ok)
+            return fail(409, "Candidate could not be removed (draft election only)");
+        store.addAudit(user->username, "CANDIDATE_REMOVED", id, std::to_string(candidateId));
+        return ok();
+    });
+
     server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&, authService, candidateService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
@@ -713,26 +738,6 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (result.status != CandidateService::Status::Ok) return fail(404, "Candidate not found");
         store.addAudit(user->username, "CANDIDATE_UPDATED", electionId, result.candidate.name);
         return ok({{"candidate", candidateJson(result.candidate)}});
-    });
-
-    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService, candidateService](const HttpServer::Request& req) {
-        auto user = currentUser(req, *authService);
-        if (!user) return fail(401, "Not authenticated");
-        long long id;
-        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        json::Value body;
-        HttpServer::Response err;
-        if (!parseBody(req, body, err)) return err;
-        long long candidateId;
-        try { candidateId = (long long)body.getInt("candidateId", 0); } catch (...) { return fail(400, "Invalid candidateId"); }
-        if (candidateId <= 0) return fail(400, "candidateId required");
-
-        auto result = candidateService->remove(*user, id, candidateId);
-        if (result.status == CandidateService::Status::Forbidden) return fail(403, "Administrator access required for this election");
-        if (result.status == CandidateService::Status::Conflict) return fail(409, "Candidate could not be removed (draft election only)");
-        if (result.status != CandidateService::Status::Ok) return fail(409, "Candidate could not be removed (draft election only)");
-        store.addAudit(user->username, "CANDIDATE_REMOVED", id, std::to_string(candidateId));
-        return ok();
     });
 
     // ======================= Eligibility ===================================
