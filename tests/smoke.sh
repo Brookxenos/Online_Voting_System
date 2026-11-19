@@ -142,6 +142,8 @@ check "missing election title rejected" "Election name required" \
   "$(jpost /api/elections '{"orgId":1,"description":"Missing title"}' -b "$TMP/admin.jar")"
 check "create election in org A" '"status":"draft"' \
   "$(jpost /api/elections '{"orgId":1,"name":"Election A1","discoverable":true}' -b "$TMP/admin.jar")"
+check "administrator election list includes new draft" '"name":"Election A1"' "$(jget /api/elections -b "$TMP/admin.jar")"
+check "administrator can view election detail" '"name":"Election A1"' "$(jget /api/elections/1 -b "$TMP/admin.jar")"
 check "draft election stays hidden from public discovery" '"total":0' \
   "$(jget /api/public/elections)"
 check "invalid public page size rejected" 'Invalid limit or offset' \
