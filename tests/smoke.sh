@@ -138,6 +138,8 @@ check "voter cannot read admin summary" "Administrator access required" \
 echo "-- election creation and lifecycle --"
 check "org admin B cannot create election in org A" "do not administer" \
   "$(jpost /api/elections '{"orgId":1,"name":"Hijack"}' -b "$TMP/admb.jar")"
+check "missing election title rejected" "Election name required" \
+  "$(jpost /api/elections '{"orgId":1,"description":"Missing title"}' -b "$TMP/admin.jar")"
 check "create election in org A" '"status":"draft"' \
   "$(jpost /api/elections '{"orgId":1,"name":"Election A1","discoverable":true}' -b "$TMP/admin.jar")"
 check "draft election stays hidden from public discovery" '"total":0' \
@@ -169,6 +171,8 @@ check "org admin B cannot add candidate to A1" "Administrator access required" \
 echo "-- eligibility and voting --"
 check "vote while draft rejected" "not open for voting" \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
+check "draft election configuration update succeeds" '"name":"Election A1 Revised"' \
+  "$(jpost /api/elections/1 '{"name":"Election A1 Revised","description":"Updated draft"}' -b "$TMP/admin.jar")"
 check "grant eligibility" '"ok":true' \
   "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
 check "cross-organization voter cannot be made eligible" "in this election's organization" \
@@ -181,6 +185,8 @@ check "org admin B cannot grant eligibility on A1" "Administrator access require
   "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admb.jar")"
 check "vote before eligible check: open election" '"status":"open"' \
   "$(jpost /api/elections/1/status '{"status":"open"}' -b "$TMP/admin.jar")"
+check "open election configuration is rejected" "Only draft elections can be edited" \
+  "$(jpost /api/elections/1 '{"name":"Late edit"}' -b "$TMP/admin.jar")"
 check "opted-in election appears in public discovery" '"name":"Election A1"' \
   "$(jget '/api/public/elections?q=Election&status=open&limit=10&offset=0')"
 check "public election detail contains candidates but no voter state" '"name":"Alice"' \
@@ -305,6 +311,8 @@ check "session logout revokes access" "Not authenticated" \
   "$(jpost /api/auth/logout '{}' -b "$TMP/voterB.jar"; jget /api/me -b "$TMP/voterB.jar")"
 
 echo "-- legacy CSV migration (isolated fake records) --"
+check "organization admin creates election in own organization" '"orgId":2' \
+  "$(jpost /api/elections '{"orgId":2,"name":"Organization B Election"}' -b "$TMP/admb.jar")"
 kill "$SERVER_PID" 2>/dev/null || true
 wait "$SERVER_PID" 2>/dev/null || true
 SERVER_PID=""
@@ -353,6 +361,7 @@ jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$MIGTM
 RESTART_ELECTIONS=$(jget /api/elections -b "$MIGTMP/admin-restart.jar")
 IMPORTED_COUNT=$(grep -o 'Imported legacy election' <<< "$RESTART_ELECTIONS" | wc -l)
 check "legacy import is idempotent after restart" "1" "$IMPORTED_COUNT"
+
 
 echo
 echo "===================================================="

@@ -6,6 +6,7 @@
 #include "services/auth_service.h"
 #include "services/user_service.h"
 #include "services/organization_service.h"
+#include "services/election_service.h"
 
 #include <algorithm>
 #include <iostream>
@@ -133,18 +134,6 @@ bool validDateFilter(const std::string& value) {
     return day >= 1 && day <= maxDay;
 }
 
-bool validIsoTimestamp(const std::string& s) {
-    if (s.empty()) return true;
-    if (s.size() != 20 || s[4] != '-' || s[7] != '-' || s[10] != 'T' ||
-        s[13] != ':' || s[16] != ':' || s[19] != 'Z' || !validDateFilter(s.substr(0, 10))) return false;
-    for (size_t i = 0; i < s.size(); ++i) {
-        if (i == 4 || i == 7 || i == 10 || i == 13 || i == 16 || i == 19) continue;
-        if (!std::isdigit((unsigned char)s[i])) return false;
-    }
-    int hour = std::stoi(s.substr(11, 2)), minute = std::stoi(s.substr(14, 2)), second = std::stoi(s.substr(17, 2));
-    return hour <= 23 && minute <= 59 && second <= 59;
-}
-
 bool parsePage(const HttpServer::Request& req, int& limit, int& offset) {
     try {
         const std::string rawLimit = req.param("limit");
@@ -242,6 +231,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     auto userService = std::make_shared<UserService>(*userRepository);
     auto organizationRepository = std::make_shared<OrganizationRepository>(store);
     auto organizationService = std::make_shared<OrganizationService>(*organizationRepository);
+    auto electionRepository = std::make_shared<ElectionRepository>(store);
+    auto electionService = std::make_shared<ElectionService>(*electionRepository);
 
     // ======================= Authentication ================================
 
@@ -448,11 +439,11 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Elections =====================================
 
-    server.addRoute("GET", "/api/elections", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections", [&, authService, electionService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Array arr;
-        for (const auto& e : store.listElectionsVisibleTo(*user)) {
+        for (const auto& e : electionService->list(*user)) {
             json::Object jo = electionJson(e).asObject();
             // Per-voter participation status (identity side only — never the choice).
             if (user->role == "voter") {
@@ -529,7 +520,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
                    {"limit", json::Value((double)limit)}, {"offset", json::Value((double)offset)}});
     });
 
-    server.addRoute("POST", "/api/elections", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections", [&, authService, electionService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Value body;
@@ -537,16 +528,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (!parseBody(req, body, err)) return err;
 
         long long orgId = (long long)body.getInt("orgId", 0);
-        if (orgId == 0) return fail(400, "orgId required");
-        if (!isPlatformAdmin(*user) && !isOrgAdminFor(*user, orgId)) {
-            return fail(403, "You do not administer this organization");
-        }
-
         std::string name = trimStr(body.getString("name"));
         std::string description = body.getString("description");
-        if (!validTextField(name, 1, 200)) return fail(400, "Election name required (1-200 chars)");
-        if (description.size() > 2000) return fail(400, "Description too long");
-
         Election e;
         e.orgId = orgId;
         e.name = name;
@@ -556,25 +539,29 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         e.startAt = body.getString("startAt");
         e.endAt = body.getString("endAt");
         e.createdBy = user->id;
-        if (!validIsoTimestamp(e.startAt) || !validIsoTimestamp(e.endAt) ||
-            (!e.startAt.empty() && !e.endAt.empty() && e.endAt <= e.startAt)) {
+        auto result = electionService->create(*user,e);
+        if (result.status == ElectionService::Status::Forbidden) return fail(403, "You do not administer this organization");
+        if (result.status == ElectionService::Status::NotFound) return fail(404, "Organization not found");
+        if (result.status != ElectionService::Status::Ok) {
+            if (orgId == 0) return fail(400, "orgId required");
+            if (!validTextField(name, 1, 200)) return fail(400, "Election name required (1-200 chars)");
+            if (description.size() > 2000) return fail(400, "Description too long");
             return fail(400, "Dates must be empty or ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ)");
         }
-
-        auto res = store.createElection(e);
-        if (res != Store::CreateElectionResult::Ok) return fail(404, "Organization not found");
+        e = result.election;
         store.addAudit(user->username, "ELECTION_CREATED", e.id, name);
 
         return created({{"election", electionJson(e)}});
     });
 
-    server.addRoute("GET", "/api/elections/:id", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id", [&, authService, electionService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !userCanViewElection(*user, store, *e)) return fail(404, "Election not found");
+        auto result = electionService->get(*user,id);
+        if (result.status != ElectionService::Status::Ok) return fail(404, "Election not found");
+        auto e = std::optional<Election>(result.election);
 
         json::Object o = electionJson(*e).asObject();
         json::Array cands;
@@ -593,7 +580,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
-    server.addRoute("POST", "/api/elections/:id", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id", [&, authService, electionService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -614,19 +601,12 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (body.has("showLiveResults")) changes.showLiveResults = body.at("showLiveResults").asBool();
         if (body.has("startAt")) changes.startAt = body.getString("startAt");
         if (body.has("endAt")) changes.endAt = body.getString("endAt");
-        if (!validIsoTimestamp(changes.startAt) || !validIsoTimestamp(changes.endAt) ||
-            (!changes.startAt.empty() && !changes.endAt.empty() && changes.endAt <= changes.startAt)) {
-            return fail(400, "Dates must be valid ISO 8601 UTC timestamps and end after start");
-        }
-
-        // Published/open ballot configuration must not be silently changed:
-        // draft-only edits are enforced by the store.
-        if (!store.updateElectionDraft(id, changes)) {
-            return fail(409, "Only draft elections can be edited");
-        }
+        auto result = electionService->updateDraft(*user,id,changes);
+        if (result.status == ElectionService::Status::Invalid) return fail(400, "Dates must be valid ISO 8601 UTC timestamps and end after start");
+        if (result.status == ElectionService::Status::Conflict) return fail(409, "Only draft elections can be edited");
+        if (result.status != ElectionService::Status::Ok) return fail(403, "Administrator access required for this election");
         store.addAudit(user->username, "ELECTION_CONFIGURED", id, "draft updated");
-        e = store.getElection(id);
-        return ok({{"election", electionJson(*e)}});
+        return ok({{"election", electionJson(result.election)}});
     });
 
     server.addRoute("POST", "/api/elections/:id/status", [&, authService](const HttpServer::Request& req) {
