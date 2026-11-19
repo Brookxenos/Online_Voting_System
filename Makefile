@@ -20,8 +20,8 @@ WEBDIR   := web
 DATADIR  := data
 TARGET   := voting_server
 
-SOURCES := $(wildcard $(SRCDIR)/*.cpp)
-HEADERS := $(wildcard $(SRCDIR)/*.h)
+SOURCES := $(shell find $(SRCDIR) -path '$(SRCDIR)/legacy_impl' -prune -o -name '*.cpp' -print)
+HEADERS := $(shell find $(SRCDIR) -path '$(SRCDIR)/legacy_impl' -prune -o -name '*.h' -print)
 OBJECTS := $(SOURCES:.cpp=.o)
 
 .PHONY: all run run-port test clean data

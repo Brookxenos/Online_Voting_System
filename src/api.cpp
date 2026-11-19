@@ -2,10 +2,12 @@
 #include "json.h"
 #include "crypto.h"
 #include "models.h"
+#include "services/voting_service.h"
 
 #include <algorithm>
 #include <iostream>
 #include <mutex>
+#include <memory>
 #include <sstream>
 
 // ---------------------------------------------------------------------------
@@ -269,6 +271,7 @@ bool parseBody(const HttpServer::Request& req, json::Value& out, HttpServer::Res
 // ---------------------------------------------------------------------------
 
 void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
+    auto votingService = std::make_shared<VotingService>(store);
 
     // ======================= Authentication ================================
 
@@ -861,7 +864,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Voting ========================================
 
-    server.addRoute("POST", "/api/elections/:id/vote", [&](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/vote", [&, votingService](const HttpServer::Request& req) {
         auto user = currentUser(req, store);
         if (!user) return fail(401, "Not authenticated");
         if (user->role != "voter") return fail(403, "Only voters can cast ballots");
@@ -873,7 +876,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         long long candidateId = body.getInt("candidateId", 0);
         if (candidateId <= 0) return fail(400, "candidateId required");
 
-        auto res = store.castBallot(id, user->id, candidateId);
+        auto res = votingService->castBallot(id, user->id, candidateId);
         switch (res.status) {
             case Store::CastResult::Status::Ok: {
                 json::Object o;
