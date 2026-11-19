@@ -166,12 +166,20 @@ check "end before start rejected" "Dates must be" \
   "$(jpost /api/elections '{"orgId":1,"name":"Bad range","startAt":"2026-12-02T10:00:00Z","endAt":"2026-12-01T10:00:00Z"}' -b "$TMP/admin.jar")"
 check "candidate added while draft" '"name":"Alice"' \
   "$(jpost /api/elections/1/candidates '{"name":"Alice","party":"A"}' -b "$TMP/admin.jar")"
+check "blank candidate name rejected by service" "Candidate name required" \
+  "$(jpost /api/elections/1/candidates '{"name":"   "}' -b "$TMP/admin.jar")"
 check "candidate 2 added" '"name":"Bob"' \
   "$(jpost /api/elections/1/candidates '{"name":"Bob","party":"B"}' -b "$TMP/admin.jar")"
 check "candidate can be edited while draft" '"name":"Bobby"' \
   "$(jpost /api/elections/1/candidates/2 '{"name":"Bobby","party":"=2+2","description":"Updated profile"}' -b "$TMP/admin.jar")"
 check "candidate update requires existing candidate" 'Candidate not found' \
   "$(jpost /api/elections/1/candidates/999 '{"name":"Missing"}' -b "$TMP/admin.jar")"
+check "candidate list returns election-scoped candidates" '"name":"Bobby"' \
+  "$(jget /api/elections/1/candidates -b "$TMP/admin.jar")"
+check "candidate can be removed while draft" '"ok":true' \
+  "$(jpost /api/elections/1/candidates/remove '{"candidateId":2}' -b "$TMP/admin.jar")"
+check "removed candidate no longer listed" '"name":"Alice"' \
+  "$(jget /api/elections/1/candidates -b "$TMP/admin.jar")"
 check "voter cannot add candidate" "Administrator access required" \
   "$(jpost /api/elections/1/candidates '{"name":"Evil"}' -b "$TMP/voterA.jar")"
 check "org admin B cannot see election A1" "Election not found" "$(jget /api/elections/1 -b "$TMP/admb.jar")"
@@ -185,6 +193,21 @@ check "draft election configuration update succeeds" '"description":"Updated dra
   "$(jpost /api/elections/1 '{"description":"Updated draft"}' -b "$TMP/admin.jar")"
 check "grant eligibility" '"ok":true' \
   "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
+check "eligible voters can be listed" '"username":"voterA"' \
+  "$(jget /api/elections/1/eligibility -b "$TMP/admin.jar")"
+check "duplicate eligibility grant remains idempotent" '"ok":true' \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
+ELIGIBLE_DUPES=$(jget /api/elections/1/eligibility -b "$TMP/admin.jar" | grep -o '"username":"voterA"' | wc -l)
+check "duplicate grant creates only one eligibility record" "1" "$ELIGIBLE_DUPES"
+check "eligibility can be revoked while draft" '"ok":true' \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"revoke"}' -b "$TMP/admin.jar")"
+if [[ "$(jget /api/elections/1/eligibility -b "$TMP/admin.jar")" == *'"username":"voterA"'* ]]; then
+  FAIL=$((FAIL+1)); echo "  FAIL: revoked voter remains eligible"
+else
+  PASS=$((PASS+1)); echo "  PASS: revoked voter removed from eligibility list"
+fi
+check "eligibility can be re-granted while draft" '"ok":true' \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar")"
 check "cross-organization voter cannot be made eligible" "in this election's organization" \
   "$(jpost /api/elections/1/eligibility '{"username":"outsider","action":"grant"}' -b "$TMP/admin.jar")"
 check "administrator account cannot be made eligible" "active voter" \
@@ -193,6 +216,10 @@ check "unknown user eligibility rejected" "User not found" \
   "$(jpost /api/elections/1/eligibility '{"username":"ghost","action":"grant"}' -b "$TMP/admin.jar")"
 check "org admin B cannot grant eligibility on A1" "Administrator access required" \
   "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admb.jar")"
+check "voter cannot grant eligibility" "Administrator access required" \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/voterA.jar")"
+check "invalid voter ID rejected" "User or election not found" \
+  "$(jpost /api/elections/1/eligibility '{"userId":999999,"action":"grant"}' -b "$TMP/admin.jar")"
 check "vote before eligible check: open election" '"status":"open"' \
   "$(jpost /api/elections/1/status '{"status":"open"}' -b "$TMP/admin.jar")"
 check "open election configuration is rejected" "Only draft elections can be edited" \
@@ -203,6 +230,10 @@ check "public election detail contains candidates but no voter state" '"name":"A
   "$(jget /api/public/elections/1)"
 check "candidate change after open rejected" "draft" \
   "$(jpost /api/elections/1/candidates '{"name":"Late","party":"L"}' -b "$TMP/admin.jar")"
+check "candidate removal after open rejected" "draft election only" \
+  "$(jpost /api/elections/1/candidates/remove '{"candidateId":1}' -b "$TMP/admin.jar")"
+check "eligibility changes after open rejected" "only be changed while the election is a draft" \
+  "$(jpost /api/elections/1/eligibility '{"username":"voterA","action":"revoke"}' -b "$TMP/admin.jar")"
 check "ballot cast successfully" '"ok":true' \
   "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
 check "voter dashboard returns participation metadata" '"votedAt"' \

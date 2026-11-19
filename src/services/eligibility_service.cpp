@@ -27,9 +27,17 @@ EligibilityService::Result EligibilityService::change(const User& actor, long lo
     if (!target) return {Status::NotFound, false, {}};
     if (grant && (target->role != "voter" || target->disabled || target->orgId != e->orgId))
         return {Status::InvalidVoter, false, {}};
-    if (grant && repository_.contains(id, userId)) return {Status::Ok, false, {}};
-    if (grant) return {repository_.grant(id, userId) ? Status::Ok : Status::NotFound, true, {}};
     const bool existed = repository_.contains(id, userId);
-    if (!repository_.revoke(id, userId)) return {Status::NotFound, false, {}};
+    if (grant) {
+        if (!repository_.grant(id, userId)) {
+            auto current = repository_.election(id);
+            return {current && current->status != "draft" ? Status::Conflict : Status::NotFound, false, {}};
+        }
+        return {Status::Ok, !existed, {}};
+    }
+    if (!repository_.revoke(id, userId)) {
+        auto current = repository_.election(id);
+        return {current && current->status != "draft" ? Status::Conflict : Status::NotFound, false, {}};
+    }
     return {Status::Ok, existed, {}};
 }
