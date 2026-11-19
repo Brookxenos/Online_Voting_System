@@ -239,7 +239,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Authentication ================================
 
-    server.addRoute("POST", "/api/auth/register", [&](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/auth/register", [&, authService](const HttpServer::Request& req) {
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -248,39 +248,19 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         std::string displayName = trimStr(body.getString("displayName"));
         std::string password = body.getString("password");
 
-        if (!validUsername(username)) return fail(400, "Username must be 3-32 characters (letters, digits, _ . -)");
-        if (displayName.empty()) displayName = username;
-        if (!validTextField(displayName, 1, 100)) return fail(400, "Display name too long");
-        if (!validPassword(password)) return fail(400, "Password must be at least 8 characters");
-
-        if (rateLimited("reg|" + req.clientIp)) return fail(429, "Too many attempts; try again later");
-
-        User u;
-        u.username = username;
-        u.displayName = displayName;
-        u.role = "voter";
-
-        // Self-registration joins the first organization that allows it.
-        for (const auto& org : store.listOrganizations()) {
-            if (org.allowSelfRegistration) { u.orgId = org.id; break; }
-        }
-        if (u.orgId == 0) return fail(400, "Registration is not available");
-        u.passwordHash = crypto::hashPassword(password);
-
-        auto res = store.createUser(u);
-        if (res == Store::CreateUserResult::DuplicateUsername) {
-            recordFailure("reg|" + req.clientIp);
-            return fail(409, "Username is already taken");
-        }
-        if (res != Store::CreateUserResult::Ok) return fail(400, "Registration is not available");
-
-        store.addAudit(username, "REGISTER", 0, "self-registration");
+        auto result = authService->registerVoter(username, displayName, password, req.clientIp);
+        using RS = AuthService::RegisterStatus;
+        if (result.status == RS::InvalidUsername) return fail(400, "Username must be 3-32 characters (letters, digits, _ . -)");
+        if (result.status == RS::InvalidDisplayName) return fail(400, "Display name too long");
+        if (result.status == RS::InvalidPassword) return fail(400, "Password must be at least 8 characters");
+        if (result.status == RS::DuplicateUsername) return fail(409, "Username is already taken");
+        if (result.status == RS::Unavailable) return fail(400, "Registration is not available");
         json::Object o;
-        o["user"] = userJson(u);
+        o["user"] = userJson(result.user);
         return created(o);
     });
 
-    server.addRoute("POST", "/api/auth/login", [&](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/auth/login", [&, authService](const HttpServer::Request& req) {
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -289,65 +269,44 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         std::string password = body.getString("password");
         if (username.empty() || password.empty()) return fail(400, "username and password required");
 
-        std::string key = "login|" + req.clientIp + "|" + username;
-        if (rateLimited(key)) {
-            store.addAudit(username, "LOGIN_RATE_LIMITED", 0, "");
-            return fail(429, "Too many failed attempts; try again later");
-        }
-
-        auto user = store.findUserByUsername(username);
-        if (!user || user->disabled || !crypto::verifyPassword(password, user->passwordHash)) {
-            recordFailure(key);
-            // Same message for unknown user / wrong password / disabled — no
-            // account enumeration.
-            store.addAudit(username, "LOGIN_FAIL", 0, "");
-            return fail(401, "Invalid username or password");
-        }
-
-        // Upgrade legacy SHA-256 hashes to Argon2id on successful login.
-        if (!crypto::isModernHash(user->passwordHash)) {
-            store.updatePasswordHash(user->id, crypto::hashPassword(password));
-            store.addAudit(username, "PASSWORD_UPGRADED", 0, "legacy hash upgraded to Argon2id");
-        }
-
-        clearFailures(key);
-        std::string token = store.createSession(user->id, cfg.sessionHours);
-        store.addAudit(username, "LOGIN_OK", 0, "");
+        auto result = authService->login(username, password, req.clientIp, cfg.sessionHours);
+        if (result.limited) return fail(429, "Too many failed attempts; try again later");
+        if (!result.ok) return fail(401, "Invalid username or password");
 
         HttpServer::Response r = ok();
         r.body = json::Value([&]{
             json::Object o;
             o["ok"] = true;
-            o["user"] = userJson(*user);
+            o["user"] = userJson(result.user);
             return json::Value(o);
         }()).dump();
         // Secure flag is only set when explicitly configured (HTTPS deployment);
         // HttpOnly + SameSite=Lax always apply.
-        r.setCookie(kSessionCookie, token, cfg.sessionHours * 3600, true, "Lax");
+        r.setCookie(kSessionCookie, result.token, cfg.sessionHours * 3600, true, "Lax");
         if (cfg.secureCookies) {
             r.setCookies.back() += "; Secure";
         }
         return r;
     });
 
-    server.addRoute("POST", "/api/auth/logout", [&](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/auth/logout", [&, authService](const HttpServer::Request& req) {
         std::string token = req.cookie(kSessionCookie);
-        if (!token.empty()) store.revokeSession(token);
+        authService->logout(token);
         HttpServer::Response r = ok();
         r.clearCookie(kSessionCookie);
         return r;
     });
 
-    server.addRoute("GET", "/api/me", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/me", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Object o;
         o["user"] = userJson(*user);
         return ok(o);
     });
 
-    server.addRoute("GET", "/api/me/dashboard", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/me/dashboard", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         if (user->role != "voter") return fail(403, "Voter access required");
         json::Array elections, participation;
@@ -373,8 +332,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
                    {"participation", json::Value(participation)}});
     });
 
-    server.addRoute("POST", "/api/me/profile", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/me/profile", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Value body;
         HttpServer::Response err;
@@ -388,8 +347,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"user", userJson(*user)}});
     });
 
-    server.addRoute("POST", "/api/auth/password", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/auth/password", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Value body;
         HttpServer::Response err;
@@ -397,15 +356,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
         std::string current = body.getString("currentPassword");
         std::string next = body.getString("newPassword");
-        if (!validPassword(next)) return fail(400, "New password must be at least 8 characters");
-        if (!crypto::verifyPassword(current, user->passwordHash)) {
-            store.addAudit(user->username, "PASSWORD_CHANGE_FAIL", 0, "");
-            return fail(401, "Current password is incorrect");
-        }
-        store.updatePasswordHash(user->id, crypto::hashPassword(next));
-        // Invalidate existing sessions after a sensitive change.
-        store.revokeAllSessions(user->id);
-        store.addAudit(user->username, "PASSWORD_CHANGED", 0, "");
+        if (next.size() < 8 || next.size() > 256) return fail(400, "New password must be at least 8 characters");
+        if (!authService->changePassword(*user, current, next)) return fail(401, "Current password is incorrect");
         HttpServer::Response r = ok({{"message", json::Value(std::string("Password updated; please log in again"))}});
         r.clearCookie(kSessionCookie);
         return r;
@@ -413,8 +365,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Organizations =================================
 
-    server.addRoute("GET", "/api/orgs", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/orgs", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Array arr;
         if (isPlatformAdmin(*user)) {
@@ -445,8 +397,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(root);
     });
 
-    server.addRoute("POST", "/api/orgs", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/orgs", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user || !isPlatformAdmin(*user)) return fail(403, "Platform administrator access required");
         json::Value body;
         HttpServer::Response err;
@@ -471,8 +423,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Elections =====================================
 
-    server.addRoute("GET", "/api/elections", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/elections", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Array arr;
         for (const auto& e : store.listElectionsVisibleTo(*user)) {
@@ -492,7 +444,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // Anonymous discovery is opt-in per election. Existing elections remain
     // hidden until an administrator enables discoverable while it is a draft.
-    server.addRoute("GET", "/api/public/elections", [&](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/public/elections", [&, authService](const HttpServer::Request& req) {
         int limit, offset;
         if (!parsePage(req, limit, offset)) return fail(400, "Invalid limit or offset");
         std::string status = req.param("status");
@@ -514,7 +466,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
                    {"offset", json::Value((double)offset)}});
     });
 
-    server.addRoute("GET", "/api/public/elections/:id", [&](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/public/elections/:id", [&, authService](const HttpServer::Request& req) {
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
         auto e = store.getElection(id);
@@ -526,7 +478,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
-    server.addRoute("GET", "/api/public/results", [&](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/public/results", [&, authService](const HttpServer::Request& req) {
         int limit, offset;
         if (!parsePage(req, limit, offset)) return fail(400, "Invalid limit or offset");
         std::string from = req.param("from"), to = req.param("to");
@@ -552,8 +504,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
                    {"limit", json::Value((double)limit)}, {"offset", json::Value((double)offset)}});
     });
 
-    server.addRoute("POST", "/api/elections", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Value body;
         HttpServer::Response err;
@@ -591,8 +543,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"election", electionJson(e)}});
     });
 
-    server.addRoute("GET", "/api/elections/:id", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/elections/:id", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -616,8 +568,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
-    server.addRoute("POST", "/api/elections/:id", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections/:id", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -652,8 +604,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"election", electionJson(*e)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/status", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections/:id/status", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -676,8 +628,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Candidates ====================================
 
-    server.addRoute("GET", "/api/elections/:id/candidates", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/elections/:id/candidates", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -688,8 +640,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"candidates", json::Value(arr)}, {"status", json::Value(e->status)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections/:id/candidates", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -717,8 +669,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"candidate", candidateJson(c)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long electionId, candidateId;
         try {
@@ -746,8 +698,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"candidate", candidateJson(changes)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -769,8 +721,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Eligibility ===================================
 
-    server.addRoute("GET", "/api/elections/:id/eligibility", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/elections/:id/eligibility", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -787,8 +739,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"eligible", json::Value(arr)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/eligibility", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/elections/:id/eligibility", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
@@ -829,7 +781,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     // ======================= Voting ========================================
 
     server.addRoute("POST", "/api/elections/:id/vote", [&, votingService](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         if (user->role != "voter") return fail(403, "Only voters can cast ballots");
         long long id;
@@ -861,8 +813,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Results =======================================
 
-    server.addRoute("GET", "/api/elections/:id/results", [&](const HttpServer::Request& req) {
-        auto userOpt = currentUser(req, store);
+    server.addRoute("GET", "/api/elections/:id/results", [&, authService](const HttpServer::Request& req) {
+        auto userOpt = currentUser(req, *authService);
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
         auto e = store.getElection(id);
@@ -927,8 +879,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
-    server.addRoute("GET", "/api/elections/:id/results.csv", [&](const HttpServer::Request& req) {
-        auto userOpt = currentUser(req, store);
+    server.addRoute("GET", "/api/elections/:id/results.csv", [&, authService](const HttpServer::Request& req) {
+        auto userOpt = currentUser(req, *authService);
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
         auto e = store.getElection(id);
@@ -984,8 +936,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Users administration ==========================
 
-    server.addRoute("GET", "/api/users", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/users", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long orgId = 0;
         auto it = req.params.find("orgId");
@@ -1014,8 +966,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"users", json::Value(arr)}});
     });
 
-    server.addRoute("GET", "/api/admin/summary", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/admin/summary", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         std::optional<long long> scope;
         if (isPlatformAdmin(*user)) scope = std::nullopt;
@@ -1035,8 +987,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"summary", json::Value(summary)}});
     });
 
-    server.addRoute("POST", "/api/users", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/users", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         if (!isPlatformAdmin(*user) && user->role != "org_admin") {
             return fail(403, "Administrator access required");
@@ -1081,8 +1033,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"user", userJson(u)}});
     });
 
-    server.addRoute("POST", "/api/users/:id/disable", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("POST", "/api/users/:id/disable", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
@@ -1108,8 +1060,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Audit =========================================
 
-    server.addRoute("GET", "/api/audit", [&](const HttpServer::Request& req) {
-        auto user = currentUser(req, store);
+    server.addRoute("GET", "/api/audit", [&, authService](const HttpServer::Request& req) {
+        auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
 
         long long electionId = 0;
@@ -1152,7 +1104,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"needsSetup", json::Value(!hasAdmin)}});
     });
 
-    server.addRoute("POST", "/api/bootstrap/setup", [&](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/bootstrap/setup", [&, authService](const HttpServer::Request& req) {
         // One-time platform-admin creation. Allowed only while no enabled
         // platform administrator exists. The password is supplied by the
         // operator here (or via OV_INITIAL_ADMIN_PASSWORD at startup) —
