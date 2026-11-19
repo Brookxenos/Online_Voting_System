@@ -644,7 +644,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Candidates ====================================
 
-    server.addRoute("GET", "/api/elections/:id/candidates", [&, authService, candidateService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id/candidates", [&, authService, candidateService, candidateRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -658,7 +658,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"candidates", json::Value(arr)}, {"status", json::Value(election->status)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates", [&, authService, candidateService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/candidates", [&, authService, candidateService, candidateRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -690,7 +690,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // Register the fixed /remove suffix before the parameterized candidate
     // route so the router does not treat "remove" as a candidate ID.
-    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService, candidateService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService, candidateService, candidateRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -713,7 +713,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok();
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&, authService, candidateService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&, authService, candidateService, candidateRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long electionId, candidateId;
@@ -743,7 +743,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Eligibility ===================================
 
-    server.addRoute("GET", "/api/elections/:id/eligibility", [&, authService, eligibilityService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id/eligibility", [&, authService, eligibilityService, eligibilityRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -761,7 +761,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"eligible", json::Value(arr)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/eligibility", [&, authService, eligibilityService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/eligibility", [&, authService, eligibilityService, eligibilityRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
