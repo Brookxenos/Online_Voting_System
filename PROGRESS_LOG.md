@@ -1467,3 +1467,29 @@
 - **Security/privacy implications:** Election creation and draft edits use session-derived role/org scope; cross-org operations rejected. Election reads use existing visibility rules, including voter eligibility/self-registration constraints. SQL remains in Store and uses bound parameters.
 - **Known issues:** No visual frontend changes. ElectionController responsibilities remain in `api.cpp` route handlers; service/repository seams now own election decisions and storage calls. No deletion/rewrites of elections.
 - **Next exact task:** Await owner approval before Step 4C.
+
+### 2026-11-19 --- Codex --- Step 4C election lifecycle management
+
+- **Status:** Added an `ElectionLifecycleService` boundary for authorized lifecycle transitions, `ResultsService` integration for tally reads/runs, and `AuditService` integration for rejected lifecycle attempts. Existing status states and database schema are preserved.
+- **Approved scope:** Step 4C only; preserve frontend UI and existing SQLite records/ballots/results; do not begin Step 5.
+- **Files created:** `src/services/election_lifecycle_service.h`, `src/services/election_lifecycle_service.cpp`, `src/services/results_service.h`, `src/services/audit_service.h`.
+- **Files modified:** `src/api.cpp`, `src/repositories/election_repository.h`, `src/store.cpp`, `tests/smoke.sh`, `API.md`, `PROGRESS_LOG.md`.
+- **Decisions:** Lifecycle authorization is role and organization scoped in the service. Existing Store `BEGIN IMMEDIATE` transaction remains responsible for state transition, tally persistence, and success audit event atomicity. Backend vote submission rejects statuses other than `open` and ballots outside configured time window. Published archive removes the election from active discovery while retaining published results and all records. No schema migration was required.
+- **Commands run:** `make -j2` (passed); `bash -n tests/smoke.sh` (passed); sandbox `make test` was blocked by local socket permission; approved local-socket `make test` (passed after lifecycle regressions; final rerun after tally-sum strengthening completed successfully); `git diff --check` (passed).
+- **Tests:** Added lifecycle authorization, pre-close publish rejection, duplicate publication rejection, published archive/result retention, closed-election vote rejection, expired-end-time rejection, and lifecycle audit checks. Full suite passed: 6 AuthService checks and 129 HTTP smoke checks, 0 failures.
+- **Security/privacy implications:** Lifecycle operations derive actor from the authenticated session; organization admins cannot cross organization boundaries. Audit detail records requested status without ballot or personal information. Tally remains single-choice and internally consistency checked; no anonymity or independent verification claim is made.
+- **Known gaps:** Controller code remains route handlers in `src/api.cpp` rather than a separate controller class. Audit records for unsupported status strings are not created because request validation returns 400 before the service. Tally integrity failure injection is not covered by an automated test; normal integrity checks compare ballot, participation, valid-candidate, and computed candidate-result totals.
+- **Next exact task:** Await owner approval before any work beyond Step 4C.
+
+### 2026-11-19 --- Codex --- Step 4C tally integrity regression coverage
+
+- **Status:** Added deterministic isolated-database coverage for count mismatches, invalid candidate references, storage-side tally-result corruption, failed-publication rollback, and a valid publication.
+- **Approved scope:** Close the remaining Step 4C tally-integrity testing gap only; no frontend changes, database reset, or Step 5 work.
+- **Files created:** `tests/lifecycle_integrity.cpp`.
+- **Files modified:** `src/store.cpp`, `Makefile`, `PROGRESS_LOG.md`.
+- **Decisions:** Integrity-failed tallies are returned to the publication gate without inserting a `tally_runs` record. Candidate tally rows are checked after insertion; if stored totals or row values differ from the computed values, the new run is deleted within the same transaction and publication remains closed/private. Existing failed-publication audit event remains recorded.
+- **Commands run:** `make -j2` (passed); `make test-lifecycle-integrity` (passed, 6 checks); `bash -n tests/smoke.sh` (passed); approved `make test` (exit 0); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService checks, 6 lifecycle-integrity checks, and 129 HTTP smoke checks; **141 checks total, 0 failed**. Fault cases covered ballots > participations, participations > ballots, a nonexistent candidate reference inserted with foreign-key checks temporarily disabled in the isolated test DB, and a SQLite trigger that corrupts a persisted candidate tally. Every failed publication left the election `closed`, results private, and no tally run/results committed. A valid election published with its expected tally.
+- **Security/privacy implications:** Tests use a unique `/tmp` database and fabricated records. No user/runtime database was reset. No ballot identity/choice information is emitted by tests.
+- **Known gaps:** The calculation inconsistency is injected at persisted tally-result insertion, representing a storage/result calculation mismatch; production tally calculations still use SQL counts in the single existing transaction. No independent tally verification is added or claimed.
+- **Next exact task:** Await owner approval before proceeding beyond Step 4C.

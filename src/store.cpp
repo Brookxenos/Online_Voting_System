@@ -791,6 +791,8 @@ std::optional<Tally> Store::tallyElection(long long electionId) {
     auto eOpt = getElection(electionId);
     if (!eOpt) return std::nullopt;
 
+    Tally computed;
+    computed.electionId = electionId;
     std::lock_guard<std::recursive_mutex> lk(db_.mutex());
     db_.tx([&]{
         long long totalBallots = 0, totalParts = 0;
@@ -808,22 +810,79 @@ std::optional<Tally> Store::tallyElection(long long electionId) {
 
         bool integrityOk = (totalBallots == totalParts && totalBallots == validBallots);
 
+        // Calculate every candidate total within the same snapshot as the
+        // consistency counts, then verify their sum before persisting a run.
+        std::vector<std::pair<long long, long long>> candidateVotes;
+        long long calculatedBallots = 0;
+        for (const auto& c : listCandidates(electionId)) {
+            auto cnt = db_.query("SELECT COUNT(*) AS n FROM ballots WHERE election_id=? AND candidate_id=?",
+                                 {std::to_string(electionId), std::to_string(c.id)});
+            long long votes = cnt.empty() ? 0 : std::stoll(cnt[0].at("n"));
+            candidateVotes.emplace_back(c.id, votes);
+            calculatedBallots += votes;
+        }
+        integrityOk = integrityOk && calculatedBallots == totalBallots;
+
+        computed.totalBallots = totalBallots;
+        computed.totalParticipations = totalParts;
+        computed.createdAt = nowIso();
+        for (const auto& result : candidateVotes) {
+            auto candidates = listCandidates(electionId);
+            auto found = std::find_if(candidates.begin(), candidates.end(), [&](const Candidate& c) {
+                return c.id == result.first;
+            });
+            if (found != candidates.end()) {
+                computed.candidates.push_back({found->id, found->name, found->party, result.second});
+            }
+        }
+
+        // An integrity failure is returned to the caller for the publication
+        // gate, but never becomes a persisted tally or partial result set.
+        if (!integrityOk) {
+            computed.integrityOk = false;
+            return;
+        }
+
         db_.exec("INSERT INTO tally_runs(election_id,total_ballots,total_participations,"
                  "integrity_ok,created_at) VALUES(?,?,?,?,?)",
                  {std::to_string(electionId), std::to_string(totalBallots),
                   std::to_string(totalParts), integrityOk ? "1" : "0", nowIso()});
         long long tallyId = db_.lastInsertId();
+        computed.id = tallyId;
 
-        for (const auto& c : listCandidates(electionId)) {
-            auto cnt = db_.query("SELECT COUNT(*) AS n FROM ballots WHERE election_id=? AND candidate_id=?",
-                                 {std::to_string(electionId), std::to_string(c.id)});
-            long long votes = cnt.empty() ? 0 : std::stoll(cnt[0].at("n"));
+        for (const auto& result : candidateVotes) {
             db_.exec("INSERT INTO tally_results(tally_id,candidate_id,votes) VALUES(?,?,?)",
-                     {std::to_string(tallyId), std::to_string(c.id), std::to_string(votes)});
+                     {std::to_string(tallyId), std::to_string(result.first), std::to_string(result.second)});
         }
+
+        // Verify what SQLite actually stored, so triggers or storage-side
+        // inconsistencies cannot turn a calculated tally into published data.
+        auto stored = db_.query(
+            "SELECT COUNT(*) AS rows, COALESCE(SUM(votes),0) AS total FROM tally_results WHERE tally_id=?",
+            {std::to_string(tallyId)});
+        bool storedOk = !stored.empty() &&
+            std::stoll(stored[0].at("rows")) == static_cast<long long>(candidateVotes.size()) &&
+            std::stoll(stored[0].at("total")) == totalBallots;
+        if (storedOk) {
+            for (const auto& result : candidateVotes) {
+                auto row = db_.query("SELECT votes FROM tally_results WHERE tally_id=? AND candidate_id=?",
+                    {std::to_string(tallyId), std::to_string(result.first)});
+                if (row.empty() || std::stoll(row[0].at("votes")) != result.second) {
+                    storedOk = false;
+                    break;
+                }
+            }
+        }
+        if (!storedOk) {
+            db_.exec("DELETE FROM tally_runs WHERE id=?", {std::to_string(tallyId)});
+            computed.id = 0;
+            computed.integrityOk = false;
+            return;
+        }
+        computed.integrityOk = true;
     });
 
-    return latestTally(electionId);
+    return computed;
 }
 
 std::optional<Tally> Store::latestTally(long long electionId) {
