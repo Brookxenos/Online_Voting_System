@@ -362,7 +362,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Organizations =================================
 
-    server.addRoute("GET", "/api/orgs", [&, authService, organizationService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/orgs", [&, authService, organizationService, organizationRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Array arr;
@@ -379,7 +379,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(root);
     });
 
-    server.addRoute("POST", "/api/orgs", [&, authService, organizationService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/orgs", [&, authService, organizationService, organizationRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user || !isPlatformAdmin(*user)) return fail(403, "Platform administrator access required");
         json::Value body;
@@ -403,7 +403,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"org", json::Value(jo)}});
     });
 
-    server.addRoute("GET", "/api/orgs/:id", [&, authService, organizationService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/orgs/:id", [&, authService, organizationService, organizationRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id; try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid organization id"); }
@@ -416,7 +416,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"org", json::Value(jo)}});
     });
 
-    server.addRoute("POST", "/api/orgs/:id", [&, authService, organizationService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/orgs/:id", [&, authService, organizationService, organizationRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id; try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid organization id"); }
@@ -439,7 +439,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Elections =====================================
 
-    server.addRoute("GET", "/api/elections", [&, authService, electionService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections", [&, authService, electionService, electionRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Array arr;
@@ -520,7 +520,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
                    {"limit", json::Value((double)limit)}, {"offset", json::Value((double)offset)}});
     });
 
-    server.addRoute("POST", "/api/elections", [&, authService, electionService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections", [&, authService, electionService, electionRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Value body;
@@ -554,7 +554,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"election", electionJson(e)}});
     });
 
-    server.addRoute("GET", "/api/elections/:id", [&, authService, electionService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id", [&, authService, electionService, electionRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -580,7 +580,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok(o);
     });
 
-    server.addRoute("POST", "/api/elections/:id", [&, authService, electionService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id", [&, authService, electionService, electionRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -941,7 +941,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Users administration ==========================
 
-    server.addRoute("GET", "/api/users", [&, authService, userService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/users", [&, authService, userService, userRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long orgId = 0;
@@ -987,7 +987,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"summary", json::Value(summary)}});
     });
 
-    server.addRoute("GET", "/api/users/:id", [&, authService, userService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/users/:id", [&, authService, userService, userRepository](const HttpServer::Request& req) {
         auto actor = currentUser(req, *authService);
         if (!actor) return fail(401, "Not authenticated");
         long long id;
@@ -998,7 +998,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"user", userJson(result.user)}});
     });
 
-    server.addRoute("POST", "/api/users", [&, authService, userService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/users", [&, authService, userService, userRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         json::Value body;
@@ -1023,7 +1023,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return created({{"user", userJson(u)}});
     });
 
-    server.addRoute("POST", "/api/users/:id", [&, authService, userService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/users/:id", [&, authService, userService, userRepository](const HttpServer::Request& req) {
         auto actor = currentUser(req, *authService);
         if (!actor) return fail(401, "Not authenticated");
         long long id;
@@ -1040,7 +1040,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"user", userJson(result.user)}});
     });
 
-    server.addRoute("POST", "/api/users/:id/disable", [&, authService, userService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/users/:id/disable", [&, authService, userService, userRepository](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
@@ -1057,7 +1057,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok();
     });
 
-    server.addRoute("POST", "/api/users/:id/password", [&, authService, userService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/users/:id/password", [&, authService, userService, userRepository](const HttpServer::Request& req) {
         auto actor = currentUser(req, *authService);
         if (!actor) return fail(401, "Not authenticated");
         long long id;
