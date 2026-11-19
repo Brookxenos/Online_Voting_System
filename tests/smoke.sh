@@ -284,7 +284,6 @@ jpost /api/orgs '{"name":"Race Org","slug":"race-org"}' -b "$TMP/admin.jar" > /d
 # plus 10 concurrent duplicate votes from one voter: exactly one must succeed.
 jpost /api/elections '{"orgId":3,"name":"Race Election"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/elections/2/candidates '{"name":"Only"}' -b "$TMP/admin.jar" > /dev/null
-jpost /api/elections/2/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
 for i in 1 2 3 4 5; do
   jpost /api/users "{\"username\":\"rv$i\",\"password\":\"password123\",\"role\":\"voter\",\"orgId\":3}" -b "$TMP/admin.jar" > /dev/null
   jpost /api/elections/2/eligibility "{\"username\":\"rv$i\",\"action\":\"grant\"}" -b "$TMP/admin.jar" > /dev/null
@@ -293,6 +292,7 @@ done
 jpost /api/users '{"username":"rv6","password":"password123","role":"voter","orgId":3}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/elections/2/eligibility '{"username":"rv6","action":"grant"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/auth/login '{"username":"rv6","password":"password123"}' -c "$TMP/rv6.jar" > /dev/null
+jpost /api/elections/2/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
 PIDS=()
 for i in 1 2 3 4 5; do
   jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv$i.jar" > "$TMP/race$i.out" &

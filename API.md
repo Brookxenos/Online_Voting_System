@@ -45,11 +45,11 @@ are not discoverable after migration unless opted in.
 | `POST /api/elections/:id` | Election administrator; draft only | Any supported election fields: `name`, `description`, `discoverable`, `showLiveResults`, `startAt`, `endAt` | Updated election; 409 outside draft |
 | `POST /api/elections/:id/status` | Organization administrator for its organization or platform administrator | `status`: `open`, `closed`, `published`, or `archived` | Updated lifecycle state; invalid transitions return 409. A draft may be archived; the record is retained and removed from public discovery. Rejected authorized lifecycle requests are audited. |
 | `GET /api/elections/:id/candidates` | Authenticated and election-visible | — | Candidates and election status |
-| `POST /api/elections/:id/candidates` | Election administrator; draft only | `name`, optional `party`, `description`, `position` | Created candidate |
+| `POST /api/elections/:id/candidates` | Election administrator; draft only | `name` (1–200 chars), optional `party` (≤200), `description` (≤2000), `position` (nonnegative) | Created candidate |
 | `POST /api/elections/:id/candidates/:candidateId` | Election administrator; draft only | Optional `name`, `party`, `description`, `position` | Updated candidate |
 | `POST /api/elections/:id/candidates/remove` | Election administrator; draft only | `candidateId` | Removes candidate |
 | `GET /api/elections/:id/eligibility` | Election administrator or observer | — | Eligible voter identities for that election |
-| `POST /api/elections/:id/eligibility` | Election administrator | `username` or `userId`, `action` (`grant`/`revoke`) | Updated eligibility; grant accepts only an active voter from the election's organization |
+| `POST /api/elections/:id/eligibility` | Election administrator; draft only | `username` or `userId`, `action` (`grant`/`revoke`) | Updated eligibility; grant accepts only an active voter from the election's organization and duplicate grants are idempotent |
 | `POST /api/elections/:id/vote` | Authenticated eligible voter | `candidateId` | Non-revealing confirmation receipt; no choice is returned |
 | `GET /api/elections/:id/results` | Public after publication; otherwise permitted observer/admin or configured live-results viewer | — | Candidate totals, vote percentages, and tally integrity metadata |
 | `GET /api/elections/:id/results.csv` | Public after publication; otherwise administrator/observer or configured live-results viewer | — | CSV result export |
@@ -59,7 +59,9 @@ An election cannot be opened before its configured start or without at least
 one candidate. Ballot submission is rejected by the backend outside the
 configured start/end window and whenever the election is not open. Archiving a draft is terminal and does not delete its election,
 candidate, or audit records; it clears public discovery and live-results flags.
-Ballot, participation, eligibility and publication checks happen on the server.
+Candidate information and voter eligibility can be changed only while an
+election remains a draft. Registration alone does not grant election
+eligibility. Ballot, participation, eligibility and publication checks happen on the server.
 For the current nonbinding demo, `closed -> published` runs the tally and makes
 results public after the internal tally-integrity check passes. There is no
 separate reviewer approval state or independent tally verification.
