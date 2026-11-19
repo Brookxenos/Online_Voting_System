@@ -180,6 +180,8 @@ check "candidate can be removed while draft" '"ok":true' \
   "$(jpost /api/elections/1/candidates/remove '{"candidateId":2}' -b "$TMP/admin.jar")"
 check "removed candidate no longer listed" '"name":"Alice"' \
   "$(jget /api/elections/1/candidates -b "$TMP/admin.jar")"
+check "candidate can be re-added with original fields" '"party":"=2+2"' \
+  "$(jpost /api/elections/1/candidates '{"name":"Bobby","party":"=2+2","description":"Updated profile"}' -b "$TMP/admin.jar")"
 check "voter cannot add candidate" "Administrator access required" \
   "$(jpost /api/elections/1/candidates '{"name":"Evil"}' -b "$TMP/voterA.jar")"
 check "org admin B cannot see election A1" "Election not found" "$(jget /api/elections/1 -b "$TMP/admb.jar")"
@@ -244,7 +246,7 @@ else
   PASS=$((PASS+1)); echo "  PASS: voter dashboard does not expose candidate choice"
 fi
 check "duplicate ballot rejected" "already voted" \
-  "$(jpost /api/elections/1/vote '{"candidateId":2}' -b "$TMP/voterA.jar")"
+  "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/voterA.jar")"
 check "invalid candidate rejected" "Unknown candidate" \
   "$(jpost /api/elections/1/vote '{"candidateId":999}' -b "$TMP/voterA.jar")"
 # voter B is registered but NOT eligible
@@ -295,7 +297,7 @@ jpost /api/auth/login '{"username":"rv6","password":"password123"}' -c "$TMP/rv6
 jpost /api/elections/2/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
 PIDS=()
 for i in 1 2 3 4 5; do
-  jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv$i.jar" > "$TMP/race$i.out" &
+  jpost /api/elections/2/vote '{"candidateId":4}' -b "$TMP/rv$i.jar" > "$TMP/race$i.out" &
   PIDS+=($!)
 done
 for p in "${PIDS[@]}"; do wait "$p"; done
@@ -307,7 +309,7 @@ fi
 check "exactly 5 of 5 concurrent voters succeeded once each" "5" "$SUCC"
 PIDS=()
 for i in 1 2 3 4 5 6 7 8; do
-  jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv6.jar" > "$TMP/dupe$i.out" &
+  jpost /api/elections/2/vote '{"candidateId":4}' -b "$TMP/rv6.jar" > "$TMP/dupe$i.out" &
   PIDS+=($!)
 done
 for p in "${PIDS[@]}"; do wait "$p"; done
@@ -317,7 +319,7 @@ RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
 check "tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
 jpost /api/elections/2/status '{"status":"closed"}' -b "$TMP/admin.jar" > /dev/null
 check "closed election rejects new ballot" "not open for voting" \
-  "$(jpost /api/elections/2/vote '{"candidateId":3}' -b "$TMP/rv1.jar")"
+  "$(jpost /api/elections/2/vote '{"candidateId":4}' -b "$TMP/rv1.jar")"
 
 echo "-- lifecycle timing and minimum ballot configuration --"
 jpost /api/elections '{"orgId":1,"name":"No options","discoverable":true}' -b "$TMP/admin.jar" > /dev/null
@@ -338,7 +340,7 @@ jpost /api/elections/5/candidates '{"name":"Candidate"}' -b "$TMP/admin.jar" > /
 jpost /api/elections/5/eligibility '{"username":"voterA","action":"grant"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/elections/5/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
 check "vote after configured end time rejected by backend" "Voting is not open at this time" \
-  "$(jpost /api/elections/5/vote '{"candidateId":5}' -b "$TMP/voterA.jar")"
+  "$(jpost /api/elections/5/vote '{"candidateId":6}' -b "$TMP/voterA.jar")"
 
 echo "-- audit hygiene --"
 AUDIT=$(jget /api/audit -b "$TMP/admin.jar")

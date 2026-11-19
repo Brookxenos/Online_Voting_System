@@ -1493,3 +1493,16 @@
 - **Security/privacy implications:** Tests use a unique `/tmp` database and fabricated records. No user/runtime database was reset. No ballot identity/choice information is emitted by tests.
 - **Known gaps:** The calculation inconsistency is injected at persisted tally-result insertion, representing a storage/result calculation mismatch; production tally calculations still use SQL counts in the single existing transaction. No independent tally verification is added or claimed.
 - **Next exact task:** Await owner approval before proceeding beyond Step 4C.
+
+### 2026-11-19 --- Codex --- Step 5 candidate and voter eligibility management
+
+- **Status:** Candidate and voter eligibility operations now pass through dedicated C++ repositories and services; existing API contracts and UI calls remain in place.
+- **Approved scope:** Step 5 only. Preserve frontend, existing schema and records; do not begin Step 6.
+- **Files created:** `src/repositories/candidate_repository.h`, `src/services/candidate_service.h`, `src/services/candidate_service.cpp`, `src/repositories/eligibility_repository.h`, `src/services/eligibility_service.h`, `src/services/eligibility_service.cpp`.
+- **Files modified:** `src/api.cpp`, `src/store.cpp`, `tests/smoke.sh`, `API.md`, `PROGRESS_LOG.md`.
+- **Decisions:** Candidate name, party, description and nonnegative position validation now live in CandidateService. Candidate creation/update/removal and eligibility grant/revoke require draft elections; Store provides the final transactional lifecycle check for candidate mutations and eligibility changes. Eligibility grants remain idempotent against the existing unique key. Existing voter visibility and observer eligibility-list access are preserved. Fixed route registration order so `/candidates/remove` is selected before the parameterized candidate-ID route. No migration or frontend change.
+- **Commands run:** `make -j2` (passed); `bash -n tests/smoke.sh` (passed); approved `make test` (exit 0); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService checks, 6 lifecycle-integrity checks, and **144 HTTP smoke checks**, 0 failures (**156 checks total**). Added candidate blank-name rejection, listing, removal/re-add, draft-only removal, eligibility listing/grant/revoke/idempotency, invalid target, cross-org and voter denial, post-open eligibility denial, and preserved concurrent voting checks.
+- **Security/privacy implications:** Organization admins remain limited to their own election org; platform admins retain cross-org management. Voter registration alone grants no eligibility. Existing participation and ballot behavior remains covered by voting and concurrency tests. No sensitive election data was added to logs.
+- **Known gaps:** Candidate details remain exposed through existing election detail/candidate-list responses; no separate candidate-detail HTTP route was added to avoid changing the established API/UI contract. Eligibility changes are draft-only; no post-open correction workflow is defined.
+- **Next exact task:** Await owner approval before starting Step 6.
