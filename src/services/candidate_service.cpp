@@ -25,7 +25,7 @@ CandidateService::Result CandidateService::list(const User& actor, long long id)
     if (id <= 0) return {Status::Invalid, {}, {}};
     auto e = repository_.election(id);
     if (!e) return {Status::NotFound, {}, {}};
-    if (!manages(actor, *e) && !(actor.role == "observer" && actor.orgId == e->orgId))
+    if (!repository_.visibleTo(actor, id))
         return {Status::Forbidden, {}, {}};
     return {Status::Ok, {}, repository_.list(id)};
 }

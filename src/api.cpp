@@ -9,6 +9,8 @@
 #include "services/election_service.h"
 #include "services/election_lifecycle_service.h"
 #include "services/results_service.h"
+#include "services/candidate_service.h"
+#include "services/eligibility_service.h"
 
 #include <algorithm>
 #include <iostream>
@@ -237,6 +239,10 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     auto electionService = std::make_shared<ElectionService>(*electionRepository);
     auto electionLifecycleService = std::make_shared<ElectionLifecycleService>(*electionRepository);
     auto resultsService = std::make_shared<ResultsService>(store);
+    auto candidateRepository = std::make_shared<CandidateRepository>(store);
+    auto candidateService = std::make_shared<CandidateService>(*candidateRepository);
+    auto eligibilityRepository = std::make_shared<EligibilityRepository>(store);
+    auto eligibilityService = std::make_shared<EligibilityService>(*eligibilityRepository);
 
     // ======================= Authentication ================================
 
@@ -637,25 +643,25 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
     // ======================= Candidates ====================================
 
-    server.addRoute("GET", "/api/elections/:id/candidates", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id/candidates", [&, authService, candidateService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !userCanViewElection(*user, store, *e)) return fail(404, "Election not found");
+        auto election = store.getElection(id);
+        if (!election || !userCanViewElection(*user, store, *election)) return fail(404, "Election not found");
+        auto result = candidateService->list(*user, id);
+        if (result.status != CandidateService::Status::Ok) return fail(404, "Election not found");
         json::Array arr;
-        for (const auto& c : store.listCandidates(id)) arr.push_back(candidateJson(c));
-        return ok({{"candidates", json::Value(arr)}, {"status", json::Value(e->status)}});
+        for (const auto& c : result.candidates) arr.push_back(candidateJson(c));
+        return ok({{"candidates", json::Value(arr)}, {"status", json::Value(election->status)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/candidates", [&, authService, candidateService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !canAdminElection(*user, *e)) return fail(403, "Administrator access required for this election");
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -665,20 +671,23 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         c.name = trimStr(body.getString("name"));
         c.party = trimStr(body.getString("party"));
         c.description = body.getString("description");
-        c.position = body.getInt("position", (int)store.listCandidates(id).size() + 1);
-        if (!validTextField(c.name, 1, 200)) return fail(400, "Candidate name required (1-200 chars)");
-        if (c.party.size() > 200 || c.description.size() > 2000) return fail(400, "Field too long");
-
-        auto res = store.addCandidate(c);
-        if (res == Store::AddCandidateResult::ElectionNotFound) return fail(404, "Election not found");
-        if (res == Store::AddCandidateResult::NotEditable) {
-            return fail(409, "Candidates can only be changed while the election is a draft");
+        auto existing = candidateService->list(*user, id);
+        c.position = body.getInt("position", static_cast<int>(existing.candidates.size()) + 1);
+        auto result = candidateService->create(*user, c);
+        if (result.status == CandidateService::Status::Invalid) {
+            if (c.name.empty() || c.name.size() > 200) return fail(400, "Candidate name required (1-200 chars)");
+            return fail(400, "Field too long or position invalid");
         }
-        store.addAudit(user->username, "CANDIDATE_ADDED", id, c.name);
-        return created({{"candidate", candidateJson(c)}});
+        if (result.status == CandidateService::Status::Forbidden || result.status == CandidateService::Status::NotFound)
+            return fail(result.status == CandidateService::Status::NotFound ? 404 : 403,
+                        result.status == CandidateService::Status::NotFound ? "Election not found" : "Administrator access required for this election");
+        if (result.status == CandidateService::Status::Conflict)
+            return fail(409, "Candidates can only be changed while the election is a draft");
+        store.addAudit(user->username, "CANDIDATE_ADDED", id, result.candidate.name);
+        return created({{"candidate", candidateJson(result.candidate)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/candidates/:candidateId", [&, authService, candidateService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long electionId, candidateId;
@@ -686,34 +695,31 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             electionId = std::stoll(req.param("id"));
             candidateId = std::stoll(req.param("candidateId"));
         } catch (...) { return fail(400, "Invalid election or candidate id"); }
-        auto election = store.getElection(electionId);
-        if (!election || !canAdminElection(*user, *election)) return fail(403, "Administrator access required for this election");
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
-        auto candidates = store.listCandidates(electionId);
-        auto it = std::find_if(candidates.begin(), candidates.end(), [&](const Candidate& c){ return c.id == candidateId; });
-        if (it == candidates.end()) return fail(404, "Candidate not found");
-        Candidate changes = *it;
+        auto current = candidateService->get(*user, electionId, candidateId);
+        if (current.status == CandidateService::Status::Forbidden) return fail(403, "Administrator access required for this election");
+        if (current.status != CandidateService::Status::Ok) return fail(404, "Candidate not found");
+        Candidate changes = current.candidate;
         if (body.has("name")) changes.name = trimStr(body.getString("name"));
         if (body.has("party")) changes.party = trimStr(body.getString("party"));
         if (body.has("description")) changes.description = body.getString("description");
         if (body.has("position")) changes.position = body.getInt("position", (int)changes.position);
-        if (!validTextField(changes.name, 1, 200)) return fail(400, "Candidate name required (1-200 chars)");
-        if (changes.party.size() > 200 || changes.description.size() > 2000 || changes.position < 0)
-            return fail(400, "Candidate fields are invalid or too long");
-        if (!store.updateCandidateDraft(electionId, changes)) return fail(409, "Candidates can only be edited in a draft election");
-        store.addAudit(user->username, "CANDIDATE_UPDATED", electionId, changes.name);
-        return ok({{"candidate", candidateJson(changes)}});
+        auto result = candidateService->update(*user, electionId, changes);
+        if (result.status == CandidateService::Status::Invalid) return fail(400, "Candidate fields are invalid or too long");
+        if (result.status == CandidateService::Status::Forbidden) return fail(403, "Administrator access required for this election");
+        if (result.status == CandidateService::Status::Conflict) return fail(409, "Candidates can only be edited in a draft election");
+        if (result.status != CandidateService::Status::Ok) return fail(404, "Candidate not found");
+        store.addAudit(user->username, "CANDIDATE_UPDATED", electionId, result.candidate.name);
+        return ok({{"candidate", candidateJson(result.candidate)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/candidates/remove", [&, authService, candidateService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !canAdminElection(*user, *e)) return fail(403, "Administrator access required for this election");
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -721,24 +727,25 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         try { candidateId = (long long)body.getInt("candidateId", 0); } catch (...) { return fail(400, "Invalid candidateId"); }
         if (candidateId <= 0) return fail(400, "candidateId required");
 
-        if (!store.removeCandidate(candidateId, id)) {
-            return fail(409, "Candidate could not be removed (draft election only)");
-        }
+        auto result = candidateService->remove(*user, id, candidateId);
+        if (result.status == CandidateService::Status::Forbidden) return fail(403, "Administrator access required for this election");
+        if (result.status == CandidateService::Status::Conflict) return fail(409, "Candidate could not be removed (draft election only)");
+        if (result.status != CandidateService::Status::Ok) return fail(409, "Candidate could not be removed (draft election only)");
         store.addAudit(user->username, "CANDIDATE_REMOVED", id, std::to_string(candidateId));
         return ok();
     });
 
     // ======================= Eligibility ===================================
 
-    server.addRoute("GET", "/api/elections/:id/eligibility", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("GET", "/api/elections/:id/eligibility", [&, authService, eligibilityService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !canObserveElection(*user, *e)) return fail(403, "Administrator or observer access required");
+        auto result = eligibilityService->list(*user, id);
+        if (result.status != EligibilityService::Status::Ok) return fail(403, "Administrator or observer access required");
         json::Array arr;
-        for (const auto& u : store.listEligibleUsers(id)) {
+        for (const auto& u : result.users) {
             json::Object jo;
             jo["id"] = (double)u.id;
             jo["username"] = u.username;
@@ -748,13 +755,11 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"eligible", json::Value(arr)}});
     });
 
-    server.addRoute("POST", "/api/elections/:id/eligibility", [&, authService](const HttpServer::Request& req) {
+    server.addRoute("POST", "/api/elections/:id/eligibility", [&, authService, eligibilityService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
-        auto e = store.getElection(id);
-        if (!e || !canAdminElection(*user, *e)) return fail(403, "Administrator access required for this election");
         json::Value body;
         HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
@@ -769,19 +774,15 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         }
         if (userId <= 0) return fail(400, "userId or username required");
 
-        auto target = store.findUserById(userId);
-        if (!target) return fail(404, "User not found");
-        if (action == "grant" && (target->role != "voter" || target->disabled || target->orgId != e->orgId)) {
+        if (action != "grant" && action != "revoke") return fail(400, "action must be grant or revoke");
+        auto result = eligibilityService->change(*user, id, userId, action == "grant");
+        if (result.status == EligibilityService::Status::Forbidden) return fail(403, "Administrator access required for this election");
+        if (result.status == EligibilityService::Status::Conflict) return fail(409, "Eligibility can only be changed while the election is a draft");
+        if (result.status == EligibilityService::Status::InvalidVoter)
             return fail(400, "Eligibility can only be granted to an active voter in this election's organization");
-        }
-
-        bool okRes;
-        if (action == "grant") okRes = store.grantEligibility(id, userId);
-        else if (action == "revoke") okRes = store.revokeEligibility(id, userId);
-        else return fail(400, "action must be grant or revoke");
-        if (!okRes) return fail(404, "User not found");
-
-        store.addAudit(user->username,
+        if (result.status == EligibilityService::Status::NotFound) return fail(404, "User or election not found");
+        if (result.status != EligibilityService::Status::Ok) return fail(400, "Invalid eligibility request");
+        if (result.changed) store.addAudit(user->username,
                        action == "grant" ? "ELIGIBILITY_GRANTED" : "ELIGIBILITY_REVOKED",
                        id, "user id " + std::to_string(userId));
         return ok();

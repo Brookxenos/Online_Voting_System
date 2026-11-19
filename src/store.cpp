@@ -689,16 +689,27 @@ bool Store::removeCandidate(long long candidateId, long long electionId) {
 // ---------------------------------------------------------------------------
 
 bool Store::grantEligibility(long long electionId, long long userId) {
-    if (!findUserById(userId)) return false;
-    db_.exec("INSERT OR IGNORE INTO eligibility(election_id,user_id) VALUES(?,?)",
-             {std::to_string(electionId), std::to_string(userId)});
-    return true;
+    bool accepted = false;
+    db_.tx([&]{
+        auto election = getElection(electionId);
+        if (!election || election->status != "draft" || !findUserById(userId)) return;
+        db_.exec("INSERT OR IGNORE INTO eligibility(election_id,user_id) VALUES(?,?)",
+                 {std::to_string(electionId), std::to_string(userId)});
+        accepted = true;
+    });
+    return accepted;
 }
 
 bool Store::revokeEligibility(long long electionId, long long userId) {
-    db_.exec("DELETE FROM eligibility WHERE election_id=? AND user_id=?",
-             {std::to_string(electionId), std::to_string(userId)});
-    return true;
+    bool accepted = false;
+    db_.tx([&]{
+        auto election = getElection(electionId);
+        if (!election || election->status != "draft") return;
+        db_.exec("DELETE FROM eligibility WHERE election_id=? AND user_id=?",
+                 {std::to_string(electionId), std::to_string(userId)});
+        accepted = true;
+    });
+    return accepted;
 }
 
 std::vector<User> Store::listEligibleUsers(long long electionId) {
