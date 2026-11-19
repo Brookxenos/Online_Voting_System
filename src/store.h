@@ -110,7 +110,8 @@ public:
     };
     // Transaction-safe ballot submission. Duplicate votes are rejected via
     // the primary-key constraint on (election_id, user_id) participation.
-    CastResult castBallot(long long electionId, long long userId, long long candidateId);
+    CastResult castBallot(long long electionId, long long userId, long long candidateId,
+                          const std::string& actor = "voter");
 
     // --- Tally and results --------------------------------------------------
     std::optional<Tally> tallyElection(long long electionId);
