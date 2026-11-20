@@ -327,9 +327,11 @@ done
 for p in "${PIDS[@]}"; do wait "$p"; done
 DUPE_SUCC=$(grep -ho '"ok":true' "$TMP"/dupe*.out | wc -l)
 check "one ballot accepted from eight simultaneous requests by one voter" "1" "$DUPE_SUCC"
-RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
-check "tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
 jpost /api/elections/2/status '{"status":"closed"}' -b "$TMP/admin.jar" > /dev/null
+check "closed tally is persisted through publication" '"status":"published"' \
+  "$(jpost /api/elections/2/status '{"status":"published"}' -b "$TMP/admin.jar")"
+RES=$(jget /api/elections/2/results -b "$TMP/admin.jar")
+check "published tally counts exactly 6 ballots" '"totalBallots":6' "$RES"
 check "closed election rejects new ballot" "not open for voting" \
   "$(jpost /api/elections/2/vote '{"candidateId":4}' -b "$TMP/rv1.jar")"
 
@@ -415,7 +417,7 @@ jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$MIGTM
 IMPORTED=$(jget /api/elections/1 -b "$MIGTMP/admin.jar")
 check "legacy election imported as closed" '"status":"closed"' "$IMPORTED"
 check "legacy election marked identity-linked" "NOT anonymous" "$IMPORTED"
-check "legacy ballot and participation counts preserved" '"totalBallots":1' \
+check "legacy election without published tally is not recalculated on read" 'No tally has been run' \
   "$(jget /api/elections/1/results -b "$MIGTMP/admin.jar")"
 if [[ -f "$MIGTMP/data/voters.csv" && -f "$MIGTMP/data/candidates.csv" && -f "$MIGTMP/data/votes.csv" ]]; then
   PASS=$((PASS+1)); echo "  PASS: source CSV files preserved"
