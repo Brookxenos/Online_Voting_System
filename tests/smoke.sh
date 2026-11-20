@@ -99,6 +99,10 @@ check "org admin created in org B" '"role":"org_admin"' \
   "$(jpost /api/users '{"username":"admb","password":"password123","role":"org_admin","orgId":2}' -b "$TMP/admin.jar")"
 check "create voter in org B" '"role":"voter"' \
   "$(jpost /api/users '{"username":"outsider","password":"password123","orgId":2}' -b "$TMP/admin.jar")"
+check "organization-bound role requires organization assignment" "Invalid user information" \
+  "$(jpost /api/users '{"username":"noorg","password":"password123","role":"observer"}' -b "$TMP/admin.jar")"
+check "platform administrator creation clears organization scope" '"orgId":0' \
+  "$(jpost /api/users '{"username":"platform2","password":"password123","role":"platform_admin","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
 check "organization admin views own organization" '"slug":"org-b"' "$(jget /api/orgs/2 -b "$TMP/admb.jar")"
@@ -115,6 +119,8 @@ check "org admin cannot assign platform administrator role" "Access denied" \
   "$(jpost /api/users/4 '{"displayName":"Blocked","role":"platform_admin","orgId":2}' -b "$TMP/admb.jar")"
 check "org admin can update own organization user" '"displayName":"Outsider Updated"' \
   "$(jpost /api/users/4 '{"displayName":"Outsider Updated","role":"voter","orgId":2}' -b "$TMP/admb.jar")"
+check "platform admin cannot assign a user to missing organization" "Organization not found" \
+  "$(jpost /api/users/4 '{"displayName":"Outsider Updated","role":"voter","orgId":999}' -b "$TMP/admin.jar")"
  jpost /api/auth/login '{"username":"outsider","password":"password123"}' -c "$TMP/outsider.jar" > /dev/null
 check "org admin cannot reset password outside organization" "Access denied" \
   "$(jpost /api/users/2/password '{"password":"new-password-123"}' -b "$TMP/admb.jar")"
@@ -148,6 +154,8 @@ check "create election in org A" '"status":"draft"' \
   "$(jpost /api/elections '{"orgId":1,"name":"Election A1","discoverable":true}' -b "$TMP/admin.jar")"
 check "administrator election list includes new draft" '"name":"Election A1"' "$(jget /api/elections -b "$TMP/admin.jar")"
 check "administrator can view election detail" '"name":"Election A1"' "$(jget /api/elections/1 -b "$TMP/admin.jar")"
+check "account creation does not grant election eligibility" '"eligible":false' \
+  "$(jget /api/elections/1 -b "$TMP/voterA.jar")"
 check "draft election stays hidden from public discovery" '"total":0' \
   "$(jget /api/public/elections)"
 check "invalid public page size rejected" 'Invalid limit or offset' \
@@ -361,6 +369,7 @@ AUDIT=$(jget /api/audit -b "$TMP/admin.jar")
 check "audit records ballot event" "VOTE_CAST" "$AUDIT"
 check "audit records lifecycle open, close, publish, archive and rejected events" "LIFECYCLE_REJECTED" "$AUDIT"
 check "audit records lifecycle action names" "ELECTION_PUBLISHED" "$AUDIT"
+check "audit records user-management actions" "USER_CREATED" "$AUDIT"
 check "audit records authenticated actor with action metadata" '"actor":"admin"' "$AUDIT"
 check "vote audit event omits ballot choice detail" '"action":"VOTE_CAST","actor":"voterA","detail":""' "$AUDIT"
 if [[ "$AUDIT" == *"password"* ]]; then

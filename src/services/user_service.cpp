@@ -11,6 +11,9 @@ bool validUsername(const std::string& s) {
 bool validRole(const std::string& role) {
     return role == "platform_admin" || role == "org_admin" || role == "observer" || role == "voter";
 }
+bool roleRequiresOrganization(const std::string& role) {
+    return role == "org_admin" || role == "observer" || role == "voter";
+}
 bool validPassword(const std::string& p) { return p.size() >= 8 && p.size() <= 256; }
 }
 
@@ -43,7 +46,9 @@ UserService::Result UserService::create(const User& actor, User user, const std:
         if (!actor.orgId || user.role == "platform_admin") return {Status::Forbidden, {}};
         user.orgId = actor.orgId;
     } else if (actor.role != "platform_admin") return {Status::Forbidden, {}};
-    if (user.role == "voter" && user.orgId == 0) return {Status::Invalid, {}};
+    if (roleRequiresOrganization(user.role) && user.orgId <= 0) return {Status::Invalid, {}};
+    if (!roleRequiresOrganization(user.role)) user.orgId = 0;
+    if (user.orgId > 0 && !repository_.organizationExists(user.orgId)) return {Status::OrgNotFound, {}};
     user.passwordHash = crypto::hashPassword(password);
     const auto r = repository_.create(user);
     if (r == Store::CreateUserResult::DuplicateUsername) return {Status::Duplicate, {}};
@@ -58,8 +63,10 @@ UserService::Result UserService::update(const User& actor, long long id, const s
     if (!mayManage(actor, *target)) return {Status::Forbidden, {}};
     if (name.empty() || name.size() > 100 || !validRole(role)) return {Status::Invalid, {}};
     if (actor.role == "org_admin" && role == "platform_admin") return {Status::Forbidden, {}};
-    const long long nextOrg = actor.role == "org_admin" ? actor.orgId : orgId;
-    if (role == "voter" && nextOrg == 0) return {Status::Invalid, {}};
+    const long long nextOrg = actor.role == "org_admin" ? actor.orgId
+        : (roleRequiresOrganization(role) ? orgId : 0);
+    if (roleRequiresOrganization(role) && nextOrg <= 0) return {Status::Invalid, {}};
+    if (nextOrg > 0 && !repository_.organizationExists(nextOrg)) return {Status::OrgNotFound, {}};
     try { repository_.updateRoleAndOrg(id, role, nextOrg); }
     catch (...) { return {Status::OrgNotFound, {}}; }
     repository_.updateDisplayName(id, name);
