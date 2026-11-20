@@ -1506,3 +1506,16 @@
 - **Security/privacy implications:** Organization admins remain limited to their own election org; platform admins retain cross-org management. Voter registration alone grants no eligibility. Existing participation and ballot behavior remains covered by voting and concurrency tests. No sensitive election data was added to logs.
 - **Known gaps:** Candidate details remain exposed through existing election detail/candidate-list responses; no separate candidate-detail HTTP route was added to avoid changing the established API/UI contract. Eligibility changes are draft-only; no post-open correction workflow is defined.
 - **Next exact task:** Await owner approval before starting Step 6.
+
+### 2026-11-19 --- Codex --- Step 6 voting process and ballot management
+
+- **Status:** Voting business validation now runs through VotingService, using BallotRepository over the existing Store persistence and transaction boundary. The API keeps the current route and success/error response shape.
+- **Approved scope:** Step 6 only; preserve existing frontend and API contracts, ballot/participation model and records; do not begin Step 7.
+- **Files created:** `src/repositories/ballot_repository.h`, `tests/voting_service.cpp`.
+- **Files modified:** `src/services/voting_service.h`, `src/services/voting_service.cpp`, `src/api.cpp`, `src/store.h`, `src/store.cpp`, `Makefile`, `tests/smoke.sh`, `PROGRESS_LOG.md`.
+- **Decisions:** VotingService checks active voter identity/role, election state/time window, voter organization and eligibility, candidate ownership, and prior participation before submission. Store repeats mutable checks and writes participation, ballot, and `VOTE_CAST` audit in one existing `BEGIN IMMEDIATE` transaction. The participation primary key remains the concurrent duplicate guard. Database/constraint exceptions become a safe vote failure response. No schema changes; frontend unchanged.
+- **Commands run:** `make -j2` (passed); `make test-voting` (passed, 17 service checks); `bash -n tests/smoke.sh` (passed); approved complete `make test` (exit 0); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService checks, 6 lifecycle-integrity checks, 17 voting-service checks, and **146 HTTP smoke checks**, **175 total checks, 0 failures**. Coverage includes success/receipt, unauthorized and ineligible requests, closed and out-of-window elections, invalid/cross-election candidate IDs, duplicate and concurrent submissions, trigger-injected transaction rollback with no partial participation/ballot/audit, dashboard privacy, and organization restrictions.
+- **Security/privacy implications:** Vote audit now attributes the authenticated username while omitting candidate selection. Ballots remain separate from participation and no cryptographic anonymity claim is made. Existing ballots and participation rows were preserved.
+- **Known gaps:** BallotRepository delegates persistence to Store rather than moving the existing SQL out of Store, preserving the established SQL boundary and atomic transaction. Independent ballot verification is outside this step.
+- **Next exact task:** Await owner approval before Step 7.
