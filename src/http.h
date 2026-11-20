@@ -55,18 +55,20 @@ public:
     // pattern like "/api/elections/:id/candidates" and injected as params.
     using Handler = std::function<Response(const Request&)>;
 
-    HttpServer(int port, const std::string& webDir);
+    HttpServer(int port, const std::string& webDir,
+               const std::string& bindAddress = "127.0.0.1");
 
     // Register a route. Exact segments match literally; segments starting
     // with ':' match one path segment and are exposed in req.params.
     void addRoute(const std::string& method, const std::string& pattern, Handler h);
 
-    void start();   // blocks
+    bool start();   // blocks; false when socket setup fails
     void stop();
 
 private:
     int port_;
     std::string webDir_;
+    std::string bindAddress_;
     int listenFd_ = -1;
     std::atomic<bool> running_{false};
 

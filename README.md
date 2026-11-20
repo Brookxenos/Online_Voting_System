@@ -40,10 +40,11 @@ Open <http://localhost:8080>. To use another port, run `./start.sh 9000` and
 open <http://localhost:9000>. `Ctrl+C` stops the server. `make test` runs the
 HTTP integration smoke suite and requires `bash` and `curl`.
 
-On a fresh data directory the server creates the `admin` account. It generates
-a random password and prints it once in the server terminal. Save it securely.
-You can set `OV_INITIAL_ADMIN_PASSWORD` before first startup to supply a
-password; do not put a real password in shared shell history or documentation.
+On a fresh data directory the server creates the `admin` account. In an
+interactive terminal it generates a random password and displays it once. For
+non-interactive startup, set `OV_INITIAL_ADMIN_PASSWORD` through a secret
+manager; otherwise startup refuses to print a generated password into service
+logs. Do not place real passwords in shared shell history or documentation.
 There is no default `admin123` credential.
 
 The default database is `data/openvote.db`. Set `OV_DATA_DIR` or `OV_DB_FILE`
@@ -64,10 +65,10 @@ identity-linked.
 
 ## Security and deployment limits
 
-The local server speaks plain HTTP and binds to all interfaces. It is a
-development server, not a production deployment. [How to run](HOW_TO_RUN.txt)
-documents the current boundary and the requirements still needed for HTTPS,
-durable rate limiting, backups/restores, log handling, and independent review.
+The local server speaks plain HTTP and binds to loopback by default. It is
+still a development server, not a production deployment. [How to run](HOW_TO_RUN.txt)
+documents reverse-proxy configuration, persistent storage, backups, and the
+remaining requirements for durable rate limiting, log handling, and independent review.
 Do not use this demo for a legally binding election or claim anonymity,
 end-to-end verifiability, or certification.
 

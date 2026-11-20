@@ -73,8 +73,9 @@ std::string urlDecode(const std::string& s) {
 // Server lifecycle
 // ---------------------------------------------------------------------------
 
-HttpServer::HttpServer(int port, const std::string& webDir)
-    : port_(port), webDir_(webDir) {}
+HttpServer::HttpServer(int port, const std::string& webDir,
+                       const std::string& bindAddress)
+    : port_(port), webDir_(webDir), bindAddress_(bindAddress) {}
 
 void HttpServer::addRoute(const std::string& method, const std::string& pattern, Handler h) {
     Route r;
@@ -84,29 +85,33 @@ void HttpServer::addRoute(const std::string& method, const std::string& pattern,
     routes_.push_back(std::move(r));
 }
 
-void HttpServer::start() {
+bool HttpServer::start() {
     listenFd_ = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (listenFd_ < 0) { perror("socket"); return; }
+    if (listenFd_ < 0) { perror("socket"); return false; }
 
     int yes = 1;
     ::setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (::inet_pton(AF_INET, bindAddress_.c_str(), &addr.sin_addr) != 1) {
+        std::cerr << "[server] invalid IPv4 bind address: " << bindAddress_ << "\n";
+        ::close(listenFd_); listenFd_ = -1; return false;
+    }
     addr.sin_port = htons((uint16_t)port_);
 
     if (::bind(listenFd_, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind"); return;
+        perror("bind"); ::close(listenFd_); listenFd_ = -1; return false;
     }
     if (::listen(listenFd_, 128) < 0) {
-        perror("listen"); return;
+        perror("listen"); ::close(listenFd_); listenFd_ = -1; return false;
     }
 
     running_ = true;
-    std::cout << "[server] listening on http://0.0.0.0:" << port_
+    std::cout << "[server] listening on http://" << bindAddress_ << ":" << port_
               << "  (web root: " << webDir_ << ")\n";
     acceptLoop();
+    return true;
 }
 
 void HttpServer::stop() {

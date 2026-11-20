@@ -31,6 +31,7 @@ static void usage(const char* prog) {
               << "Positional arguments are a legacy convenience; configuration is\n"
               << "normally supplied through environment variables:\n"
               << "  OV_PORT                     listen port (default 8080)\n"
+              << "  OV_BIND_ADDRESS             IPv4 address (default 127.0.0.1)\n"
               << "  OV_WEB_DIR                  static web root (default ./web)\n"
               << "  OV_DATA_DIR                 data directory (default ./data)\n"
               << "  OV_DB_FILE                  database file (default <data_dir>/openvote.db)\n"
@@ -133,6 +134,7 @@ int main(int argc, char** argv) {
         std::string dataDir = envOr("OV_DATA_DIR", "data");
         std::string dbFile  = envOr("OV_DB_FILE", "");
         std::string portStr = envOr("OV_PORT", "8080");
+        std::string bindAddress = envOr("OV_BIND_ADDRESS", "127.0.0.1");
 
         if (argc >= 2) portStr = argv[1];
         if (argc >= 3) webDir = argv[2];
@@ -170,6 +172,11 @@ int main(int argc, char** argv) {
         if (!hasAdmin) {
             std::string pw = envOr("OV_INITIAL_ADMIN_PASSWORD", "");
             if (pw.empty()) {
+                if (!::isatty(STDOUT_FILENO)) {
+                    std::cerr << "[main] set OV_INITIAL_ADMIN_PASSWORD before non-interactive first startup; "
+                                 "refusing to print a generated password into service logs\n";
+                    return 1;
+                }
                 pw = crypto::randomHex(12);
                 std::cout
                     << "\n"
@@ -182,6 +189,10 @@ int main(int argc, char** argv) {
                     << "  Set OV_INITIAL_ADMIN_PASSWORD to choose it explicitly.\n"
                     << "=============================================================\n\n";
             } else {
+                if (pw.size() < 8 || pw.size() > 256) {
+                    std::cerr << "[main] OV_INITIAL_ADMIN_PASSWORD must be 8-256 characters\n";
+                    return 1;
+                }
                 std::cout << "[main] initial platform administrator 'admin' created "
                              "(password from OV_INITIAL_ADMIN_PASSWORD)\n";
             }
@@ -190,6 +201,7 @@ int main(int argc, char** argv) {
             admin.displayName = "Platform Administrator";
             admin.role = "platform_admin";
             admin.passwordHash = crypto::hashPassword(pw);
+            std::fill(pw.begin(), pw.end(), '\0');
             if (store.createUser(admin) != Store::CreateUserResult::Ok) {
                 std::cerr << "[main] failed to create initial admin\n";
                 return 1;
@@ -199,7 +211,7 @@ int main(int argc, char** argv) {
         }
 
         // ---- HTTP server + routes ----
-        HttpServer server(port, webDir);
+        HttpServer server(port, webDir, bindAddress);
         ApiConfig cfg;
         cfg.sessionHours = sessionHours;
         cfg.secureCookies = secureCookies;
@@ -207,14 +219,14 @@ int main(int argc, char** argv) {
         g_server = &server;
 
         std::cout << "[main] OpenVote starting\n"
+                  << "[main]   address  = " << bindAddress << "\n"
                   << "[main]   port     = " << port << "\n"
                   << "[main]   web dir  = " << webDir << "\n"
                   << "[main]   data dir = " << dataDir << "\n"
                   << "[main]   database = " << dbFile << "\n"
                   << "[main]   session lifetime = " << sessionHours << "h\n";
 
-        server.start();
-        return 0;
+        return server.start() ? 0 : 1;
     } catch (const std::exception& e) {
         std::cerr << "[main] fatal: " << e.what() << "\n";
         return 1;

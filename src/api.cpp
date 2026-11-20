@@ -302,6 +302,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         authService->logout(token);
         HttpServer::Response r = ok();
         r.clearCookie(kSessionCookie);
+        if (cfg.secureCookies) r.setCookies.back() += "; Secure";
         return r;
     });
 

@@ -60,10 +60,13 @@ Initial administrator account
 ------------------------------
 
 There is no default admin/admin123 account. On a fresh data directory, the
-server creates the username "admin". If OV_INITIAL_ADMIN_PASSWORD is unset,
-the server generates a random password and prints it once in the server
-terminal. Save it securely at that time; the application does not write this
-password to a file or provide web-based password recovery.
+server creates the username "admin". On an interactive terminal, if
+OV_INITIAL_ADMIN_PASSWORD is unset, the server generates a random password and
+prints it once to that terminal. For non-interactive service startup, set this
+variable through a secret manager or a protected environment file; otherwise
+startup exits rather than printing a generated password into service logs.
+Supplied passwords must be 8-256 characters. The application does not provide
+web-based password recovery.
 
 To choose the initial password explicitly, set the environment variable when
 starting the server. For example:
@@ -122,13 +125,41 @@ format remain identity-linked and are not anonymous.
 Development deployment boundary
 -------------------------------
 
-The built-in HTTP server is a development server. It binds to 0.0.0.0 and
-does not provide TLS, trusted-proxy client-IP handling, durable rate limiting,
-or production-grade operational controls. Do not expose its port directly to
-the internet. A production architecture would need an independently reviewed
-HTTPS reverse proxy, with the application port restricted by a host/network
-firewall to that proxy. Set OV_SECURE_COOKIES=1 only when HTTPS is correctly
-terminated and the browser reaches the app over HTTPS.
+The built-in HTTP server is a development server. It binds to 127.0.0.1 by
+default and does not provide TLS, trusted-proxy client-IP handling, durable
+rate limiting, or production-grade operational controls. Keep it behind an
+HTTPS reverse proxy and restrict the application port to loopback/firewall
+access. Set OV_SECURE_COOKIES=1 only when HTTPS is correctly terminated and
+the browser reaches the app over HTTPS. The proxy is not an application
+authorization boundary.
+
+Example Nginx site fragment (install certificates and set TLS policy for the
+host separately):
+
+    server {
+        listen 443 ssl;
+        server_name vote.example.org;
+        ssl_certificate     /etc/letsencrypt/live/vote.example.org/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/vote.example.org/privkey.pem;
+        location / {
+            proxy_pass http://127.0.0.1:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+    }
+
+Run under a dedicated unprivileged account with read access to `web/` and
+write access only to the persistent data directory. For unattended operation,
+set OV_BIND_ADDRESS=127.0.0.1, OV_DATA_DIR to a durable path, and
+OV_SECURE_COOKIES=1. Store OV_INITIAL_ADMIN_PASSWORD outside source control and
+protect the service environment file (for example, root-owned mode 0600).
+Restrict and rotate service logs.
+
+Stop with SIGTERM through the service manager or Ctrl+C in the foreground.
+Wait for the process to exit before copying database files. Restart with the
+same data directory to retain accounts, elections, and records.
 
 The application's failed-login throttling is in memory and resets on restart.
 It cannot coordinate across multiple server processes, and requests forwarded
@@ -164,6 +195,8 @@ directories.
 Configuration can be provided through environment variables:
 
 - OV_PORT: listening port (default 8080)
+- OV_BIND_ADDRESS: IPv4 listen address (default 127.0.0.1; use 0.0.0.0 only
+  when network access is intentionally controlled by firewall/proxy policy)
 - OV_WEB_DIR: static frontend directory (default web)
 - OV_DATA_DIR: data directory (default data)
 - OV_DB_FILE: SQLite database path (default <data directory>/openvote.db)
@@ -189,10 +222,9 @@ Common commands
 First login and administrator setup
 -----------------------------------
 
-1. On the first start of a new database, note the initial admin password
-   printed in the server terminal (unless you set OV_INITIAL_ADMIN_PASSWORD).
-   The account name is admin. The generated password is displayed once; save
-   it somewhere private before closing the terminal.
+1. On first startup of a new database, use the supplied OV_INITIAL_ADMIN_PASSWORD
+   or note the generated password printed to an interactive terminal. The
+   account name is admin. Non-interactive startup requires a supplied secret.
 2. In the browser, choose Log in and enter username admin and that password.
    The session is held in a server-managed HttpOnly cookie; the frontend does
    not store the password.
