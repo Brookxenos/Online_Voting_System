@@ -715,12 +715,13 @@ async function renderElectionDetail(view) {
       : e.status === 'published' || (e.status === 'archived' && e.resultsPublic) ? 'Results are available to view.'
       : e.status === 'closed' || e.status === 'archived' ? 'Voting has ended.'
       : phase === 'upcoming' ? 'Voting has not started yet.'
+      : phase === 'completed' ? 'The scheduled voting window has ended. The organizer must close the election.'
       : !e.eligible ? 'Voting is open, but you are not on this election’s voter list. Contact the organizer.'
       : 'Voting is open. Review the options, select one, then review and confirm your ballot.')
     : e.status === 'published' || (e.status === 'archived' && e.resultsPublic) ? 'Published results are available.'
     : e.status === 'closed' ? 'Voting has ended. Results will appear after the organizer publishes them.'
     : phase === 'upcoming' ? 'Voting has not started yet.'
-    : 'Sign in with an eligible voter account to participate.';
+    : (state.user ? 'This account cannot cast a ballot. Sign in with an eligible voter account to participate.' : 'Sign in with an eligible voter account to participate.');
 
   let ballotHtml = '';
   if (isVoter) {
@@ -1367,6 +1368,8 @@ async function renderAdminElection(view) {
   const refreshReadiness = () => {
     const panel = document.getElementById('readiness-panel');
     if (panel) panel.innerHTML = readinessMarkup();
+    const openAction = document.querySelector('[data-transition="open"]');
+    if (openAction) openAction.disabled = !canOpenByCurrentRules();
   };
 
   const lifecycleButtons = [];
@@ -1388,14 +1391,14 @@ async function renderAdminElection(view) {
       <p class="muted">${escapeHtml(e.description || 'No election description has been added.')}</p>
 
       <nav class="tabs election-admin-tabs" role="tablist" aria-label="Election management sections">
-        <button class="tab active" data-tab="lifecycle" role="tab">Lifecycle</button>
-        <button class="tab" data-tab="config" role="tab">Configuration</button>
-        <button class="tab" data-tab="candidates" role="tab">Candidates</button>
-        <button class="tab" data-tab="eligibility" role="tab">Voter list</button>
-        <button class="tab" data-tab="admresults" role="tab">Results</button>
+        <button class="tab active" id="tab-button-lifecycle" data-tab="lifecycle" aria-controls="tab-lifecycle" aria-selected="true" role="tab">Lifecycle</button>
+        <button class="tab" id="tab-button-config" data-tab="config" aria-controls="tab-config" aria-selected="false" role="tab">Configuration</button>
+        <button class="tab" id="tab-button-candidates" data-tab="candidates" aria-controls="tab-candidates" aria-selected="false" role="tab">Candidates</button>
+        <button class="tab" id="tab-button-eligibility" data-tab="eligibility" aria-controls="tab-eligibility" aria-selected="false" role="tab">Voter list</button>
+        <button class="tab" id="tab-button-admresults" data-tab="admresults" aria-controls="tab-admresults" aria-selected="false" role="tab">Results</button>
       </nav>
 
-      <div id="tab-lifecycle" class="tab-panel active">
+      <div id="tab-lifecycle" class="tab-panel active" role="tabpanel" aria-labelledby="tab-button-lifecycle" tabindex="0">
         <div class="lifecycle-intro"><div><h3>Election lifecycle</h3><p>${escapeHtml(statusGuidance)}</p></div><span class="lifecycle-current">Current status: <strong>${fmtStatus(e.status)}</strong></span></div>
         <ol class="lifecycle-track" aria-label="Election progress">
           ${lifecycleSteps.map((step, index) => `<li class="${index < lifecycleRank ? 'is-complete' : ''} ${index === lifecycleRank ? 'is-current' : ''}"><span>${fmtStatus(step)}</span></li>`).join('')}
@@ -1409,7 +1412,7 @@ async function renderAdminElection(view) {
         <div class="error-box" id="lifecycle-error" role="alert" aria-live="polite" hidden></div>
       </div>
 
-      <div id="tab-config" class="tab-panel">
+      <div id="tab-config" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-config" tabindex="0">
         <h3>Configuration (draft only)</h3>
         ${e.status === 'draft' ? '' : '<div class="banner banner-muted">Configuration is locked after an election is opened. The saved details are shown below.</div>'}
         <form id="form-election-config" class="stack-form">
@@ -1432,7 +1435,7 @@ async function renderAdminElection(view) {
         </form>
       </div>
 
-      <div id="tab-candidates" class="tab-panel">
+      <div id="tab-candidates" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-candidates" tabindex="0">
         <h3>Candidates / ballot options</h3>
         <p class="muted small">Add every option and check the spelling and descriptions before opening. Candidate details become fixed after opening.</p>
         ${e.status === 'draft' ? `
@@ -1442,13 +1445,13 @@ async function renderAdminElection(view) {
             <label>Party / affiliation<input type="text" name="party" maxlength="200"></label>
           </div>
           <label>Description<input type="text" name="description" maxlength="2000"></label>
-          <div class="btn-row"><button type="submit" class="btn btn-primary">Add option</button></div>
+          <div class="btn-row"><button type="submit" class="btn btn-primary">Add candidate or option</button></div>
           <div class="error-box" id="cand-error" hidden></div>
         </form>` : '<div class="banner banner-muted">Candidates can only be changed while the election is a draft.</div>'}
         <div id="candidate-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>
 
-      <div id="tab-eligibility" class="tab-panel">
+      <div id="tab-eligibility" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-eligibility" tabindex="0">
         <h3>Voter list</h3>
         <p class="muted small">Only users on this list can cast a ballot.
         Eligibility and ballots are stored separately: the voter list never
@@ -1461,7 +1464,7 @@ async function renderAdminElection(view) {
         <div id="eligibility-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>
 
-      <div id="tab-admresults" class="tab-panel">
+      <div id="tab-admresults" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-admresults" tabindex="0">
         <h3>Results</h3>
         <p class="muted">Publishing from the Lifecycle tab runs the tally once and checks its internal consistency. Viewing results only reads the stored tally.</p>
         ${e.status === 'closed' ? '<div class="banner banner-info">Voting has ended. Publish results from the Lifecycle tab when ready.</div>' : ''}
@@ -1476,6 +1479,7 @@ async function renderAdminElection(view) {
         view.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         view.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
+        view.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
         view.querySelector('#tab-' + tab.getAttribute('data-tab')).classList.add('active');
       });
     });
@@ -1632,10 +1636,10 @@ async function renderAdminElection(view) {
     const users = data.eligible || [];
     eligibleUsers = users;
     refreshReadiness();
-    eligList.innerHTML = users.length === 0 ? '<div class="empty">No voters on the list yet.</div>' :
-      `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th></th></tr></thead><tbody>` +
+    eligList.innerHTML = users.length === 0 ? '<div class="empty">No voters on the list yet. Add users who should be allowed to vote in this election.</div>' :
+      `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th>${e.status === 'draft' ? '<th>Actions</th>' : ''}</tr></thead><tbody>` +
       users.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td>
-        <td><button class="btn btn-link btn-danger" data-revoke="${u.id}">Remove</button></td></tr>`).join('') +
+        ${e.status === 'draft' ? `<td><button class="btn btn-link btn-danger" data-revoke="${u.id}">Remove</button></td>` : ''}</tr>`).join('') +
       '</tbody></table>';
     eligList.querySelectorAll('[data-revoke]').forEach(btn => {
       btn.addEventListener('click', async () => {
