@@ -300,6 +300,13 @@ function electionWhen(e) {
   return e.status === 'open' ? 'Open now' : fmtStatus(e.status);
 }
 
+function readableElectionDate(value) {
+  const stamp = Date.parse(value || '');
+  return Number.isFinite(stamp)
+    ? new Date(stamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Not scheduled';
+}
+
 function utcToLocalInput(value) {
   const stamp = Date.parse(value || '');
   if (!Number.isFinite(stamp)) return '';
@@ -702,7 +709,18 @@ async function renderElectionDetail(view) {
   const phase = electionPhase(e,Date.now());
   const canVoteNow = isVoter && phase === 'active' && e.eligible && !e.hasVoted;
 
-  const statusPill = `<span class="pill pill-${{active:'success',upcoming:'warn',completed:'info'}[phase]}">${phase[0].toUpperCase() + phase.slice(1)}</span>`;
+  const statusPill = `<span class="pill pill-${{active:'success',upcoming:'warn',completed:'info'}[phase]}">${fmtStatus(e.status)}</span>`;
+  const nextStep = isVoter
+    ? (e.hasVoted ? 'Your participation is recorded. You cannot submit another ballot.'
+      : e.status === 'published' || (e.status === 'archived' && e.resultsPublic) ? 'Results are available to view.'
+      : e.status === 'closed' || e.status === 'archived' ? 'Voting has ended.'
+      : phase === 'upcoming' ? 'Voting has not started yet.'
+      : !e.eligible ? 'Voting is open, but you are not on this election’s voter list. Contact the organizer.'
+      : 'Voting is open. Review the options, select one, then review and confirm your ballot.')
+    : e.status === 'published' || (e.status === 'archived' && e.resultsPublic) ? 'Published results are available.'
+    : e.status === 'closed' ? 'Voting has ended. Results will appear after the organizer publishes them.'
+    : phase === 'upcoming' ? 'Voting has not started yet.'
+    : 'Sign in with an eligible voter account to participate.';
 
   let ballotHtml = '';
   if (isVoter) {
@@ -725,14 +743,14 @@ async function renderElectionDetail(view) {
           <div class="error-box" id="vote-error" role="alert" aria-live="polite" hidden></div>
         </section>`;
     } else if (phase === 'upcoming') {
-      ballotHtml = `<div class="banner banner-muted">Voting opens soon. ${e.startAt ? 'Scheduled to open ' + escapeHtml(e.startAt) + '.' : 'This election is being prepared and is not accepting ballots yet.'}</div>`;
+      ballotHtml = `<div class="banner banner-muted">Voting has not started yet. ${e.startAt ? 'Scheduled to open ' + escapeHtml(readableElectionDate(e.startAt)) + '.' : 'The organizer has not opened voting yet.'}</div>`;
     } else {
       ballotHtml = `<div class="banner banner-muted">Voting has ended for this election.</div>`;
     }
   } else if (!state.user) {
     if (phase === 'upcoming') ballotHtml = '<div class="banner banner-muted">Voting opens soon.</div>';
     else if (phase === 'active') ballotHtml = '<div class="banner banner-info">Log in to check your eligibility and participate.</div><a class="btn btn-primary" href="#/login">Log in to participate</a>';
-    else if (e.status === 'published' || e.status === 'archived') ballotHtml = `<a class="btn btn-primary" href="#/results/${e.id}">View Election Results</a>`;
+    else if (e.status === 'published' || (e.status === 'archived' && e.resultsPublic)) ballotHtml = `<a class="btn btn-primary" href="#/results/${e.id}">View Election Results</a>`;
   }
 
   const cands = e.candidates || [];
@@ -747,19 +765,18 @@ async function renderElectionDetail(view) {
 
   view.innerHTML = `
     <section class="card admin-election-detail">
-      <header class="page-head-inline">
+      <header class="page-head-inline election-detail-heading">
         <h2>${escapeHtml(e.name)}</h2>
         ${statusPill}
       </header>
       <p class="muted">${escapeHtml(e.description || '')}</p>
-      <div class="meta-grid">
-        <div><span class="meta-label">Voting window</span>
-          ${e.startAt || e.endAt ? `${escapeHtml(e.startAt || 'now')} → ${escapeHtml(e.endAt || 'no end')}` : 'Not restricted'}</div>
-        <div><span class="meta-label">Voting schedule</span>${escapeHtml(electionWhen(e))}</div>
-        <div><span class="meta-label">Results</span>
-          ${e.status === 'published' || e.status === 'archived' ? '<a href="#/results/' + e.id + '">Published results ' + arrowIcon() + '</a>' : 'Available after publication'}</div>
+      <section class="election-next-step" aria-live="polite"><strong>What happens next</strong><p>${escapeHtml(nextStep)}</p></section>
+      <div class="meta-grid election-schedule">
+        <div><span class="meta-label">Voting opens</span>${escapeHtml(e.startAt ? readableElectionDate(e.startAt) : e.status === 'open' ? 'Open now' : 'Not scheduled')}</div>
+        <div><span class="meta-label">Voting closes</span>${escapeHtml(e.endAt ? readableElectionDate(e.endAt) : 'No closing time set')}</div>
+        ${isVoter ? `<div><span class="meta-label">Your eligibility</span>${e.hasVoted ? 'Participation recorded' : e.eligible ? 'On the voter list' : 'Not on the voter list'}</div>` : ''}
       </div>
-      <h3>Ballot options</h3>
+      <h3>Candidate and ballot-option information</h3>
       <div class="candidate-grid static">${candList}</div>
       ${ballotHtml}
     </section>`;
@@ -1314,25 +1331,59 @@ async function renderAdminElection(view) {
     return;
   }
 
+  let eligibleUsers = [];
+  try {
+    const eligibilityData = await api('elections/' + e.id + '/eligibility');
+    eligibleUsers = eligibilityData.eligible || [];
+  } catch (err) {
+    // The backend remains authoritative; failure to load this detail must not
+    // block other election management actions.
+    console.warn('Could not load election eligibility summary:', err.message);
+  }
+  let candidateCount = (e.candidates || []).length;
+  const startNotReached = () => {
+    const startAtMs = Date.parse(e.startAt || '');
+    return Number.isFinite(startAtMs) && startAtMs > Date.now();
+  };
+  const canOpenByCurrentRules = () => candidateCount > 0 && !startNotReached();
+  const statusGuidance = {
+    draft: 'Prepare the details, options, and voter list. Opening locks election configuration.',
+    open: 'Voting is accepting ballots from eligible voters. Close the election when voting ends.',
+    closed: 'Voting has ended. Publishing runs the tally and makes results available after integrity checks pass.',
+    published: 'Results are published. Archive when this election is ready to leave active administration.',
+    archived: 'This election is retained as a historical record. No further lifecycle actions are available.'
+  }[e.status] || '';
+  const lifecycleSteps = ['draft', 'open', 'closed', 'published', 'archived'];
+  const lifecycleRank = lifecycleSteps.indexOf(e.status);
+  const dateLabel = value => readableElectionDate(value);
+  const readinessMarkup = () => `<h4 id="readiness-title">Opening checklist</h4>
+    <ul class="readiness-list">
+      <li class="is-ready">Election name saved</li>
+      <li class="${candidateCount > 0 ? 'is-ready' : 'is-blocked'}">${candidateCount > 0 ? `${candidateCount} candidate or option${candidateCount === 1 ? '' : 's'} added` : 'Add at least one candidate or option before opening'}</li>
+      <li class="${eligibleUsers.length > 0 ? 'is-ready' : 'is-note'}">${eligibleUsers.length > 0 ? `${eligibleUsers.length} eligible voter${eligibleUsers.length === 1 ? '' : 's'} assigned` : 'No eligible voters assigned; eligibility is optional, but nobody can vote until added to the voter list'}</li>
+      <li class="${startNotReached() ? 'is-blocked' : 'is-ready'}">${e.startAt ? (startNotReached() ? `Scheduled to open ${escapeHtml(dateLabel(e.startAt))}` : `Opening time reached: ${escapeHtml(dateLabel(e.startAt))}`) : 'No start time set; you can open when ready'}</li>
+      <li class="${canOpenByCurrentRules() ? 'is-ready' : 'is-blocked'}">${canOpenByCurrentRules() ? 'Ready to open under current election rules' : 'Not ready to open yet; complete the blocking items above'}</li>
+    </ul>`;
+
   const lifecycleButtons = [];
   if (e.status === 'draft') {
-    lifecycleButtons.push(['open', 'Open election', 'btn-primary', 'Open the election and accept ballots?']);
+    lifecycleButtons.push(['open', 'Open election', 'btn-primary', 'Open this election and begin accepting ballots?']);
     lifecycleButtons.push(['archived', 'Archive draft', 'btn-secondary', 'Archive this draft? It will be removed from public discovery and retained in the records. This cannot be reversed.']);
   }
   if (e.status === 'open') lifecycleButtons.push(['closed', 'Close election', 'btn-danger', 'Close the election? No further ballots will be accepted.']);
-  if (e.status === 'closed') lifecycleButtons.push(['published', 'Publish results', 'btn-primary', 'Run the tally and publish the results? This makes them publicly visible.']);
+  if (e.status === 'closed') lifecycleButtons.push(['published', 'Publish results', 'btn-primary', 'Calculate and publish aggregate results? This makes results publicly visible.']);
   if (e.status === 'published') lifecycleButtons.push(['archived', 'Archive election', 'btn-secondary', 'Archive this election?']);
 
   view.innerHTML = `
-    <section class="card">
-      <header class="page-head-inline">
+    <section class="card admin-election-detail">
+      <header class="page-head-inline election-admin-heading">
         <h2>${escapeHtml(e.name)}</h2>
         <span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status]}">${fmtStatus(e.status)}</span>
         <a class="btn btn-link" href="#/admin">← All elections</a>
       </header>
-      <p class="muted">${escapeHtml(e.description || '')}</p>
+      <p class="muted">${escapeHtml(e.description || 'No election description has been added.')}</p>
 
-      <nav class="tabs" role="tablist">
+      <nav class="tabs election-admin-tabs" role="tablist" aria-label="Election management sections">
         <button class="tab active" data-tab="lifecycle" role="tab">Lifecycle</button>
         <button class="tab" data-tab="config" role="tab">Configuration</button>
         <button class="tab" data-tab="candidates" role="tab">Candidates</button>
@@ -1341,14 +1392,15 @@ async function renderAdminElection(view) {
       </nav>
 
       <div id="tab-lifecycle" class="tab-panel active">
-        <h3>Lifecycle</h3>
-        <p class="muted small">Lifecycle: draft → open → closed → published → archived. A cancelled draft can also be archived; its record is retained and removed from public discovery.
-        Configuration can only be edited in draft. Results can only be published
-        from a closed election after a successful integrity check.</p>
+        <div class="lifecycle-intro"><div><h3>Election lifecycle</h3><p>${escapeHtml(statusGuidance)}</p></div><span class="lifecycle-current">Current status: <strong>${fmtStatus(e.status)}</strong></span></div>
+        <ol class="lifecycle-track" aria-label="Election progress">
+          ${lifecycleSteps.map((step, index) => `<li class="${index < lifecycleRank ? 'is-complete' : ''} ${index === lifecycleRank ? 'is-current' : ''}"><span>${fmtStatus(step)}</span></li>`).join('')}
+        </ol>
+        ${e.status === 'draft' ? `<section class="readiness-panel" id="readiness-panel" aria-labelledby="readiness-title">${readinessMarkup()}</section>` : ''}
         <div class="btn-row" id="lifecycle-buttons">
           ${lifecycleButtons.map(([s, label, cls, confirmMsg]) =>
-            `<button class="btn ${cls}" data-transition="${s}" data-confirm="${escapeHtml(confirmMsg)}">${label}</button>`).join('')}
-          ${lifecycleButtons.length === 0 ? '<div class="empty">No further transitions.</div>' : ''}
+            `<button class="btn ${cls}" data-transition="${s}" data-confirm="${escapeHtml(confirmMsg)}" ${s === 'open' && !canOpenByCurrentRules() ? 'disabled' : ''}>${label}</button>`).join('')}
+          ${lifecycleButtons.length === 0 ? '<div class="empty">This election has no further lifecycle actions.</div>' : ''}
         </div>
         <div class="error-box" id="lifecycle-error" hidden></div>
       </div>
@@ -1438,7 +1490,17 @@ async function renderAdminElection(view) {
         toast('Election updated.');
         renderAdminElection(view);
       } catch (err) {
-        errBox.textContent = err.message; errBox.hidden = false;
+        const target = btn.getAttribute('data-transition');
+        if (target === 'open' && candidateCount === 0) {
+          errBox.textContent = 'Add at least one candidate or ballot option before opening this election.';
+        } else if (target === 'open' && startNotReached()) {
+          errBox.textContent = `The scheduled opening time has not arrived. Voting is scheduled to open ${dateLabel(e.startAt)}.`;
+        } else if (target === 'published') {
+          errBox.textContent = 'Results could not be published. Confirm the election is still closed. If it is, the tally integrity check may have failed; no results were published.';
+        } else {
+          errBox.textContent = `This election could not be moved from ${fmtStatus(e.status)} to the requested status. Refresh the page and check the current status.`;
+        }
+        errBox.hidden = false;
       }
     });
   });
@@ -1456,7 +1518,7 @@ async function renderAdminElection(view) {
       submitButton.disabled = true;
       submitButton.setAttribute('aria-busy','true');
       submitButton.textContent = 'Saving…';
-      await api('elections/' + e.id, {
+      const saved = await api('elections/' + e.id, {
         method: 'POST',
         body: {
           name: fd.get('name'),
@@ -1466,6 +1528,9 @@ async function renderAdminElection(view) {
           ...schedule,
         }
       });
+      e = saved.election;
+      const readiness = document.getElementById('readiness-panel');
+      if (readiness) readiness.innerHTML = readinessMarkup();
       toast('Configuration saved.');
       submitButton.disabled = false;
       submitButton.removeAttribute('aria-busy');
