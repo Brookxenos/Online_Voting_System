@@ -1519,3 +1519,27 @@
 - **Security/privacy implications:** Vote audit now attributes the authenticated username while omitting candidate selection. Ballots remain separate from participation and no cryptographic anonymity claim is made. Existing ballots and participation rows were preserved.
 - **Known gaps:** BallotRepository delegates persistence to Store rather than moving the existing SQL out of Store, preserving the established SQL boundary and atomic transaction. Independent ballot verification is outside this step.
 - **Next exact task:** Await owner approval before Step 7.
+
+### 2026-11-20 --- Codex --- Step 7 results read-only regression completion
+
+- **Status:** Results JSON and CSV retrieval use only the latest persisted tally. Neither read route invokes tally calculation; tally creation remains in the existing `closed -> published` lifecycle transaction.
+- **Approved scope:** Step 7 results read safety, authorization regression coverage, and documentation; no UI changes, schema migrations, or runtime database operations.
+- **Files changed:** `src/api.cpp`, `tests/smoke.sh`, `API.md`, `PROGRESS_LOG.md`.
+- **Decisions:** Closed/live results are readable only when already persisted and authorized. CSV live visibility now matches JSON election visibility rules. Existing CSV header/columns and JSON response shape remain unchanged. Imported closed elections without a persisted tally return the existing no-tally error rather than calculating one on read.
+- **Commands run:** `make -j2` (passed; nothing to rebuild); `bash -n tests/smoke.sh` (passed); `make test` (passed after first run exposed and corrected stale tally-on-read expectations); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService checks, 6 lifecycle integrity checks, 17 voting service checks, and 151 HTTP smoke checks; 180 total, 0 failed. Added HTTP checks for no calculation on closed JSON/CSV reads, unpublished cross-organization denial, published status and tally retrieval, and publication-mediated tally creation. Suite used isolated temporary databases.
+- **Security/privacy implications:** Cross-organization live CSV access is denied with the same election visibility rule as JSON results. Public reports remain aggregate-only; no voter identity or ballot selection is exposed. No tally recalculation occurs during reads.
+- **Known gaps:** Existing legacy closed elections without persisted tally results remain unavailable through the results route; this preserves historical ballot/participation data and avoids implicit recalculation. Dashboard summary already provides election/candidate/participation/ballot aggregates; no dashboard UI or schema change was needed.
+- **Next exact task:** Await owner approval before starting Step 8.
+
+### 2026-11-20 --- Codex --- Step 8 audit trail scoping
+
+- **Status:** Audit reads now enforce organization scope for organization administrators and observers. Platform administrators retain platform-wide audit access. No application route supports audit mutation or deletion.
+- **Approved scope:** Step 8 audit access and regression coverage; preserve frontend and runtime records and avoid schema changes.
+- **Files modified:** `src/store.h`, `src/store.cpp`, `src/api.cpp`, `tests/smoke.sh`, `API.md`, `PROGRESS_LOG.md`.
+- **Decisions:** The existing audit schema links election events to elections but has no organization ID for organization-wide events. Scoped users therefore see only election-linked events for their own organization; organization-level global events remain platform-admin-only. Existing vote event is written transactionally with ballot submission and has empty detail, so it contains no candidate choice.
+- **Commands run:** `make -j2` (passed); `bash -n tests/smoke.sh` (passed); `make test` (passed using temporary test databases); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService, 6 lifecycle-integrity, 17 voting-service, and **154 HTTP smoke checks**; 183 checks total, 0 failed. Added actor metadata, vote-detail privacy, and unfiltered organization-scope checks. Existing transaction rollback tests verify failed vote writes leave no audit event.
+- **Security/privacy implications:** Cross-organization audit records are excluded from scoped listings and explicit cross-org election requests are denied. No candidate selections, passwords, or session tokens are included in the vote audit detail. Platform-wide audit remains restricted to platform administrators.
+- **Known gaps:** Audit records are not tamper-evident or cryptographically signed; database-level privileged access can alter them. Organization-level management audit entries use election ID 0 and are visible only to platform administrators because schema changes were avoided. Authentication failures are recorded with attempted usernames, but network metadata is not recorded.
+- **Next exact task:** Await owner approval before any work beyond Step 8.

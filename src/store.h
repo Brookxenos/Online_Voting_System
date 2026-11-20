@@ -126,6 +126,9 @@ public:
     void addAudit(const std::string& actor, const std::string& action,
                   long long electionId, const std::string& detail);
     std::vector<AuditEvent> listAudit(long long electionId /* 0 = all */, size_t limit);
+    std::vector<AuditEvent> listAuditForOrganization(long long orgId,
+                                                     long long electionId,
+                                                     size_t limit);
 
 private:
     Database& db_;

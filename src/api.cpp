@@ -1087,19 +1087,19 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             try { electionId = std::stoll(it->second); } catch (...) { return fail(400, "Invalid electionId"); }
         }
 
-        if (!isPlatformAdmin(*user)) {
-            if (user->role != "org_admin" && user->role != "observer") {
-                return fail(403, "Administrator or observer access required");
-            }
-            // Scoped: only events of elections in the user's organization.
-            if (electionId != 0) {
-                auto e = store.getElection(electionId);
-                if (!e || e->orgId != user->orgId) return fail(403, "Access denied");
-            }
+        if (!isPlatformAdmin(*user) && user->role != "org_admin" && user->role != "observer")
+            return fail(403, "Administrator or observer access required");
+        if (electionId < 0) return fail(400, "Invalid electionId");
+        if (!isPlatformAdmin(*user) && electionId != 0) {
+            auto e = store.getElection(electionId);
+            if (!e || e->orgId != user->orgId) return fail(403, "Access denied");
         }
 
         json::Array arr;
-        for (const auto& ev : store.listAudit(electionId, 500)) {
+        const auto events = isPlatformAdmin(*user)
+            ? store.listAudit(electionId, 500)
+            : store.listAuditForOrganization(user->orgId, electionId, 500);
+        for (const auto& ev : events) {
             json::Object jo;
             jo["ts"] = ev.ts;
             jo["actor"] = ev.actor;

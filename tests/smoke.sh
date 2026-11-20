@@ -361,6 +361,8 @@ AUDIT=$(jget /api/audit -b "$TMP/admin.jar")
 check "audit records ballot event" "VOTE_CAST" "$AUDIT"
 check "audit records lifecycle open, close, publish, archive and rejected events" "LIFECYCLE_REJECTED" "$AUDIT"
 check "audit records lifecycle action names" "ELECTION_PUBLISHED" "$AUDIT"
+check "audit records authenticated actor with action metadata" '"actor":"admin"' "$AUDIT"
+check "vote audit event omits ballot choice detail" '"action":"VOTE_CAST","actor":"voterA","detail":""' "$AUDIT"
 if [[ "$AUDIT" == *"password"* ]]; then
   FAIL=$((FAIL+1)); echo "  FAIL: audit contains the word password"
 else
@@ -369,6 +371,8 @@ fi
 check "voter cannot read audit" "Administrator or observer" "$(jget /api/audit -b "$TMP/voterA.jar")"
 check "org admin B cannot read org A audit for A1" "Access denied" \
   "$(jget '/api/audit?electionId=1' -b "$TMP/admb.jar")"
+AUDIT_B=$(jget /api/audit -b "$TMP/admb.jar")
+check "org admin B unfiltered audit omits org A election events" '"entries":[]' "$AUDIT_B"
 
 echo "-- rate limiting --"
 for i in 1 2 3 4 5 6; do

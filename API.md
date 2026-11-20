@@ -74,7 +74,7 @@ separate reviewer approval state or independent tally verification.
 | `GET /api/users` | Platform admin or organization admin (scoped) | optional `orgId` for platform admin | User records without password hashes |
 | `POST /api/users` | Platform admin or organization admin (scoped) | `username`, `password`, optional `displayName`, `role`, `orgId` | Created account; self-registration cannot grant roles |
 | `POST /api/users/:id/disable` | Platform admin or organization admin in same organization | optional `disabled` (defaults true) | Changes account state; disabling revokes sessions |
-| `GET /api/audit` | Platform admin, organization admin, or observer (scoped) | optional `electionId` | Recent sanitized audit events |
+| `GET /api/audit` | Platform admin (platform-wide), organization admin or observer (own-organization election events only) | optional `electionId` | Recent sanitized audit events; no audit mutation or deletion route is exposed |
 
 ## Current limits
 

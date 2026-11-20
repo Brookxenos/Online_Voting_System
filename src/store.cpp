@@ -971,6 +971,33 @@ std::vector<AuditEvent> Store::listAudit(long long electionId, size_t limit) {
     return out;
 }
 
+std::vector<AuditEvent> Store::listAuditForOrganization(long long orgId,
+                                                        long long electionId,
+                                                        size_t limit) {
+    std::vector<AuditEvent> out;
+    if (orgId <= 0) return out;
+    std::string sql =
+        "SELECT a.* FROM audit_events a JOIN elections e ON e.id=a.election_id "
+        "WHERE e.org_id=?";
+    std::vector<DbValue> binds{std::to_string(orgId)};
+    if (electionId != 0) {
+        sql += " AND a.election_id=?";
+        binds.emplace_back(std::to_string(electionId));
+    }
+    sql += " ORDER BY a.id DESC LIMIT " + std::to_string(limit);
+    for (const auto& r : db_.query(sql, binds)) {
+        AuditEvent e;
+        e.id = std::stoll(r.at("id"));
+        e.ts = r.at("ts");
+        e.actor = r.at("actor");
+        e.action = r.at("action");
+        e.electionId = std::stoll(r.at("election_id"));
+        e.detail = r.at("detail");
+        out.push_back(e);
+    }
+    return out;
+}
+
 // ---------------------------------------------------------------------------
 // Legacy CSV import (never deletes; CSV files are left untouched)
 // ---------------------------------------------------------------------------
