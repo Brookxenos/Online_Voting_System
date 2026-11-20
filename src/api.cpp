@@ -857,15 +857,9 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             }
         }
 
+        // Result retrieval must never calculate or persist a tally. Publication
+        // owns tally creation; live access can only inspect an existing run.
         auto tally = resultsService->latest(id);
-        if (liveAllowed || !tally) {
-            // A permitted reader may trigger the (idempotent) tally
-            // computation; it is only run when someone is actually allowed
-            // to see the results.
-            bool maySee = published || liveAllowed ||
-                          (userOpt && canObserveElection(*userOpt, *e));
-            if (maySee) tally = resultsService->tally(id);
-        }
         if (!tally) {
             return fail(404, "No tally has been run for this election yet");
         }
@@ -906,21 +900,17 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
 
         bool published = e->resultsPublic && (e->status == "published" || e->status == "archived");
         bool liveAllowed = e->showLiveResults && (e->status == "open" || e->status == "closed");
-        if (!published) {
-            if (!liveAllowed) {
-                if (!userOpt) return fail(401, "Not authenticated");
-                if (!canObserveElection(*userOpt, *e)) return fail(403, "Results are not published yet");
-            } else if (!userOpt) {
-                return fail(401, "Not authenticated");
-            }
+        if (published) {
+            // Public publication permits unauthenticated reads.
+        } else if (liveAllowed) {
+            if (!userOpt) return fail(401, "Not authenticated");
+            if (!userCanViewElection(*userOpt, store, *e)) return fail(403, "Access denied");
+        } else {
+            if (!userOpt) return fail(401, "Not authenticated");
+            if (!canObserveElection(*userOpt, *e)) return fail(403, "Results are not published yet");
         }
 
         auto tally = resultsService->latest(id);
-        if (liveAllowed || !tally) {
-            bool maySee = published || liveAllowed ||
-                          (userOpt && canObserveElection(*userOpt, *e));
-            if (maySee) tally = resultsService->tally(id);
-        }
         if (!tally) return fail(404, "No tally has been run for this election yet");
 
         std::ostringstream out;
