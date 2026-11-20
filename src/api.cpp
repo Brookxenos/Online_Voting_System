@@ -369,6 +369,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (!authService->changePassword(*user, current, next)) return fail(401, "Current password is incorrect");
         HttpServer::Response r = ok({{"message", json::Value(std::string("Password updated; please log in again"))}});
         r.clearCookie(kSessionCookie);
+        if (cfg.secureCookies) r.setCookies.back() += "; Secure";
         return r;
     });
 
