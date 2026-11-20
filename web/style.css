@@ -2289,6 +2289,63 @@ input,select,textarea { max-width:100%; }
   .password-toggle { min-height:44px; }
 }
 
+/* Step 12: election workflow hierarchy, using the established brand palette. */
+.admin-election-detail { min-width:0; }
+.election-admin-heading { display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
+.election-admin-heading h2 { flex:1 1 260px;min-width:0;margin:0;overflow-wrap:anywhere; }
+.election-admin-heading .btn { margin-left:auto; }
+.election-admin-tabs { margin:22px 0 18px; }
+.admin-election-detail .tab-panel { min-width:0;padding:clamp(14px,2.5vw,24px);border:1px solid var(--border);border-radius:14px;background:var(--surface-strong); }
+.lifecycle-intro { display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px; }
+.lifecycle-intro h3 { margin:0 0 6px;color:var(--brand-ink); }
+.lifecycle-intro p { max-width:66ch;margin:0;color:var(--text-muted);line-height:1.55; }
+.lifecycle-current { padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text); }
+.lifecycle-track { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:20px 0;padding:0;list-style:none; }
+.lifecycle-track li { position:relative;min-width:0;padding:10px 8px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text-muted);text-align:center;font-size:.82rem;font-weight:650; }
+.lifecycle-track li.is-complete { border-color:var(--brand-teal);color:var(--brand-teal); }
+.lifecycle-track li.is-current { border-color:var(--brand-teal);background:var(--primary-soft);color:var(--brand-ink);box-shadow:inset 0 -3px var(--brand-teal); }
+.readiness-panel { margin:18px 0;padding:18px;border:1px solid var(--border);border-left:4px solid var(--brand-teal);border-radius:12px;background:var(--surface-2); }
+.readiness-panel h4 { margin:0 0 10px;color:var(--brand-ink);font-size:1rem; }
+.readiness-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px;margin:0;padding:0;list-style:none; }
+.readiness-list li { position:relative;min-width:0;padding:9px 10px 9px 29px;border-radius:8px;background:var(--surface-strong);line-height:1.45;overflow-wrap:anywhere; }
+.readiness-list li::before { position:absolute;left:10px;top:9px;font-weight:800; }
+.readiness-list .is-ready::before { content:"✓";color:var(--brand-teal); }
+.readiness-list .is-blocked::before { content:"!";color:var(--danger); }
+.readiness-list .is-note::before { content:"i";color:var(--brand-teal); }
+.admin-election-detail #lifecycle-buttons { margin-top:16px; }
+.admin-election-detail .stack-form,.admin-election-detail .inline-form { min-width:0; }
+.admin-election-detail .inline-form label { display:grid;flex:1 1 240px;gap:7px;min-width:min(100%,240px);color:var(--text);font-size:.86rem;font-weight:650; }
+.admin-election-detail .inline-form input { width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-strong);color:var(--text); }
+.admin-election-detail .inline-form input:focus { outline:2px solid var(--brand-teal);outline-offset:1px; }
+.admin-election-detail .table-wrap { max-width:100%;overflow-x:auto; }
+.admin-election-detail .table-wrap table { width:100%; }
+.admin-election-detail .table-wrap td { vertical-align:top;overflow-wrap:anywhere; }
+.candidate-admin-actions { min-width:130px; }
+.candidate-edit-form { width:min(100%,420px); }
+.election-next-step { margin:17px 0;padding:15px 17px;border:1px solid var(--border);border-left:4px solid var(--brand-teal);border-radius:11px;background:var(--primary-soft); }
+.election-next-step strong { color:var(--brand-ink); }
+.election-next-step p { margin:5px 0 0;line-height:1.5; }
+.election-schedule { grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); }
+.election-detail-heading { display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
+.election-detail-heading h2 { flex:1 1 260px;min-width:0;overflow-wrap:anywhere; }
+.candidate-grid.static .candidate-entry { display:flex;flex-direction:column;align-items:stretch;min-width:0;height:100%; }
+.candidate-grid.static .candidate-card { flex:1 1 auto;min-height:126px;overflow-wrap:anywhere; }
+.candidate-profile-link { align-self:flex-start;margin:9px 4px 0; }
+.vote-review[hidden] { display:none; }
+@media(max-width:680px) {
+  .admin-election-detail .tabs { flex-wrap:nowrap;overflow-x:auto; }
+  .lifecycle-track { grid-template-columns:1fr;gap:6px; }
+  .lifecycle-track li { text-align:left;padding:9px 12px; }
+  .readiness-list { grid-template-columns:1fr; }
+  .election-admin-heading .btn { margin-left:0; }
+  .admin-election-detail .inline-form { align-items:stretch; }
+  .admin-election-detail .inline-form label { min-width:100%; }
+  .admin-election-detail .inline-form .btn { width:100%; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .lifecycle-track li,.readiness-list li,.candidate-grid.static .candidate-card { scroll-behavior:auto; }
+}
+
 /* Admin surfaces: clear teal controls with a restrained cyan active accent. */
 .login-panel .login-brand-image {
   width:min(220px,100%);

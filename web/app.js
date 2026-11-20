@@ -1364,6 +1364,10 @@ async function renderAdminElection(view) {
       <li class="${startNotReached() ? 'is-blocked' : 'is-ready'}">${e.startAt ? (startNotReached() ? `Scheduled to open ${escapeHtml(dateLabel(e.startAt))}` : `Opening time reached: ${escapeHtml(dateLabel(e.startAt))}`) : 'No start time set; you can open when ready'}</li>
       <li class="${canOpenByCurrentRules() ? 'is-ready' : 'is-blocked'}">${canOpenByCurrentRules() ? 'Ready to open under current election rules' : 'Not ready to open yet; complete the blocking items above'}</li>
     </ul>`;
+  const refreshReadiness = () => {
+    const panel = document.getElementById('readiness-panel');
+    if (panel) panel.innerHTML = readinessMarkup();
+  };
 
   const lifecycleButtons = [];
   if (e.status === 'draft') {
@@ -1402,11 +1406,12 @@ async function renderAdminElection(view) {
             `<button class="btn ${cls}" data-transition="${s}" data-confirm="${escapeHtml(confirmMsg)}" ${s === 'open' && !canOpenByCurrentRules() ? 'disabled' : ''}>${label}</button>`).join('')}
           ${lifecycleButtons.length === 0 ? '<div class="empty">This election has no further lifecycle actions.</div>' : ''}
         </div>
-        <div class="error-box" id="lifecycle-error" hidden></div>
+        <div class="error-box" id="lifecycle-error" role="alert" aria-live="polite" hidden></div>
       </div>
 
       <div id="tab-config" class="tab-panel">
         <h3>Configuration (draft only)</h3>
+        ${e.status === 'draft' ? '' : '<div class="banner banner-muted">Configuration is locked after an election is opened. The saved details are shown below.</div>'}
         <form id="form-election-config" class="stack-form">
           <label>Name<input type="text" name="name" value="${escapeHtml(e.name)}" maxlength="200" required></label>
           <label>Description<textarea name="description" rows="2" maxlength="2000">${escapeHtml(e.description || '')}</textarea></label>
@@ -1429,6 +1434,7 @@ async function renderAdminElection(view) {
 
       <div id="tab-candidates" class="tab-panel">
         <h3>Candidates / ballot options</h3>
+        <p class="muted small">Add every option and check the spelling and descriptions before opening. Candidate details become fixed after opening.</p>
         ${e.status === 'draft' ? `
         <form id="form-add-candidate" class="stack-form panel">
           <div class="form-row">
@@ -1447,21 +1453,19 @@ async function renderAdminElection(view) {
         <p class="muted small">Only users on this list can cast a ballot.
         Eligibility and ballots are stored separately: the voter list never
         records any choice.</p>
-        <form id="form-eligibility" class="inline-form panel">
-          <input type="text" name="username" placeholder="username" required>
+        ${e.status === 'draft' ? `<form id="form-eligibility" class="inline-form panel">
+          <label>Voter username<input type="text" name="username" autocomplete="username" required></label>
           <button type="submit" class="btn btn-primary">Add to voter list</button>
-        </form>
+        </form>` : '<div class="banner banner-muted">Eligibility can only be changed while this election is a draft.</div>'}
         <div class="error-box" id="elig-error" hidden></div>
         <div id="eligibility-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>
 
       <div id="tab-admresults" class="tab-panel">
         <h3>Results</h3>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="btn-run-tally">Run tally</button>
-          <a class="btn btn-secondary" href="#/results/${e.id}">Open results page</a>
-        </div>
-        <div id="tally-output" class="table-wrap"><div class="empty">No tally has been run in this session.</div></div>
+        <p class="muted">Publishing from the Lifecycle tab runs the tally once and checks its internal consistency. Viewing results only reads the stored tally.</p>
+        ${e.status === 'closed' ? '<div class="banner banner-info">Voting has ended. Publish results from the Lifecycle tab when ready.</div>' : ''}
+        ${e.resultsPublic && (e.status === 'published' || e.status === 'archived') ? `<div class="btn-row"><a class="btn btn-primary" href="#/results/${e.id}">View published results</a><a class="btn btn-secondary" href="/api/elections/${e.id}/results.csv">Download CSV report</a></div><div id="tally-output" class="table-wrap"><div class="empty">Loading saved tally…</div></div>` : '<div class="empty">Results are not published for this election.</div>'}
       </div>
     </section>`;
 
@@ -1484,10 +1488,11 @@ async function renderAdminElection(view) {
       const errBox = document.getElementById('lifecycle-error');
       errBox.hidden = true;
       try {
+        const nextStatus = btn.getAttribute('data-transition');
         await api('elections/' + e.id + '/status', {
-          method: 'POST', body: { status: btn.getAttribute('data-transition') }
+          method: 'POST', body: { status: nextStatus }
         });
-        toast('Election updated.');
+        toast(({open:'Election opened.',closed:'Voting closed.',published:'Results published.',archived:'Election archived.'})[nextStatus] || 'Election updated.');
         renderAdminElection(view);
       } catch (err) {
         const target = btn.getAttribute('data-transition');
@@ -1507,6 +1512,7 @@ async function renderAdminElection(view) {
 
   // Config
   const cfgForm = document.getElementById('form-election-config');
+  if (e.status !== 'draft') cfgForm.querySelectorAll('input,textarea,button').forEach(control => { control.disabled = true; });
   cfgForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(cfgForm);
@@ -1529,8 +1535,7 @@ async function renderAdminElection(view) {
         }
       });
       e = saved.election;
-      const readiness = document.getElementById('readiness-panel');
-      if (readiness) readiness.innerHTML = readinessMarkup();
+      refreshReadiness();
       toast('Configuration saved.');
       submitButton.disabled = false;
       submitButton.removeAttribute('aria-busy');
@@ -1549,6 +1554,8 @@ async function renderAdminElection(view) {
   async function loadCandidates() {
     const data = await api('elections/' + e.id + '/candidates');
     const cands = data.candidates || [];
+    candidateCount = cands.length;
+    refreshReadiness();
     candList.innerHTML = cands.length === 0 ? '<div class="empty">No ballot options yet.</div>' :
       `<table><thead><tr><th>#</th><th>Name</th><th>Party</th><th>Description</th>${e.status === 'draft' ? '<th>Actions</th>' : ''}</tr></thead><tbody>` +
       cands.map(c => `<tr><td>${c.position}</td><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.party || '—')}</td><td>${escapeHtml(c.description || '—')}</td>` +
@@ -1589,6 +1596,7 @@ async function renderAdminElection(view) {
           await api('elections/' + e.id + '/candidates/remove', {
             method: 'POST', body: { candidateId: Number(btn.getAttribute('data-remove')) }
           });
+          toast('Candidate removed.');
           await loadCandidates();
         } catch (err) { toast(err.message, 'error'); }
       });
@@ -1608,6 +1616,7 @@ async function renderAdminElection(view) {
                   description: fd.get('description') || '' }
         });
         candForm.reset();
+        toast('Candidate added.');
         await loadCandidates();
       } catch (err) {
         errBox.textContent = err.message; errBox.hidden = false;
@@ -1621,6 +1630,8 @@ async function renderAdminElection(view) {
   async function loadEligibility() {
     const data = await api('elections/' + e.id + '/eligibility');
     const users = data.eligible || [];
+    eligibleUsers = users;
+    refreshReadiness();
     eligList.innerHTML = users.length === 0 ? '<div class="empty">No voters on the list yet.</div>' :
       `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th></th></tr></thead><tbody>` +
       users.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td>
@@ -1633,13 +1644,14 @@ async function renderAdminElection(view) {
           await api('elections/' + e.id + '/eligibility', {
             method: 'POST', body: { userId: Number(btn.getAttribute('data-revoke')), action: 'revoke' }
           });
+          toast('Voter removed from this election.');
           await loadEligibility();
         } catch (err) { toast(err.message, 'error'); }
       });
     });
   }
   const eligForm = document.getElementById('form-eligibility');
-  eligForm.addEventListener('submit', async (ev) => {
+  if (eligForm) eligForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(eligForm);
     const errBox = document.getElementById('elig-error');
@@ -1649,6 +1661,7 @@ async function renderAdminElection(view) {
         method: 'POST', body: { username: fd.get('username'), action: 'grant' }
       });
       eligForm.reset();
+      toast('Voter added to this election.');
       await loadEligibility();
     } catch (err) {
       errBox.textContent = err.message; errBox.hidden = false;
@@ -1656,22 +1669,20 @@ async function renderAdminElection(view) {
   });
   await loadEligibility();
 
-  // Tally
-  document.getElementById('btn-run-tally').addEventListener('click', async () => {
-    const out = document.getElementById('tally-output');
-    out.innerHTML = '<div class="empty">Running tally…</div>';
+  // Results tab is read-only; the lifecycle publication action owns tallying.
+  const tallyOutput = document.getElementById('tally-output');
+  if (tallyOutput) {
     try {
       const data = await api('elections/' + e.id + '/results');
-      out.innerHTML = `
-        <table><thead><tr><th>Option</th><th>Votes</th></tr></thead><tbody>
-        ${data.results.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${c.votes}</td></tr>`).join('')}
-        </tbody></table>
-        <p class="muted small">Ballots: ${data.totalBallots} · Participants: ${data.totalParticipations} ·
-        Integrity: ${data.integrityOk ? 'OK' : 'MISMATCH'}</p>`;
+      tallyOutput.innerHTML = `
+        <table><thead><tr><th>Candidate or option</th><th>Votes</th><th>Share</th></tr></thead><tbody>
+        ${data.results.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${c.votes}</td><td>${Number(c.percentage || 0).toFixed(1)}%</td></tr>`).join('')}</tbody></table>
+        <p class="muted small">Valid ballots: ${data.totalBallots} · Participation records: ${data.totalParticipations} ·
+        Tally integrity: ${data.integrityOk ? 'Passed' : 'Check failed'}</p>`;
     } catch (err) {
-      out.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+      tallyOutput.innerHTML = `<div class="error-box" role="alert">Published results could not be loaded. ${escapeHtml(err.message)}</div>`;
     }
-  });
+  }
 }
 
 // ---------------------------------------------------------------------------
