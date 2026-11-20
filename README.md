@@ -1,78 +1,100 @@
 # ElectraVote
 
-ElectraVote is an educational/demo voting and election-management application.
-It uses a C++17 backend, an HTML/CSS/vanilla JavaScript frontend, SQLite
-persistence, and libsodium for password hashing and secure random generation.
-It is not certified or approved for legally binding public elections.
+ElectraVote is an educational/demo voting and election-management application
+for organizations, clubs, schools, and community polls. It provides
+organization-scoped accounts, election administration, voter eligibility,
+ballot submission, aggregate tally publication, CSV reporting, and an audit
+trail. It is **not certified or approved for legally binding public
+elections**.
 
-## Current features
+## Implemented features
 
-- Organization-scoped accounts with platform administrator, organization
-  administrator, observer, and voter roles.
-- Server-side sessions, password updates, one-time initial administrator
-  provisioning, and in-process login/registration throttling.
-- Independent elections with draft/open/closed/published/archived lifecycle
-  states, candidate management, and election-specific eligibility.
-- Transactional ballot and participation writes with one accepted ballot per
-  eligible voter in an election.
-- Tally integrity checks, controlled result publication, CSV result export,
-  and sanitized audit events.
-- Opt-in public election discovery and published-results browsing.
-- Responsive single-page frontend using the existing project visual design.
+- Platform administrator, organization administrator, observer, and voter
+  roles with server-side authorization and organization scoping.
+- Self-registration where enabled, account administration, database-backed
+  sessions, session revocation, and password management.
+- Draft/open/closed/published/archived election lifecycle, candidate/option
+  management, and election-specific voter eligibility.
+- Single-choice ballots with transactional participation and ballot writes,
+  duplicate participation protection, and a non-revealing submission receipt.
+- Lifecycle-controlled tally persistence, internal publication integrity
+  checks, published results, and aggregate CSV export.
+- Sanitized audit events, public discovery opt-in, and the existing responsive
+  HTML/CSS/vanilla JavaScript interface.
 
-The separation between participation and ballot rows does not provide
-cryptographic anonymity. Timing, application/database access, logs, and
-backups can still correlate a voter with a choice. The current tally is
-single-choice and does not define tie resolution or claim an official winner.
+The current tally does not define tie resolution or announce an official
+winner. Participation and ballot tables are separate, but this does not
+provide cryptographic anonymity. Timing, application/database access, logs,
+and backups can still create correlation risks.
+
+## Technology
+
+- C++17 modular monolith and hand-written POSIX HTTP server
+- HTML, CSS, and vanilla JavaScript single-page frontend
+- SQLite persistence with WAL mode and migrations
+- libsodium password hashing and secure random generation
+
+## Requirements
+
+Linux or WSL, `g++` with C++17, `make`, and runtime libraries at paths in the
+Makefile (`libsodium.so.23` and `libsqlite3.so.0`). The test suite additionally
+uses bash and curl.
 
 ## Build and run
 
-Requirements: Linux or WSL, `g++` with C++17 support, `make`, and the runtime
-libraries at the paths configured in the Makefile (`libsodium.so.23` and
-`libsqlite3.so.0`).
+From the repository root:
 
 ```sh
-make
+make -j2
 ./start.sh
 ```
 
-Open <http://localhost:8080>. To use another port, run `./start.sh 9000` and
-open <http://localhost:9000>. `Ctrl+C` stops the server. `make test` runs the
-HTTP integration smoke suite and requires `bash` and `curl`.
+The server defaults to `127.0.0.1:8080`; open <http://localhost:8080>. Use
+`./start.sh 9000` to select another port. Ctrl+C stops a foreground server.
+The default database is `data/openvote.db`; set `OV_DATA_DIR` to choose a
+persistent data directory. See the deployment guide for all supported
+configuration and HTTPS reverse-proxy instructions.
 
-On a fresh data directory the server creates the `admin` account. In an
-interactive terminal it generates a random password and displays it once. For
-non-interactive startup, set `OV_INITIAL_ADMIN_PASSWORD` through a secret
-manager; otherwise startup refuses to print a generated password into service
-logs. Do not place real passwords in shared shell history or documentation.
-There is no default `admin123` credential.
+On a fresh interactive run, an initial random admin password is shown once in
+the terminal. A non-interactive first run requires `OV_INITIAL_ADMIN_PASSWORD`
+from a protected secret manager/environment file; otherwise startup exits
+without writing a generated password into service logs. No default
+`admin/admin123` credentials exist.
 
-The default database is `data/openvote.db`. Set `OV_DATA_DIR` or `OV_DB_FILE`
-to select a different data location. Legacy CSV files may be imported into a
-fresh database and are preserved. Imported historical votes remain
-identity-linked.
+## Tests
+
+```sh
+bash -n tests/smoke.sh
+make test
+```
+
+The suite uses temporary databases and a local HTTP test server. Do not point
+tests at the runtime database.
 
 ## Documentation
 
-- [API reference](API.md): routes, authentication, request fields, responses,
-  and current security limits.
-- [How to run](HOW_TO_RUN.txt): setup, initial admin account, local password
-  recovery, and data-directory behavior.
-- [Project context](PROJECT_CONTEXT.md): architecture, decisions, security
-  boundaries, and handoff guidance.
-- [Backend checklist](BACKEND_STAGE2_CHECKLIST.md): implementation status and
-  remaining Stage 2 work.
+- [Voter and public user manual](docs/USER_MANUAL.md)
+- [Administrator manual](docs/ADMIN_MANUAL.md)
+- [System architecture and developer guide](docs/SYSTEM_ARCHITECTURE.md)
+- [Deployment guide](docs/DEPLOYMENT_GUIDE.md)
+- [API reference](API.md)
+- [Detailed build/run notes](HOW_TO_RUN.txt)
+- [Project context and security boundaries](PROJECT_CONTEXT.md)
+- [Development handoff log](PROGRESS_LOG.md)
 
 ## Security and deployment limits
 
-The local server speaks plain HTTP and binds to loopback by default. It is
-still a development server, not a production deployment. [How to run](HOW_TO_RUN.txt)
-documents reverse-proxy configuration, persistent storage, backups, and the
-remaining requirements for durable rate limiting, log handling, and independent review.
-Do not use this demo for a legally binding election or claim anonymity,
-end-to-end verifiability, or certification.
+The built-in server speaks HTTP only. It binds to loopback by default and
+should sit behind a correctly configured HTTPS reverse proxy for remote use;
+set `OV_SECURE_COOKIES=1` only when HTTPS is working. Rate limiting is
+process-local and resets on restart. The app does not trust proxy-forwarded
+client IPs. SQLite backup/restore is operator-managed. Audit records are not
+tamper-evident, tally verification is internal only, and no independent
+security, privacy, accessibility, legal, or certification review is claimed.
+
+Never claim production election readiness, cryptographic anonymity,
+end-to-end verifiability, or certification based on this demo.
 
 ## License
 
-The project context records the licensing choice as pending confirmation; this
-README does not assert a license that is not present in the checkout.
+The repository does not currently declare a confirmed license.
