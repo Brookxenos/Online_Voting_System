@@ -262,8 +262,14 @@ check "non-eligible voter rejected" "not eligible" \
 echo "-- results privacy and publication --"
 check "results hidden while open" "not published yet" "$(jget /api/elections/1/results -b "$TMP/voterA.jar")"
 check "results csv requires auth while unpublished" "Not authenticated" "$(jget /api/elections/1/results.csv)"
+check "cross-organization admin cannot read unpublished results" "Results are not published yet" \
+  "$(jget /api/elections/1/results -b "$TMP/admb.jar")"
 check "close election" '"status":"closed"' \
   "$(jpost /api/elections/1/status '{"status":"closed"}' -b "$TMP/admin.jar")"
+check "closed result read does not calculate tally" "No tally has been run" \
+  "$(jget /api/elections/1/results -b "$TMP/admin.jar")"
+check "closed CSV read does not calculate tally" "No tally has been run" \
+  "$(jget /api/elections/1/results.csv -b "$TMP/admin.jar")"
 check "closed election configuration is rejected" "Only draft elections can be edited" \
   "$(jpost /api/elections/1 '{"description":"Late edit"}' -b "$TMP/admin.jar")"
 check "publish election" '"status":"published"' \
@@ -271,6 +277,8 @@ check "publish election" '"status":"published"' \
 check "duplicate publish request rejected" "Invalid transition from 'published' to 'published'" \
   "$(jpost /api/elections/1/status '{"status":"published"}' -b "$TMP/admin.jar")"
 check "published results are public without auth" '"totalBallots":1' "$(jget /api/elections/1/results)"
+check "published results include election identity and publication status" '"published":true' \
+  "$(jget /api/elections/1/results)"
 check "published results appear in anonymous results index" '"name":"Election A1"' \
   "$(jget /api/public/results?limit=10)"
 check "tally counts Alice=1" '"votes":1' "$(jget /api/elections/1/results)"

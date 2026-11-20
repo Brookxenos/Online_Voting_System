@@ -51,8 +51,8 @@ are not discoverable after migration unless opted in.
 | `GET /api/elections/:id/eligibility` | Election administrator or observer | — | Eligible voter identities for that election |
 | `POST /api/elections/:id/eligibility` | Election administrator; draft only | `username` or `userId`, `action` (`grant`/`revoke`) | Updated eligibility; grant accepts only an active voter from the election's organization and duplicate grants are idempotent |
 | `POST /api/elections/:id/vote` | Authenticated eligible voter | `candidateId` | Non-revealing confirmation receipt; no choice is returned |
-| `GET /api/elections/:id/results` | Public after publication; otherwise permitted observer/admin or configured live-results viewer | — | Candidate totals, vote percentages, and tally integrity metadata |
-| `GET /api/elections/:id/results.csv` | Public after publication; otherwise administrator/observer or configured live-results viewer | — | CSV result export |
+| `GET /api/elections/:id/results` | Public after publication; otherwise permitted observer/admin or configured live-results viewer | — | Persisted candidate totals, vote percentages, ballot and participation totals, publication state, and tally integrity metadata; reads never run a tally |
+| `GET /api/elections/:id/results.csv` | Public after publication; otherwise permitted observer/admin or configured live-results viewer | — | CSV export from the persisted tally; reads never run a tally |
 
 Election timestamps use UTC `YYYY-MM-DDTHH:MM:SSZ`; end must follow start.
 An election cannot be opened before its configured start or without at least
