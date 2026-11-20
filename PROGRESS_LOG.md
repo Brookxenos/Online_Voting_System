@@ -1568,3 +1568,16 @@
 - **Deployment configuration:** Set `OV_PORT`, `OV_BIND_ADDRESS=127.0.0.1`, `OV_WEB_DIR`, `OV_DATA_DIR` (durable), optional `OV_DB_FILE`, `OV_SESSION_HOURS`, `OV_SECURE_COOKIES=1` behind HTTPS, and provide `OV_INITIAL_ADMIN_PASSWORD` via a protected secret manager/environment file on first non-interactive startup. Nginx example and startup/shutdown/backup instructions are in `HOW_TO_RUN.txt`.
 - **Remaining risks:** This remains an educational/demo application. In-process rate limiting does not coordinate across instances and sees proxy IPs; forwarded headers are intentionally not trusted. The built-in HTTP service is not production-grade, backups/restores are operationally manual, and no independent security/legal/accessibility review or election certification is provided.
 - **Next exact task:** Stop after Step 10 and wait for owner approval; do not begin Step 11.
+
+### 2026-11-20 --- Codex --- Step 11 documentation and final handoff
+
+- **Status:** Added the requested voter, administrator, architecture/developer, and deployment guides. Replaced the root README with a concise project overview and documentation index.
+- **Approved scope:** Step 11 documentation only; describe current code/UI behavior without new application functionality or frontend changes.
+- **Files created:** `docs/USER_MANUAL.md`, `docs/ADMIN_MANUAL.md`, `docs/SYSTEM_ARCHITECTURE.md`, `docs/DEPLOYMENT_GUIDE.md`.
+- **Files modified:** `README.md`, `PROGRESS_LOG.md`.
+- **Verification against implementation:** Checked UI routes and flows in `web/app.js`, API contract and role permissions in `API.md`/`src/api.cpp`, lifecycle/tally and persistence behavior in `src/store.cpp`, and environment/startup behavior in `src/main.cpp`, `src/http.cpp`, `start.sh`, and `HOW_TO_RUN.txt`. Guides describe eligibility as election-specific, review/confirm voting, no-choice receipt, published aggregate results, platform/org scopes, read-only observer access, loopback listener, protected first-run secret, SQLite persistence, and known limitations.
+- **Commands run:** `make -j2` (passed; nothing to rebuild); `bash -n tests/smoke.sh` (passed); `make test` (passed with isolated temporary databases); `git diff --check` (passed).
+- **Tests:** Full suite passed: 6 AuthService, 6 lifecycle-integrity, 17 voting-service, and 159 HTTP smoke checks; **188 total, 0 failed**.
+- **Security/privacy implications:** Documentation makes no anonymity, tie-resolution, independent verification, certification, or production-election-readiness claim. No application data or UI files were changed.
+- **Known gaps:** The guides document existing operational limits including process-local rate limiting, non-tamper-evident audit records, operator-managed backups, no web password recovery, and absence of independent security/legal/accessibility review.
+- **Next exact task:** Owner review the manuals and deployment handoff; no further implementation phase is started.
