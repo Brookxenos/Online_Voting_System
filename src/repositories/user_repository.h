@@ -12,6 +12,9 @@ public:
     void updateDisplayName(long long id, const std::string& name) { store_.updateDisplayName(id, name); }
     void updateRoleAndOrg(long long id, const std::string& role, long long orgId) { store_.updateUserRoleAndOrg(id, role, orgId); }
     void setDisabled(long long id, bool disabled) { store_.setUserDisabled(id, disabled); }
+    Store::DeleteUserResult deleteSafely(long long id, const std::string& actor) {
+        return store_.deleteUserSafely(id, actor);
+    }
     void updatePasswordHash(long long id, const std::string& hash) { store_.updatePasswordHash(id, hash); }
     void revokeSessions(long long id) { store_.revokeAllSessions(id); }
 private:

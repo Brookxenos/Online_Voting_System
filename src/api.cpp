@@ -644,6 +644,20 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"election", electionJson(result.election)}});
     });
 
+    server.addRoute("DELETE", "/api/elections/:id", [&, authService, electionService](const HttpServer::Request& req) {
+        auto actor = currentUser(req, *authService);
+        if (!actor) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
+        const auto status = electionService->removeSafely(*actor, id);
+        if (status == ElectionService::DeleteStatus::Invalid) return fail(400, "Invalid election id");
+        if (status == ElectionService::DeleteStatus::NotFound) return fail(404, "Election not found");
+        if (status == ElectionService::DeleteStatus::Forbidden) return fail(403, "Administrator access required for this election");
+        if (status == ElectionService::DeleteStatus::Conflict)
+            return fail(409, "Only draft elections with no ballots, participation, published results, or tally records can be deleted; archive other elections to retain their records");
+        return ok({{"message", json::Value(std::string("Draft election deleted; audit history retained"))}});
+    });
+
     // ======================= Candidates ====================================
 
     server.addRoute("GET", "/api/elections/:id/candidates", [&, authService, candidateService, candidateRepository](const HttpServer::Request& req) {
@@ -1060,6 +1074,22 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         auto target = store.findUserById(id);
         store.addAudit(user->username, disabled ? "USER_DISABLED" : "USER_ENABLED", 0, target->username);
         return ok();
+    });
+
+    server.addRoute("DELETE", "/api/users/:id", [&, authService, userService](const HttpServer::Request& req) {
+        auto actor = currentUser(req, *authService);
+        if (!actor) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
+        const auto status = userService->remove(*actor, id);
+        if (status == UserService::Status::NotFound) return fail(404, "User not found");
+        if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
+        if (status == UserService::Status::Protected) return fail(403, "Platform administrator accounts are protected");
+        if (status == UserService::Status::MustDisable) return fail(409, "Disable the account before deleting it");
+        if (status == UserService::Status::HasLinkedRecords)
+            return fail(409, "This account has election participation, eligibility, or created elections; disable it to preserve those records");
+        if (status != UserService::Status::Ok) return fail(400, "User could not be deleted");
+        return ok({{"message", json::Value(std::string("User deleted; audit history retained"))}});
     });
 
     server.addRoute("POST", "/api/users/:id/password", [&, authService, userService, userRepository](const HttpServer::Request& req) {

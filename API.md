@@ -44,6 +44,7 @@ are not discoverable after migration unless opted in.
 | `GET /api/elections/:id` | Authenticated and election-visible | — | Election, candidates, permitted participation state |
 | `POST /api/elections/:id` | Election administrator; draft only | Any supported election fields: `name`, `description`, `discoverable`, `showLiveResults`, `startAt`, `endAt` | Updated election; 409 outside draft |
 | `POST /api/elections/:id/status` | Organization administrator for its organization or platform administrator | `status`: `open`, `closed`, `published`, or `archived` | Updated lifecycle state; invalid transitions return 409. A draft may be archived; the record is retained and removed from public discovery. Rejected authorized lifecycle requests are audited. |
+| `DELETE /api/elections/:id` | Platform admin or organization admin for the election's organization | — | Deletes only a draft with no ballots, participation, tally records, or published results; candidates and eligibility attached to that unused draft are removed. The deletion is audited. Other elections must be archived to retain their records. |
 | `GET /api/elections/:id/candidates` | Authenticated and election-visible | — | Candidates and election status |
 | `POST /api/elections/:id/candidates` | Election administrator; draft only | `name` (1–200 chars), optional `party` (≤200), `description` (≤2000), `position` (nonnegative) | Created candidate |
 | `POST /api/elections/:id/candidates/:candidateId` | Election administrator; draft only | Optional `name`, `party`, `description`, `position` | Updated candidate |
@@ -75,13 +76,13 @@ separate reviewer approval state or independent tally verification.
 | `POST /api/users` | Platform admin or organization admin (scoped) | `username`, `password`, optional `displayName`, `role`, `orgId` | Created account; organization-bound roles require an existing organization; org admins are fixed to their own organization and cannot grant platform-admin role |
 | `POST /api/users/:id` | Platform admin or organization admin for the target's organization | `displayName`, `role`, `orgId` | Updates account profile and role; organization-bound roles require an existing organization; platform-admin accounts have no organization assignment |
 | `POST /api/users/:id/disable` | Platform admin or organization admin in same organization | optional `disabled` (defaults true) | Changes account state; disabling revokes sessions |
+| `DELETE /api/users/:id` | Platform admin or organization admin in same organization | — | Permanently removes only a disabled, non-platform-admin account with no election eligibility, participation, or elections created by it. Linked-record accounts must be retained; deletion is audited. |
 | `POST /api/users/:id/password` | Platform admin or organization admin for a different user in the same organization | `password` (8–256 characters) | Replaces the password hash, revokes sessions and records an audit event; self-service changes require the current password at `/api/auth/password` |
 | `GET /api/audit` | Platform admin (platform-wide), organization admin or observer (own-organization election events only) | optional `electionId` | Recent sanitized audit events; no audit mutation or deletion route is exposed |
 
 ## Current limits
 
-- Password recovery, email verification, notifications, and draft-election
-  deletion are not implemented. A separate result-review/finalization state is
+- Password recovery, email verification, and notifications are not implemented. A separate result-review/finalization state is
   deferred until reviewer roles and approval rules are specified.
 - Tally publication uses the current single-choice model. Tie resolution is
   undefined; the API does not claim an official winner.

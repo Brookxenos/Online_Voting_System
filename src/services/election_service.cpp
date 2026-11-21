@@ -58,3 +58,17 @@ ElectionService::Result ElectionService::updateDraft(const User& actor,long long
     if(!repository_.updateDraft(id,next)) return {Status::Conflict,{}};
     return {Status::Ok,*repository_.get(id)};
 }
+
+ElectionService::DeleteStatus ElectionService::removeSafely(const User& actor, long long id) {
+    if (id <= 0) return DeleteStatus::Invalid;
+    auto current = repository_.get(id);
+    if (!current) return DeleteStatus::NotFound;
+    if (!canManage(actor, *current)) return DeleteStatus::Forbidden;
+    switch (repository_.deleteDraftSafely(id, actor.username)) {
+        case Store::DeleteElectionResult::Deleted: return DeleteStatus::Deleted;
+        case Store::DeleteElectionResult::NotFound: return DeleteStatus::NotFound;
+        case Store::DeleteElectionResult::NotDraft:
+        case Store::DeleteElectionResult::HasVotingRecords: return DeleteStatus::Conflict;
+    }
+    return DeleteStatus::Conflict;
+}

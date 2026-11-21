@@ -4,7 +4,8 @@
 
 class UserService {
 public:
-    enum class Status { Ok, Invalid, Forbidden, NotFound, Duplicate, OrgNotFound };
+    enum class Status { Ok, Invalid, Forbidden, NotFound, Duplicate, OrgNotFound,
+                        MustDisable, Protected, HasLinkedRecords };
     struct Result { Status status = Status::Invalid; User user; };
     explicit UserService(UserRepository& repository) : repository_(repository) {}
     std::vector<User> list(const User& actor, long long requestedOrgId, Status& status);
@@ -14,6 +15,7 @@ public:
                   const std::string& role, long long orgId);
     Status setDisabled(const User& actor, long long id, bool disabled);
     Status changePassword(const User& actor, long long id, const std::string& password);
+    Status remove(const User& actor, long long id);
 private:
     UserRepository& repository_;
     bool mayManage(const User& actor, const User& target) const;

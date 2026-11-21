@@ -328,6 +328,38 @@ void Store::setUserDisabled(long long userId, bool disabled) {
     if (disabled) revokeAllSessions(userId);
 }
 
+Store::DeleteUserResult Store::deleteUserSafely(long long userId, const std::string& actor) {
+    DeleteUserResult result = DeleteUserResult::NotFound;
+    db_.tx([&] {
+        const auto users = db_.query("SELECT username,role,disabled FROM users WHERE id=?",
+                                     {std::to_string(userId)});
+        if (users.empty()) return;
+        const auto& user = users.front();
+        if (user.at("role") == "platform_admin") {
+            result = DeleteUserResult::Protected;
+            return;
+        }
+        if (user.at("disabled") != "1") {
+            result = DeleteUserResult::MustDisable;
+            return;
+        }
+        const auto linked = db_.query(
+            "SELECT (SELECT COUNT(*) FROM participation WHERE user_id=?) + "
+            "(SELECT COUNT(*) FROM eligibility WHERE user_id=?) + "
+            "(SELECT COUNT(*) FROM elections WHERE created_by=?) AS n",
+            {std::to_string(userId), std::to_string(userId), std::to_string(userId)});
+        if (!linked.empty() && std::stoll(linked.front().at("n")) > 0) {
+            result = DeleteUserResult::HasLinkedRecords;
+            return;
+        }
+        addAudit(actor, "USER_DELETED", 0,
+                 "user id " + std::to_string(userId) + " username " + user.at("username"));
+        db_.exec("DELETE FROM users WHERE id=?", {std::to_string(userId)});
+        result = DeleteUserResult::Deleted;
+    });
+    return result;
+}
+
 std::string Store::participationAt(long long electionId, long long userId) {
     auto rows = db_.query("SELECT voted_at FROM participation WHERE election_id=? AND user_id=?",
                           {std::to_string(electionId), std::to_string(userId)});
@@ -421,6 +453,36 @@ Store::CreateElectionResult Store::createElection(Election& e) {
     e.status = "draft";
     e.createdAt = nowIso();
     return CreateElectionResult::Ok;
+}
+
+Store::DeleteElectionResult Store::deleteDraftElectionSafely(long long electionId,
+                                                              const std::string& actor) {
+    DeleteElectionResult result = DeleteElectionResult::NotFound;
+    db_.tx([&] {
+        const auto elections = db_.query(
+            "SELECT name,status,results_public,published_at FROM elections WHERE id=?",
+            {std::to_string(electionId)});
+        if (elections.empty()) return;
+        const auto& election = elections.front();
+        if (election.at("status") != "draft") {
+            result = DeleteElectionResult::NotDraft;
+            return;
+        }
+        const auto linked = db_.query(
+            "SELECT (SELECT COUNT(*) FROM ballots WHERE election_id=?) + "
+            "(SELECT COUNT(*) FROM participation WHERE election_id=?) + "
+            "(SELECT COUNT(*) FROM tally_runs WHERE election_id=?) AS n",
+            {std::to_string(electionId), std::to_string(electionId), std::to_string(electionId)});
+        const bool published = election.at("results_public") == "1" || !election.at("published_at").empty();
+        if (published || (!linked.empty() && std::stoll(linked.front().at("n")) > 0)) {
+            result = DeleteElectionResult::HasVotingRecords;
+            return;
+        }
+        addAudit(actor, "ELECTION_DELETED", electionId, election.at("name"));
+        db_.exec("DELETE FROM elections WHERE id=? AND status='draft'", {std::to_string(electionId)});
+        result = DeleteElectionResult::Deleted;
+    });
+    return result;
 }
 
 std::optional<Election> Store::getElection(long long id) {

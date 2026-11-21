@@ -6,6 +6,9 @@ class ElectionRepository {
 public:
     explicit ElectionRepository(Store& store) : store_(store), audit_(store) {}
     Store::CreateElectionResult create(Election& e) { return store_.createElection(e); }
+    Store::DeleteElectionResult deleteDraftSafely(long long id, const std::string& actor) {
+        return store_.deleteDraftElectionSafely(id, actor);
+    }
     std::optional<Election> get(long long id) { return store_.getElection(id); }
     std::vector<Election> listVisible(const User& user) { return store_.listElectionsVisibleTo(user); }
     bool updateDraft(long long id, const Election& e) { return store_.updateElectionDraft(id, e); }

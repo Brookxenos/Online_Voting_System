@@ -55,6 +55,19 @@
 
 ## Session entries
 
+### 2026-11-22 --- Codex --- Unify screens and add guarded admin deletion
+
+- **Status:** Implemented; automated checks pass after fixing a test-order issue. Browser visual review remains unavailable.
+- **Approved scope:** Restore the ElectraVote visual direction, apply consistent shared UI rules, make admin actions usable, and allow safe cleanup of eligible users and elections.
+- **Summary:** Added a shared component layer using the existing teal, gray and white theme for page headings, buttons, forms, tables, and empty/loading feedback. Added confirmed deletion actions to admin user/election lists. The backend permits deletion only of disabled non-platform accounts with no election-linked records and unused draft elections; it retains audit events and blocks linked records, published records and archived elections. Existing archive behavior remains available.
+- **Files changed:** `web/style.css`, `web/app.js`, `src/api.cpp`, `src/store.h`, `src/store.cpp`, `src/services/user_service.h`, `src/services/user_service.cpp`, `src/services/election_service.h`, `src/services/election_service.cpp`, `src/repositories/user_repository.h`, `src/repositories/election_repository.h`, `tests/smoke.sh`, `API.md`, `PROGRESS_LOG.md`.
+- **Decisions:** No schema migration. Draft elections with no voting/tally records may be deleted; other elections must be archived. User deletion requires deactivation and no participation, eligibility, or created-election links. Audit history is retained.
+- **Commands and results:** `make -j2` (passed); `node --check web/app.js` (passed); `bash -n tests/smoke.sh` (passed); `git diff --check` (passed); `bash tests/smoke.sh` with local socket access (176 passed, 0 failed). The initial `make test` attempt was blocked by sandbox socket restrictions; the approved run passed its unit suites but exposed one test-order issue, which was fixed before the smoke rerun.
+- **Legacy import:** The smoke test verified CSV migration, imported election state, source-file preservation, and idempotency after restart.
+- **Security/privacy implications:** Deletion authorization is checked on the server, in organization scope, and within database transactions. Platform administrator accounts and accounts/elections with voting records are protected. Deletes are audit logged; no password hashes or ballot choices are exposed. No runtime election database was intentionally altered.
+- **Known gaps:** Visual inspection at desktop/mobile widths remains pending because browser access is unavailable. The shared styles improve consistency across pages, but every non-admin page interaction was not exhaustively re-audited.
+- **Next exact task:** Review the shared page components and admin deletion confirmations in a browser at desktop and mobile widths, then address any specific visual defects.
+
 ### 2026-11-18 --- Codex --- Fix the legacy nested startup entry point
 
 - **Status:** The nested `voting_system/start.sh` now delegates to the current repository launcher.

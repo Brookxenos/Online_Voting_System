@@ -41,6 +41,7 @@ check() {
 
 jpost() { curl -s -X POST "$BASE$1" -H 'Content-Type: application/json' -d "$2" "${@:3}"; }
 jget()  { curl -s "$BASE$1" "${@:2}"; }
+jdelete() { curl -s -X DELETE "$BASE$1" "${@:2}"; }
 
 echo "== starting server on $PORT (temp db: $TMP/data) =="
 ADMIN_PW="smoke-admin-pw-1"
@@ -104,6 +105,19 @@ check "organization-bound role requires organization assignment" "Invalid user i
 check "platform administrator creation clears organization scope" '"orgId":0' \
   "$(jpost /api/users '{"username":"platform2","password":"password123","role":"platform_admin","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
+check "create disposable account for safe deletion checks" '"username":"cleanup"' \
+  "$(jpost /api/users '{"username":"cleanup","password":"password123","role":"voter","orgId":2}' -b "$TMP/admin.jar")"
+check "active user cannot be deleted" "Disable the account before deleting it" \
+  "$(jdelete /api/users/6 -b "$TMP/admin.jar")"
+check "organization admin cannot delete users outside its organization" "Access denied" \
+  "$(jdelete /api/users/2 -b "$TMP/admb.jar")"
+check "platform administrator account cannot be deleted" "Platform administrator accounts are protected" \
+  "$(jdelete /api/users/5 -b "$TMP/admin.jar")"
+check "disable unused account before removal" '"ok":true' \
+  "$(jpost /api/users/6/disable '{"disabled":true}' -b "$TMP/admb.jar")"
+check "organization admin deletes disabled unused account" '"ok":true' \
+  "$(jdelete /api/users/6 -b "$TMP/admb.jar")"
+check "deleted account no longer exists" "User not found" "$(jget /api/users/6 -b "$TMP/admin.jar")"
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
 check "organization admin views own organization" '"slug":"org-b"' "$(jget /api/orgs/2 -b "$TMP/admb.jar")"
 check "organization admin cannot view another organization" "Access denied" "$(jget /api/orgs/1 -b "$TMP/admb.jar")"
@@ -365,13 +379,23 @@ jpost /api/elections/5/eligibility '{"username":"voterA","action":"grant"}' -b "
 jpost /api/elections/5/status '{"status":"open"}' -b "$TMP/admin.jar" > /dev/null
 check "vote after configured end time rejected by backend" "Voting is not open at this time" \
   "$(jpost /api/elections/5/vote '{"candidateId":6}' -b "$TMP/voterA.jar")"
-
+check "ballot-backed published election cannot be deleted" "Only draft elections with no ballots" \
+  "$(jdelete /api/elections/1 -b "$TMP/admin.jar")"
+check "archived election cannot be deleted" "Only draft elections with no ballots" \
+  "$(jdelete /api/elections/3 -b "$TMP/admin.jar")"
+jpost /api/elections '{"orgId":1,"name":"Disposable draft"}' -b "$TMP/admin.jar" > /dev/null
+check "other organization cannot delete draft election" "Administrator access required" \
+  "$(jdelete /api/elections/6 -b "$TMP/admb.jar")"
+check "unused draft can be deleted" '"ok":true' "$(jdelete /api/elections/6 -b "$TMP/admin.jar")"
+check "deleted draft no longer exists" "Election not found" "$(jget /api/elections/6 -b "$TMP/admin.jar")"
 echo "-- audit hygiene --"
 AUDIT=$(jget /api/audit -b "$TMP/admin.jar")
 check "audit records ballot event" "VOTE_CAST" "$AUDIT"
 check "audit records lifecycle open, close, publish, archive and rejected events" "LIFECYCLE_REJECTED" "$AUDIT"
 check "audit records lifecycle action names" "ELECTION_PUBLISHED" "$AUDIT"
 check "audit records user-management actions" "USER_CREATED" "$AUDIT"
+check "audit retains user and draft election deletion events" "USER_DELETED" "$AUDIT"
+check "audit retains election deletion event" "ELECTION_DELETED" "$AUDIT"
 check "audit records authenticated actor with action metadata" '"actor":"admin"' "$AUDIT"
 check "vote audit event omits ballot choice detail" '"action":"VOTE_CAST","actor":"voterA","detail":""' "$AUDIT"
 if [[ "$AUDIT" == *"password"* ]]; then
@@ -380,6 +404,10 @@ else
   PASS=$((PASS+1)); echo "  PASS: audit contains no password strings"
 fi
 check "voter cannot read audit" "Administrator or observer" "$(jget /api/audit -b "$TMP/voterA.jar")"
+check "disable participation-linked voter before removal check" '"ok":true' \
+  "$(jpost /api/users/2/disable '{"disabled":true}' -b "$TMP/admin.jar")"
+check "participation-linked voter deletion is blocked" "participation, eligibility, or created elections" \
+  "$(jdelete /api/users/2 -b "$TMP/admin.jar")"
 check "org admin B cannot read org A audit for A1" "Access denied" \
   "$(jget '/api/audit?electionId=1' -b "$TMP/admb.jar")"
 AUDIT_B=$(jget /api/audit -b "$TMP/admb.jar")

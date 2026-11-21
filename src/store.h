@@ -39,7 +39,9 @@ public:
 
     // --- Users --------------------------------------------------------------
     enum class CreateUserResult { Ok, DuplicateUsername, OrgNotFound };
+    enum class DeleteUserResult { Deleted, NotFound, MustDisable, Protected, HasLinkedRecords };
     CreateUserResult createUser(User& user); // fills id/createdAt
+    DeleteUserResult deleteUserSafely(long long userId, const std::string& actor);
     std::optional<User> findUserByUsername(const std::string& username);
     std::optional<User> findUserById(long long id);
     std::vector<User> listUsers(std::optional<long long> orgId = std::nullopt);
@@ -60,7 +62,9 @@ public:
 
     // --- Elections ----------------------------------------------------------
     enum class CreateElectionResult { Ok, OrgNotFound };
+    enum class DeleteElectionResult { Deleted, NotFound, NotDraft, HasVotingRecords };
     CreateElectionResult createElection(Election& e); // fills id/createdAt
+    DeleteElectionResult deleteDraftElectionSafely(long long electionId, const std::string& actor);
     std::optional<Election> getElection(long long id);
     // Elections the user may see:
     //   platform_admin: all elections

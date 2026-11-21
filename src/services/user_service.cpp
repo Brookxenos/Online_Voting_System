@@ -94,3 +94,17 @@ UserService::Status UserService::changePassword(const User& actor, long long id,
     repository_.revokeSessions(id);
     return Status::Ok;
 }
+
+UserService::Status UserService::remove(const User& actor, long long id) {
+    auto target = repository_.find(id);
+    if (!target) return Status::NotFound;
+    if (target->id == actor.id || !mayManage(actor, *target)) return Status::Forbidden;
+    switch (repository_.deleteSafely(id, actor.username)) {
+        case Store::DeleteUserResult::Deleted: return Status::Ok;
+        case Store::DeleteUserResult::NotFound: return Status::NotFound;
+        case Store::DeleteUserResult::MustDisable: return Status::MustDisable;
+        case Store::DeleteUserResult::Protected: return Status::Protected;
+        case Store::DeleteUserResult::HasLinkedRecords: return Status::HasLinkedRecords;
+    }
+    return Status::Invalid;
+}
