@@ -1620,3 +1620,14 @@
 - **Security/privacy implications:** Election participation totals are displayed only when the existing API authorizes visibility; otherwise UI labels them hidden. No ballot choices or password hashes are exposed. Password resets revoke active sessions and are audited. Live indicator conveys election state only, not results. No runtime election DB was deliberately changed; pre-existing WAL/SHM working-tree changes remain untouched.
 - **Known issues:** Must-change-on-first-login is not enforced; the admin must privately deliver the temporary password and ask the user to change it in Profile. Legacy CSV has no administrator upload/re-import workflow by design; source CSVs are only consumed on initial eligible startup. Deletion remains unavailable to protect election records. Browser visual/responsive walkthrough was not performed. Dashboard polling refreshes every 30 seconds; no live results are exposed unless existing `showLiveResults` rules allow them.
 - **Exact next task:** Perform a browser walkthrough of the administration and voter dashboards at desktop and mobile widths, then decide whether a future schema-backed forced-password-change flow and a separately approved legacy CSV upload/import workflow are needed.
+
+### 2026-11-21 --- Codex --- Align administration layout with supplied dashboard reference
+
+- **Status:** Updated the administration workspace to use the reference's left section rail and compact elections table while retaining ElectraVote's existing colors, branding, five real summary metrics, filters and server-backed actions.
+- **Approved scope:** Follow-up direction to use `/home/brook/Pictures/Screenshots/Screenshot From 2026-11-21 19-34-18.png` as the admin layout reference and keep the color combination.
+- **Files modified:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Reused Elections, Organizations, Users and Audit Log as the section rail; election table shows only existing API values and preserves the current status/access rules. No mock statistics, branding or palette changes.
+- **Commands run:** `node --check web/app.js` (passed); `make -j2` (passed; no native rebuild needed); `git diff --check` (passed); `make test` (passed with localhost socket permission using isolated test databases).
+- **Tests:** Full suite passed: 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks (189 total, 0 failed). Browser access host is unavailable, so visual browser walkthrough could not be performed.
+- **Known gaps:** The new rail/table layout has source-level and responsive CSS only until browser rendering can be reviewed.
+- **Exact next task:** Verify JavaScript/build/test checks, then do a desktop/mobile browser walkthrough once browser access is available.
