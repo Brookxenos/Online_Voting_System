@@ -1653,3 +1653,14 @@
 - **Tests:** 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks passed (189 total, 0 failed).
 - **Known gaps:** Browser access host remains unavailable; rendered visual QA across desktop/mobile widths could not be performed.
 - **Exact next task:** Review the rendered admin page in a browser once access is available and adjust any remaining visual issues from that concrete view.
+
+### 2026-11-21 --- Codex --- Consolidate administration dashboard design
+
+- **Status:** Consolidated admin-only styling into a single system for the outer workspace, title/action row, statistics, tabs, section headings, forms, filters, election rows, tables, and user actions. Primary, secondary and text/destructive actions remain distinct in the existing palette.
+- **Approved scope:** Owner request to make the admin UI consistent, clean and organized.
+- **Files modified:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Retained horizontal administration tabs and row-based election list; no branding, palette, backend or permissions change. CSS hidden state explicitly suppresses forms until opened. Admin button styles are variant-specific rather than one style for every button.
+- **Commands run:** Pending final checks.
+- **Tests:** Pending final checks. Browser access host reports unavailable, so no rendered screenshot review.
+- **Known gaps:** Visual browser QA remains required when the browser host is available.
+- **Exact next task:** Verify JS, build and existing suite; then review the admin page in a browser at desktop and mobile widths.

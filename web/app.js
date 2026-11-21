@@ -992,6 +992,7 @@ async function renderAdmin(view) {
         <button class="tab" data-tab="audit" role="tab">Audit log</button>
       </nav>
       <div id="tab-elections" class="tab-panel active">
+        <div class="admin-section-heading"><div><h2>Elections</h2><p>Manage schedules, voter access and publication.</p></div></div>
         <form id="form-new-election" class="stack-form panel admin-create-form" hidden>
           <div class="admin-form-heading"><h2>Create an election</h2><p class="muted">Set the organization, schedule and visibility. Add candidates and eligible voters after creating the draft.</p></div>
           ${state.user.role === 'platform_admin' ? `
@@ -1027,7 +1028,7 @@ async function renderAdmin(view) {
       </div>
       ${state.user.role === 'platform_admin' ? `
       <div id="tab-orgs" class="tab-panel">
-        <div class="btn-row"><button class="btn btn-primary" id="btn-new-org">+ New organization</button></div>
+        <div class="admin-section-heading"><div><h2>Organizations</h2><p>Manage organization settings and registration.</p></div><button class="btn btn-primary" id="btn-new-org">+ New organization</button></div>
         <form id="form-new-org" class="stack-form panel" hidden>
           <label>Name<input type="text" name="name" maxlength="100" required></label>
           <label>Slug (URL-safe identifier)<input type="text" name="slug" maxlength="32" required></label>
@@ -1040,7 +1041,7 @@ async function renderAdmin(view) {
         <div id="org-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>` : ''}
       <div id="tab-users" class="tab-panel">
-        <div class="btn-row"><button class="btn btn-primary" id="btn-new-user">+ New user</button></div>
+        <div class="admin-section-heading"><div><h2>Users</h2><p>Manage accounts, roles and access.</p></div><button class="btn btn-primary" id="btn-new-user">+ New user</button></div>
         <form id="form-new-user" class="stack-form panel" hidden>
           <label>Username<input type="text" name="username" maxlength="32" required></label>
           <label>Display name<input type="text" name="displayName" maxlength="100"></label>
@@ -1065,7 +1066,7 @@ async function renderAdmin(view) {
         <div id="user-list" class="table-wrap"><div class="loading-state">Loading users…</div></div>
       </div>
       <div id="tab-audit" class="tab-panel">
-        <div class="btn-row"><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
+        <div class="admin-section-heading"><div><h2>Audit log</h2><p>Read-only history of administrative and election activity.</p></div><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
         <div id="audit-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>
     </section>`;
