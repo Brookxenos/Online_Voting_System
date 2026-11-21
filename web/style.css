@@ -2416,8 +2416,7 @@ input,select,textarea { max-width:100%; }
   .admin-election-detail .tabs { flex-wrap:nowrap;overflow-x:auto; }
 }
 @media(prefers-reduced-motion:reduce) {
-  .admin-dashboard .btn,.admin-election-detail .btn,
-  .admin-dashboard .btn:hover,.admin-election-detail .btn:hover,
+  .admin-election-detail .btn,.admin-election-detail .btn:hover,
   .admin-election-detail .tab { transition:none;transform:none; }
 }
 

@@ -1660,7 +1660,7 @@
 - **Approved scope:** Owner request to make the admin UI consistent, clean and organized.
 - **Files modified:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
 - **Decisions:** Retained horizontal administration tabs and row-based election list; no branding, palette, backend or permissions change. CSS hidden state explicitly suppresses forms until opened. Admin button styles are variant-specific rather than one style for every button.
-- **Commands run:** Pending final checks.
-- **Tests:** Pending final checks. Browser access host reports unavailable, so no rendered screenshot review.
+- **Commands run:** `node --check web/app.js` (passed); `make -j2` (passed; no native rebuild needed); `git diff --check` (passed); `make test` (passed with localhost socket permission).
+- **Tests:** 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks passed (189 total, 0 failed). Browser access host reports unavailable, so no rendered screenshot review.
 - **Known gaps:** Visual browser QA remains required when the browser host is available.
 - **Exact next task:** Verify JS, build and existing suite; then review the admin page in a browser at desktop and mobile widths.
