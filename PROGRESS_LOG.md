@@ -1638,7 +1638,7 @@
 - **Approved scope:** Owner request to return to the first UI design.
 - **Files modified:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
 - **Decisions:** Preserved summary metrics, election details, LIVE status, user password reset, dashboard refresh, existing palette and all backend behavior.
-- **Commands run:** Pending checks.
-- **Tests:** Pending checks.
+- **Commands run:** `node --check web/app.js` (passed); `make -j2` (passed; no native rebuild needed); `git diff --check` (passed); `make test` (passed with localhost socket permission).
+- **Tests:** Full suite passed: 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks (189 total, 0 failed).
 - **Known gaps:** Browser rendering still cannot be reviewed because the browser host is unavailable.
 - **Exact next task:** Run frontend syntax/build/test checks and retain the restored row-based admin layout unless the owner requests another adjustment.
