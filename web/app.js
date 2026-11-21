@@ -985,16 +985,13 @@ async function renderAdmin(view) {
     <section class="card admin-dashboard">
       <header class="page-head-inline admin-dashboard-heading"><div><p class="section-kicker">ElectraVote</p><h1>Administration</h1><p class="muted">Manage elections, organizations, accounts and the audit trail.</p></div><button class="btn btn-primary" id="btn-new-election">+ New election</button></header>
       <div class="dashboard-stats" id="admin-statistics" aria-label="Administration summary"><div class="stat-card"><span>Total Elections</span><strong>—</strong></div><div class="stat-card"><span>Active Elections</span><strong>—</strong></div><div class="stat-card"><span>Total Candidates</span><strong>—</strong></div><div class="stat-card"><span>Registered Voters</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div></div>
-      <div class="admin-workspace">
-      <nav class="tabs admin-section-nav" role="tablist" aria-label="Administration sections">
+      <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="elections" role="tab">Elections</button>
         ${state.user.role === 'platform_admin' ? '<button class="tab" data-tab="orgs" role="tab">Organizations</button>' : ''}
         <button class="tab" data-tab="users" role="tab">Users</button>
         <button class="tab" data-tab="audit" role="tab">Audit log</button>
       </nav>
-      <div class="admin-section-content">
       <div id="tab-elections" class="tab-panel active">
-        <div class="admin-section-toolbar"><div><h2>Elections</h2><p class="muted">Review schedules, participation and election status.</p></div></div>
         <form id="form-new-election" class="stack-form panel admin-create-form" hidden>
           <div class="admin-form-heading"><h2>Create an election</h2><p class="muted">Set the organization, schedule and visibility. Add candidates and eligible voters after creating the draft.</p></div>
           ${state.user.role === 'platform_admin' ? `
@@ -1071,8 +1068,6 @@ async function renderAdmin(view) {
         <div class="btn-row"><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
         <div id="audit-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>
-      </div>
-      </div>
     </section>`;
 
   bindTabs(view);
@@ -1119,11 +1114,11 @@ async function renderAdmin(view) {
     const filtered = adminElectionRecords.filter(e => (!q || `${e.name} ${e.description || ''}`.toLocaleLowerCase().includes(q)) && (status === 'all' || e.status === status));
     filtered.sort((a,b) => sort === 'title' ? a.name.localeCompare(b.name) : (Date.parse(a.startAt || '') || 0) - (Date.parse(b.startAt || '') || 0));
     const shown = filtered.slice(0,adminElectionPageSize);
-    listEl.innerHTML = shown.length ? `<div class="table-wrap admin-elections-table"><table><thead><tr><th>Election</th><th>Start date</th><th>End date</th><th>Status</th><th>Candidates</th><th>Eligible voters</th><th>Votes cast</th><th>Actions</th></tr></thead><tbody>${shown.map(e => {
-      const metric = adminElectionMetrics[e.id];
-      const formatDate = value => value ? new Date(value).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}) : 'Not scheduled';
-      return `<tr><td><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><span class="admin-election-org">${escapeHtml(adminOrganizationNames[e.orgId] || ('Organization ' + e.orgId))}</span></td><td>${escapeHtml(formatDate(e.startAt))}</td><td>${escapeHtml(formatDate(e.endAt))}</td><td><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${e.status === 'open' ? '<span class="admin-live-dot" aria-hidden="true"></span>LIVE · ' : ''}${fmtStatus(e.status)}</span></td><td>${metric ? metric.candidates : '—'}</td><td>${metric ? metric.eligible : '—'}</td><td>${metric && metric.votes >= 0 ? metric.votes : 'Hidden'}</td><td><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></td></tr>`;
-    }).join('')}</tbody></table></div>` : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
+    listEl.innerHTML = shown.length ? shown.map(e => `
+      <div class="election-row">
+        <div class="election-row-main"><div class="admin-election-title-line">${e.status === 'open' ? '<span class="admin-live-indicator"><i aria-hidden="true"></i> LIVE</span>' : ''}<a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a></div><div class="muted small">${escapeHtml(adminOrganizationNames[e.orgId] || ('Organization ' + e.orgId))} · ${escapeHtml(e.description || 'No description')}</div><div class="muted small">${e.startAt ? new Date(e.startAt).toLocaleString() : 'No start date'} — ${e.endAt ? new Date(e.endAt).toLocaleString() : 'No end date'}</div><div class="admin-election-metrics"><span>${adminElectionMetrics[e.id] ? adminElectionMetrics[e.id].candidates : '—'} candidates</span><span>${adminElectionMetrics[e.id] ? adminElectionMetrics[e.id].eligible : '—'} eligible voters</span><span>${adminElectionMetrics[e.id] && adminElectionMetrics[e.id].votes >= 0 ? adminElectionMetrics[e.id].votes + ' votes cast' : 'Votes hidden'}</span></div></div>
+        <div class="election-row-side"><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${fmtStatus(e.status)}</span><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></div>
+      </div>`).join('') : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
     if (shown.length && filtered.length > shown.length) listEl.innerHTML += '<button class="btn btn-secondary" id="admin-election-load-more">Load more</button>';
     const more = document.getElementById('admin-election-load-more');
     if (more) more.addEventListener('click',() => { adminElectionPageSize += 10; drawAdminElections(); });

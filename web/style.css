@@ -2454,24 +2454,3 @@ input,select,textarea { max-width:100%; }
   .admin-dashboard-heading .btn { width:100%; }
 }
 @media(prefers-reduced-motion:reduce) { .admin-live-indicator i { animation:none; } }
-.admin-workspace { display:grid;grid-template-columns:176px minmax(0,1fr);gap:20px;align-items:start; }
-.admin-dashboard .admin-section-nav { display:flex;flex-direction:column;align-items:stretch;gap:5px;margin:0;padding:7px;border:0;border-right:1px solid var(--border);border-radius:0;background:transparent; }
-.admin-dashboard .admin-section-nav .tab { width:100%;text-align:left;justify-content:flex-start; }
-.admin-dashboard .admin-section-content { min-width:0; }
-.admin-section-toolbar { display:flex;align-items:center;justify-content:space-between;gap:15px;margin:0 0 12px; }
-.admin-section-toolbar h2 { margin:0 0 4px;color:var(--brand-ink);font-size:1.2rem; }
-.admin-section-toolbar p { margin:0;font-size:.87rem; }
-.admin-elections-table { max-width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:11px; }
-.admin-elections-table table { min-width:900px;width:100%;border-collapse:separate;border-spacing:0; }
-.admin-elections-table th { padding:12px 13px;background:var(--surface-2);color:var(--brand-ink);font-size:.77rem;white-space:nowrap; }
-.admin-elections-table td { padding:13px;border-top:1px solid var(--border);vertical-align:middle;font-size:.82rem; }
-.admin-elections-table tr:hover td { background:var(--surface); }
-.admin-election-org { display:block;margin-top:4px;color:var(--text-muted);font-size:.75rem; }
-.admin-elections-table .pill { white-space:nowrap; }
-.admin-live-dot { display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:currentColor; }
-@media(max-width:760px) {
-  .admin-workspace { grid-template-columns:minmax(0,1fr);gap:12px; }
-  .admin-dashboard .admin-section-nav { flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--border); }
-  .admin-dashboard .admin-section-nav .tab { width:auto; }
-}
-@media(prefers-reduced-motion:reduce) { .admin-elections-table tr:hover td { transition:none; } }

@@ -1631,3 +1631,14 @@
 - **Tests:** Full suite passed: 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks (189 total, 0 failed). Browser access host is unavailable, so visual browser walkthrough could not be performed.
 - **Known gaps:** The new rail/table layout has source-level and responsive CSS only until browser rendering can be reviewed.
 - **Exact next task:** Verify JavaScript/build/test checks, then do a desktop/mobile browser walkthrough once browser access is available.
+
+### 2026-11-21 --- Codex --- Restore prior administration layout by owner request
+
+- **Status:** Reverted the screenshot-specific left rail and compact table. Restored the prior horizontal section tabs and election-row presentation while retaining the preceding administration improvements.
+- **Approved scope:** Owner request to return to the first UI design.
+- **Files modified:** `web/app.js`, `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Preserved summary metrics, election details, LIVE status, user password reset, dashboard refresh, existing palette and all backend behavior.
+- **Commands run:** Pending checks.
+- **Tests:** Pending checks.
+- **Known gaps:** Browser rendering still cannot be reviewed because the browser host is unavailable.
+- **Exact next task:** Run frontend syntax/build/test checks and retain the restored row-based admin layout unless the owner requests another adjustment.
