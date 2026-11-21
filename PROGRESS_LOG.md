@@ -1642,3 +1642,14 @@
 - **Tests:** Full suite passed: 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks (189 total, 0 failed).
 - **Known gaps:** Browser rendering still cannot be reviewed because the browser host is unavailable.
 - **Exact next task:** Run frontend syntax/build/test checks and retain the restored row-based admin layout unless the owner requests another adjustment.
+
+### 2026-11-21 --- Codex --- Admin dashboard polish after owner feedback
+
+- **Status:** Corrected admin form visibility and styling inconsistencies that made the dashboard feel broken. Forms now respect `hidden`; admin primary, secondary, link and danger actions have distinct treatments. Refined metrics, tabs, filters, election rows, user forms and responsive spacing without changing the brand palette.
+- **Approved scope:** Owner feedback that the admin dashboard looked broken and needed a professional UI.
+- **Files modified:** `web/style.css`, `PROGRESS_LOG.md`.
+- **Decisions:** Kept existing markup and actions; scoped changes to the admin dashboard and preserved current colors and branding.
+- **Commands run:** `node --check web/app.js` (passed); `make -j2` (passed; no native rebuild needed); `git diff --check` (passed); `make test` (passed with localhost socket permission).
+- **Tests:** 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks passed (189 total, 0 failed).
+- **Known gaps:** Browser access host remains unavailable; rendered visual QA across desktop/mobile widths could not be performed.
+- **Exact next task:** Review the rendered admin page in a browser once access is available and adjust any remaining visual issues from that concrete view.
