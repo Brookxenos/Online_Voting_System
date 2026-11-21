@@ -85,7 +85,10 @@ UserService::Status UserService::setDisabled(const User& actor, long long id, bo
 UserService::Status UserService::changePassword(const User& actor, long long id, const std::string& password) {
     auto target = repository_.find(id);
     if (!target) return Status::NotFound;
-    if (actor.id != target->id && !mayManage(actor, *target)) return Status::Forbidden;
+    // This endpoint is for administrator-initiated resets. Self-service
+    // password changes use /api/auth/password, which verifies the current
+    // password before updating the hash.
+    if (actor.id == target->id || !mayManage(actor, *target)) return Status::Forbidden;
     if (!validPassword(password)) return Status::Invalid;
     repository_.updatePasswordHash(id, crypto::hashPassword(password));
     repository_.revokeSessions(id);

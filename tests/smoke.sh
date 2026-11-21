@@ -124,6 +124,8 @@ check "platform admin cannot assign a user to missing organization" "Organizatio
  jpost /api/auth/login '{"username":"outsider","password":"password123"}' -c "$TMP/outsider.jar" > /dev/null
 check "org admin cannot reset password outside organization" "Access denied" \
   "$(jpost /api/users/2/password '{"password":"new-password-123"}' -b "$TMP/admb.jar")"
+check "administrator reset endpoint cannot bypass current-password self-change flow" "Access denied" \
+  "$(jpost /api/users/3/password '{"password":"unsafe-self-reset-123"}' -b "$TMP/admb.jar")"
 check "org admin deactivates organization user" '"ok":true' \
   "$(jpost /api/users/4/disable '{"disabled":true}' -b "$TMP/admb.jar")"
 check "deactivation revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"

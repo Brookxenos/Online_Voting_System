@@ -2420,3 +2420,37 @@ input,select,textarea { max-width:100%; }
   .admin-dashboard .btn:hover,.admin-election-detail .btn:hover,
   .admin-dashboard .tab,.admin-election-detail .tab { transition:none;transform:none; }
 }
+
+/* Step 12 administration dashboard hierarchy. Palette remains brand teal/ink. */
+.admin-dashboard { width:min(100%,1240px);margin-inline:auto;padding:clamp(18px,3vw,32px); }
+.admin-dashboard-heading { align-items:center;margin-bottom:20px;gap:20px; }
+.admin-dashboard-heading h1 { margin:0 0 5px; }
+.admin-dashboard-heading p.muted { margin:0; }
+.admin-dashboard-heading .btn { flex:0 0 auto; }
+.admin-dashboard .dashboard-stats { margin:0 0 22px; }
+.admin-dashboard .stat-card { min-height:108px;justify-content:center;gap:9px;padding:18px; }
+.admin-dashboard .tabs { margin:0 0 18px; }
+.admin-dashboard .tab-panel.active { padding:clamp(14px,2.2vw,22px);border:1px solid var(--border);border-radius:14px;background:var(--surface-strong); }
+.admin-create-form { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:0 0 20px;padding:clamp(16px,2.6vw,24px); }
+.admin-form-heading,.admin-form-wide,.admin-create-form > .btn-row,.admin-create-form > .error-box { grid-column:1/-1; }
+.admin-form-heading h2 { margin:0 0 5px;font-size:1.15rem; }
+.admin-form-heading p { margin:0; }
+.admin-create-form label { min-width:0; }
+.admin-create-form input,.admin-create-form select,.admin-create-form textarea { width:100%;min-height:44px; }
+.admin-election-title-line { display:flex;align-items:center;gap:9px;flex-wrap:wrap; }
+.admin-election-metrics { display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:9px;color:var(--text-muted);font-size:.8rem; }
+.admin-live-indicator { display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:var(--primary-soft);color:var(--brand-teal);font-size:.7rem;font-weight:800;letter-spacing:.04em; }
+.admin-live-indicator i { width:7px;height:7px;border-radius:50%;background:var(--brand-teal);animation:admin-live-pulse 1.8s ease-in-out infinite; }
+@keyframes admin-live-pulse { 50% { opacity:.45;box-shadow:0 0 0 4px rgba(13,115,119,.12); } }
+.admin-user-actions { display:grid;justify-items:start;gap:5px;min-width:180px; }
+.admin-reset-form { display:grid;gap:8px;min-width:min(280px,75vw);padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface); }
+.admin-reset-form label { display:grid;gap:5px;font-size:.8rem;font-weight:650; }
+.admin-reset-form input { min-height:40px;padding:8px 10px;border:1px solid var(--border);border-radius:8px; }
+.admin-reset-form small { max-width:340px;color:var(--text-muted);line-height:1.4; }
+@media(max-width:700px) {
+  .admin-dashboard-heading { align-items:flex-start;flex-direction:column; }
+  .admin-create-form { grid-template-columns:1fr; }
+  .admin-create-form > * { grid-column:1; }
+  .admin-dashboard-heading .btn { width:100%; }
+}
+@media(prefers-reduced-motion:reduce) { .admin-live-indicator i { animation:none; } }

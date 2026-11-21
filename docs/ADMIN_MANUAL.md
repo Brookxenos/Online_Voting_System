@@ -50,8 +50,13 @@ permissions. UI controls do not replace backend authorization.
 5. Use the account actions to enable or disable a user. Disabling an account
    revokes its active sessions. Re-enabling permits a new login but does not
    restore revoked sessions.
-6. Password reset operations do not return the password. The affected user
-   must receive the new credential through an approved private channel.
+6. Use **Reset password** in the user actions to set or generate a temporary
+   password. The reset revokes the user's active sessions and is recorded in
+   the audit log. The application does not enforce a first-login password
+   change, so deliver the temporary credential privately and ask the user to
+   update it from Profile immediately. The administrator reset action cannot
+   be used to change their own password; self-service verifies the current
+   password.
 7. Account creation does not grant eligibility for any election. Eligibility
    is configured separately for each election.
 
@@ -124,6 +129,20 @@ does not announce an official winner or provide independent tally verification.
 2. Confirm the archived status. Records and published results are retained;
    archiving does not delete ballots or participation records.
 3. Draft archives are terminal and likewise retain election records.
+
+## Legacy CSV records
+
+Legacy CSV migration runs automatically at startup only when initializing a
+database with no users and no prior legacy-import marker. It reads the
+recognized files from the configured data directory and preserves those
+files. When importable rows exist, the importer creates an organization named
+**Imported (legacy CSV data)** (`legacy-import`) and, when candidate rows are
+present, a closed historical election. The organization appears in the
+election-creation selector only after that import succeeds. This is not a
+repeatable upload workflow; do not try to trigger it by creating a new
+organization or election. Historical ballots were identity-linked in the
+source data and remain labeled as such. Use a planned backup and migration
+procedure before any future re-import or correction.
 
 ## Common administrative errors
 

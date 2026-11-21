@@ -336,13 +336,14 @@ function renderDashboard(view) {
   if (!state.user) { go('#/login'); return; }
   if (state.user.role === 'platform_admin' || state.user.role === 'org_admin') { go('#/admin'); return; }
   if (state.user.role === 'observer') { go('#/observer'); return; }
+  if (state.voterRefreshTimer) clearInterval(state.voterRefreshTimer);
   view.innerHTML = `
     <section class="card voter-dashboard">
       <header class="dashboard-welcome"><div><p class="section-kicker">Voter dashboard</p><h1>Welcome back, ${escapeHtml(state.user.displayName || state.user.username)}!</h1><p class="muted">Stay informed, explore elections, and make your voice count.</p></div><a class="btn btn-primary" href="#/elections">Explore elections</a></header>
       <div class="dashboard-stats" id="voter-stats" aria-label="Election summary"><div class="stat-card"><span>Available Elections</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div><div class="stat-card"><span>Upcoming Elections</span><strong>—</strong></div><div class="stat-card"><span>Completed Elections</span><strong>—</strong></div></div>
       <div id="voter-dashboard-content" class="dashboard-content" aria-live="polite"><div class="loading-state">Loading your elections…</div></div>
     </section>`;
-  api('me/dashboard').then(data => {
+  const refreshVoterDashboard = () => api('me/dashboard').then(data => {
     if (state.view !== 'dashboard') return;
     const list = data.elections || [];
     const now = Date.now();
@@ -357,9 +358,9 @@ function renderDashboard(view) {
     const activeItems = phases.filter(x => x.phase === 'active');
     const upcomingItems = phases.filter(x => x.phase === 'upcoming');
     const activityItems = list.filter(e => e.hasVoted === true);
-    const section = (title, items, empty, actionFor) => `<section class="dashboard-section"><h2>${title}</h2>${items.length ? `<div class="dashboard-election-list">${items.map(({e}) => `<article class="dashboard-election"><div><h3>${escapeHtml(e.name)}</h3><p>${escapeHtml(e.description || '')}</p><span class="muted small">${escapeHtml(electionWhen(e))}</span>${e.hasVoted && e.votedAt ? `<span class="muted small">Participation recorded ${escapeHtml(new Date(e.votedAt).toLocaleString())}</span>` : ''}${e.eligible === false && !e.hasVoted ? '<span class="muted small">Not on the voter list</span>' : ''}</div><a class="btn btn-secondary" href="#/election/${e.id}">${actionFor(e)}</a></article>`).join('')}</div>` : `<p class="empty">${empty}</p>`}</section>`;
+    const section = (title, items, empty, actionFor) => `<section class="dashboard-section"><h2>${title}</h2>${items.length ? `<div class="dashboard-election-list">${items.map(({e}) => `<article class="dashboard-election"><div>${electionPhase(e,Date.now()) === 'active' ? '<span class="admin-live-indicator"><i aria-hidden="true"></i> LIVE · VOTING OPEN</span>' : ''}<h3>${escapeHtml(e.name)}</h3><p>${escapeHtml(e.description || '')}</p><span class="muted small">${escapeHtml(electionWhen(e))}</span>${e.hasVoted && e.votedAt ? `<span class="muted small">Participation recorded ${escapeHtml(new Date(e.votedAt).toLocaleString())}</span>` : ''}${e.eligible === false && !e.hasVoted ? '<span class="muted small">Not on the voter list</span>' : ''}</div><a class="btn ${e.eligible && !e.hasVoted && electionPhase(e,Date.now()) === 'active' ? 'btn-primary' : 'btn-secondary'}" href="#/election/${e.id}">${actionFor(e)}</a></article>`).join('')}</div>` : `<p class="empty">${empty}</p>`}</section>`;
     document.getElementById('voter-dashboard-content').innerHTML =
-      section('Active Elections', activeItems.filter(({e}) => !e.hasVoted), 'No active elections are available for participation right now.', e => e.eligible ? 'View Election' : 'View Details') +
+      section('Active Elections', activeItems.filter(({e}) => !e.hasVoted), 'No active elections are available for participation right now.', e => e.eligible ? 'Vote Now' : 'View Details') +
       section('Upcoming Elections', upcomingItems, 'There are no upcoming elections available to you.', () => 'View Details') +
         section('My Voting Activity', activityItems.map(e => ({e})), 'Your participation history will appear here after you vote.', () => 'View Details');
   }).catch(err => {
@@ -369,6 +370,10 @@ function renderDashboard(view) {
     const retry = document.getElementById('retry-voter-dashboard');
     if (retry) retry.addEventListener('click', () => renderDashboard(view));
   });
+  refreshVoterDashboard();
+  state.voterRefreshTimer = setInterval(() => {
+    if (state.view === 'dashboard') refreshVoterDashboard();
+  }, 30000);
 }
 
 // ---------------------------------------------------------------------------
@@ -972,24 +977,26 @@ async function renderResults(view) {
 // ---------------------------------------------------------------------------
 
 async function renderAdmin(view) {
+  if (state.adminRefreshTimer) clearInterval(state.adminRefreshTimer);
   if (!state.user || (state.user.role !== 'platform_admin' && state.user.role !== 'org_admin')) {
     go('#/elections'); return;
   }
   view.innerHTML = `
     <section class="card admin-dashboard">
-      <header class="page-head-inline"><div><p class="section-kicker">ElectraVote</p><h1>Administration</h1></div></header>
+      <header class="page-head-inline admin-dashboard-heading"><div><p class="section-kicker">ElectraVote</p><h1>Administration</h1><p class="muted">Manage elections, organizations, accounts and the audit trail.</p></div><button class="btn btn-primary" id="btn-new-election">+ New election</button></header>
       <div class="dashboard-stats" id="admin-statistics" aria-label="Administration summary"><div class="stat-card"><span>Total Elections</span><strong>—</strong></div><div class="stat-card"><span>Active Elections</span><strong>—</strong></div><div class="stat-card"><span>Total Candidates</span><strong>—</strong></div><div class="stat-card"><span>Registered Voters</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div></div>
-      <nav class="tabs" role="tablist">
+      <div class="admin-workspace">
+      <nav class="tabs admin-section-nav" role="tablist" aria-label="Administration sections">
         <button class="tab active" data-tab="elections" role="tab">Elections</button>
         ${state.user.role === 'platform_admin' ? '<button class="tab" data-tab="orgs" role="tab">Organizations</button>' : ''}
         <button class="tab" data-tab="users" role="tab">Users</button>
         <button class="tab" data-tab="audit" role="tab">Audit log</button>
       </nav>
+      <div class="admin-section-content">
       <div id="tab-elections" class="tab-panel active">
-        <div class="btn-row">
-          <button class="btn btn-primary" id="btn-new-election">+ New election</button>
-        </div>
-        <form id="form-new-election" class="stack-form panel" hidden>
+        <div class="admin-section-toolbar"><div><h2>Elections</h2><p class="muted">Review schedules, participation and election status.</p></div></div>
+        <form id="form-new-election" class="stack-form panel admin-create-form" hidden>
+          <div class="admin-form-heading"><h2>Create an election</h2><p class="muted">Set the organization, schedule and visibility. Add candidates and eligible voters after creating the draft.</p></div>
           ${state.user.role === 'platform_admin' ? `
           <label>Organization
             <select name="orgId" id="ne-org" required></select>
@@ -997,7 +1004,7 @@ async function renderAdmin(view) {
           <label>Election name
             <input type="text" name="name" maxlength="200" required>
           </label>
-          <label>Description
+          <label class="admin-form-wide">Description
             <textarea name="description" rows="2" maxlength="2000"></textarea>
           </label>
           <label class="check-label">
@@ -1064,6 +1071,8 @@ async function renderAdmin(view) {
         <div class="btn-row"><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
         <div id="audit-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>
+      </div>
+      </div>
     </section>`;
 
   bindTabs(view);
@@ -1102,6 +1111,7 @@ async function renderAdmin(view) {
   let adminUsersLoaded = false;
   let adminElectionPageSize = 10;
   let adminElectionMetrics = {};
+  let adminOrganizationNames = {};
   const drawAdminElections = () => {
     const q = document.getElementById('admin-election-search').value.trim().toLocaleLowerCase();
     const status = document.getElementById('admin-election-status').value;
@@ -1109,11 +1119,11 @@ async function renderAdmin(view) {
     const filtered = adminElectionRecords.filter(e => (!q || `${e.name} ${e.description || ''}`.toLocaleLowerCase().includes(q)) && (status === 'all' || e.status === status));
     filtered.sort((a,b) => sort === 'title' ? a.name.localeCompare(b.name) : (Date.parse(a.startAt || '') || 0) - (Date.parse(b.startAt || '') || 0));
     const shown = filtered.slice(0,adminElectionPageSize);
-    listEl.innerHTML = shown.length ? shown.map(e => `
-      <div class="election-row">
-        <div class="election-row-main"><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><div class="muted small">${escapeHtml(e.description || '')}</div><div class="muted small">${escapeHtml(e.startAt || 'No start date')} — ${escapeHtml(e.endAt || 'No end date')}</div><div class="muted small">Eligible voters: ${adminElectionMetrics[e.id] ? adminElectionMetrics[e.id].eligible : '—'}</div></div>
-        <div class="election-row-side"><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${fmtStatus(e.status)}</span><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></div>
-      </div>`).join('') : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
+    listEl.innerHTML = shown.length ? `<div class="table-wrap admin-elections-table"><table><thead><tr><th>Election</th><th>Start date</th><th>End date</th><th>Status</th><th>Candidates</th><th>Eligible voters</th><th>Votes cast</th><th>Actions</th></tr></thead><tbody>${shown.map(e => {
+      const metric = adminElectionMetrics[e.id];
+      const formatDate = value => value ? new Date(value).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}) : 'Not scheduled';
+      return `<tr><td><a href="#/admin/election/${e.id}" class="election-title">${escapeHtml(e.name)}</a><span class="admin-election-org">${escapeHtml(adminOrganizationNames[e.orgId] || ('Organization ' + e.orgId))}</span></td><td>${escapeHtml(formatDate(e.startAt))}</td><td>${escapeHtml(formatDate(e.endAt))}</td><td><span class="pill pill-${{open:'success',closed:'warn',published:'info',draft:'muted-badge',archived:'muted-badge'}[e.status] || 'muted-badge'}">${e.status === 'open' ? '<span class="admin-live-dot" aria-hidden="true"></span>LIVE · ' : ''}${fmtStatus(e.status)}</span></td><td>${metric ? metric.candidates : '—'}</td><td>${metric ? metric.eligible : '—'}</td><td>${metric && metric.votes >= 0 ? metric.votes : 'Hidden'}</td><td><a class="btn btn-secondary" href="#/admin/election/${e.id}">Manage</a></td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="empty-state"><h2>No matching elections</h2><p>Change your search or status filter.</p></div>';
     if (shown.length && filtered.length > shown.length) listEl.innerHTML += '<button class="btn btn-secondary" id="admin-election-load-more">Load more</button>';
     const more = document.getElementById('admin-election-load-more');
     if (more) more.addEventListener('click',() => { adminElectionPageSize += 10; drawAdminElections(); });
@@ -1127,7 +1137,7 @@ async function renderAdmin(view) {
     const detailPairs = await Promise.all(adminElectionRecords.map(async e => {
       try {
         const [detail,eligible] = await Promise.all([api('elections/' + e.id),api('elections/' + e.id + '/eligibility')]);
-        return {id:e.id,votes: detail.participationCount, eligible:(eligible.eligible || []).length};
+        return {id:e.id,votes: detail.participationCount, eligible:(eligible.eligible || []).length,candidates:(detail.candidates || []).length};
       } catch (_) { return null; }
     }));
     let summary = null;
@@ -1140,6 +1150,7 @@ async function renderAdmin(view) {
   }
   async function loadElections() {
     try {
+      try { const orgData = await api('orgs'); adminOrganizationNames = Object.fromEntries((orgData.orgs || []).map(o => [o.id,o.name])); } catch (_) { /* organization label may be unavailable */ }
       const data = await api('elections');
       adminElectionRecords = (data.elections || []).filter(e =>
         state.user.role === 'platform_admin' || e.orgId === state.user.orgId);
@@ -1242,7 +1253,7 @@ async function renderAdmin(view) {
     if (!adminUsers.length) { userList.innerHTML = '<div class="empty-state"><h2>No users available</h2></div>'; return; }
     if (!filtered.length) { userList.innerHTML = '<div class="empty-state"><h2>No matching users</h2><p>Change your search or filters.</p></div>'; return; }
     userList.innerHTML = `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
-      shown.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td><td>${roleLabel(u.role)}</td><td>${u.orgId || '—'}</td><td>${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td>${u.id !== state.user.id ? `<button class="btn btn-link btn-danger" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable' : 'Disable'}</button>` : ''}</td></tr>`).join('') + '</tbody></table>';
+      shown.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td><td>${roleLabel(u.role)}</td><td>${u.orgId || '—'}</td><td>${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td>${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-link" data-reset-toggle="${u.id}" aria-expanded="false">Reset password</button><button class="btn btn-link btn-danger" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable' : 'Disable'}</button><form class="admin-reset-form" data-reset-form="${u.id}" hidden><label>Temporary password<input type="password" name="password" minlength="8" maxlength="256" autocomplete="new-password" required></label><button class="btn btn-secondary" type="button" data-generate="${u.id}">Generate</button><button class="btn btn-primary" type="submit">Set password</button><small>Existing sessions will be revoked. Share this temporary password securely; the user must update it from Profile.</small><div class="error-box" hidden></div></form></div>` : ''}</td></tr>`).join('') + '</tbody></table>';
     if (filtered.length > shown.length) userList.innerHTML += '<button class="btn btn-secondary" id="admin-user-load-more">Load more</button>';
     const more = document.getElementById('admin-user-load-more');
     if (more) more.addEventListener('click',() => { adminUserPageSize += 10; drawAdminUsers(); });
@@ -1251,6 +1262,31 @@ async function renderAdmin(view) {
       if (!window.confirm((disable ? 'Disable' : 'Enable') + ' account ' + btn.getAttribute('data-name') + '?')) return;
       try { await api('users/' + btn.getAttribute('data-disable') + '/disable',{method:'POST',body:{disabled:disable}}); await loadUsers(); }
       catch (err) { toast(err.message,'error'); }
+    }));
+    userList.querySelectorAll('[data-reset-toggle]').forEach(btn => btn.addEventListener('click', () => {
+      const form = userList.querySelector(`[data-reset-form="${btn.dataset.resetToggle}"]`);
+      form.hidden = !form.hidden;
+      btn.setAttribute('aria-expanded', String(!form.hidden));
+      if (!form.hidden) form.querySelector('input').focus();
+    }));
+    userList.querySelectorAll('[data-generate]').forEach(btn => btn.addEventListener('click', () => {
+      const bytes = new Uint8Array(18); crypto.getRandomValues(bytes);
+      const value = Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
+      userList.querySelector(`[data-reset-form="${btn.dataset.generate}"] input[name="password"]`).value = value;
+    }));
+    userList.querySelectorAll('[data-reset-form]').forEach(form => form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const password = new FormData(form).get('password');
+      const target = adminUsers.find(u => String(u.id) === form.dataset.resetForm);
+      if (!target || !window.confirm(`Reset ${target.username}'s password? All of their active sessions will be signed out.`)) return;
+      const button = form.querySelector('[type="submit"]'); button.disabled = true;
+      const errorBox = form.querySelector('.error-box'); errorBox.hidden = true;
+      try {
+        await api(`users/${target.id}/password`, {method:'POST',body:{password}});
+        form.reset(); form.hidden = true;
+        toast(`Password reset for ${target.username}. Share the temporary password securely and ask them to change it in Profile.`);
+      } catch (err) { errorBox.textContent = err.message; errorBox.hidden = false; }
+      finally { button.disabled = false; }
     }));
   };
   ['admin-user-search','admin-user-role','admin-user-status','admin-user-sort'].forEach(id => {
@@ -1309,6 +1345,9 @@ async function renderAdmin(view) {
   }
   document.getElementById('btn-refresh-audit').addEventListener('click', loadAudit);
   await loadAudit();
+  state.adminRefreshTimer = setInterval(() => {
+    if (state.view === 'admin') loadElections();
+  }, 30000);
 }
 
 // ---------------------------------------------------------------------------

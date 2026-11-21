@@ -75,6 +75,7 @@ separate reviewer approval state or independent tally verification.
 | `POST /api/users` | Platform admin or organization admin (scoped) | `username`, `password`, optional `displayName`, `role`, `orgId` | Created account; organization-bound roles require an existing organization; org admins are fixed to their own organization and cannot grant platform-admin role |
 | `POST /api/users/:id` | Platform admin or organization admin for the target's organization | `displayName`, `role`, `orgId` | Updates account profile and role; organization-bound roles require an existing organization; platform-admin accounts have no organization assignment |
 | `POST /api/users/:id/disable` | Platform admin or organization admin in same organization | optional `disabled` (defaults true) | Changes account state; disabling revokes sessions |
+| `POST /api/users/:id/password` | Platform admin or organization admin for a different user in the same organization | `password` (8–256 characters) | Replaces the password hash, revokes sessions and records an audit event; self-service changes require the current password at `/api/auth/password` |
 | `GET /api/audit` | Platform admin (platform-wide), organization admin or observer (own-organization election events only) | optional `electionId` | Recent sanitized audit events; no audit mutation or deletion route is exposed |
 
 ## Current limits
