@@ -2659,3 +2659,65 @@ input[type="checkbox"]:disabled { cursor:not-allowed;opacity:.58; }
   .admin-dashboard .admin-org-edit { min-width:0; }
   .admin-dashboard .admin-audit-search { max-width:none; }
 }
+
+/* Checkbox rows in two-column admin forms span the grid and top-align when
+   their text wraps, so the control and label stay readable. */
+.admin-dashboard .admin-create-form > .check-label,
+.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label,
+.admin-dashboard .admin-create-form > .admin-form-wide {
+  grid-column: 1 / -1;
+}
+.admin-dashboard .admin-create-form > .check-label,
+.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label {
+  align-items: flex-start;
+}
+.admin-dashboard .admin-create-form > .check-label > input[type="checkbox"],
+.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label > input[type="checkbox"] {
+  margin-top: 0.15rem;
+}
+.admin-dashboard .admin-delete-hint { align-self: center; padding: 0 2px; }
+
+/* Posted-election danger zone and permanent-deletion dialog. */
+.admin-election-detail .danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid #efcaca;
+  border-radius: 12px;
+  background: #fff7f7;
+}
+.admin-election-detail .danger-zone h3 { margin: 0 0 4px; color: #8b3030; font-size: 1rem; }
+.admin-election-detail .danger-zone p { max-width: 72ch; margin: 0; color: #6b4a4a; font-size: 0.84rem; line-height: 1.5; }
+.admin-election-detail .danger-zone .btn { flex: 0 0 auto; }
+.admin-election-detail .danger-zone .btn.btn-danger,
+.purge-election-dialog .btn.btn-danger {
+  border-color: #d6aaaa;
+  background: #fff;
+  color: #9c4141;
+  box-shadow: none;
+}
+.admin-election-detail .danger-zone .btn.btn-danger:hover,
+.purge-election-dialog .btn.btn-danger:hover {
+  border-color: #c87e7e;
+  background: #fff5f5;
+  color: #8b3030;
+  filter: none;
+}
+@media(max-width: 720px) {
+  .admin-election-detail .danger-zone { align-items: stretch; flex-direction: column; }
+  .admin-election-detail .danger-zone .btn { width: 100%; }
+}
+.purge-election-dialog .admin-password-form > label[for="purge-confirm-name"] { display: grid; gap: 4px; }
+.purge-election-dialog code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 5px;
+  overflow-wrap: anywhere;
+  border-radius: 5px;
+  background: #eef5f3;
+  color: var(--brand-dark);
+}
+.login-help { margin-top: -2px; color: #687573; font-size: 0.8rem; line-height: 1.45; }

@@ -99,6 +99,33 @@ can read platform-wide logs; organization administrators and observers are
 scoped to their organization's election-linked entries. Audit data is not
 cryptographically tamper-evident.
 
+## Deletion and retention
+
+Account deletion is a two-step operation: the target must be disabled first.
+The server rejects deletion of an active account with HTTP 409. Accounts with
+no election links are hard-deleted; linked accounts become hidden tombstones so
+stable user IDs, eligibility, participation, ballots and election ownership
+remain consistent.
+
+Unused draft elections can be deleted through the draft-only `DELETE` route.
+Posted elections use a separate, stronger `POST /api/elections/:id/purge`
+operation: it requires `published` or `archived` status, the exact election
+name, and an explicit irreversible-action acknowledgement. The purge runs in
+one transaction, deletes dependants in dependency order (tally results, tally
+runs, ballots, participation, eligibility, candidates, then the election), and
+first writes a sanitized `ELECTION_PURGED` audit snapshot containing aggregate
+counts only. `audit_events` has no foreign key to elections, so the snapshot
+survives the purge.
+
+## Legacy CSV import
+
+Startup imports legacy CSV files only into a database with no users and no
+prior import marker. LF and CRLF files are accepted, the source files are never
+deleted, and the whole import runs in one transaction so a failure rolls back
+cleanly. Duplicate `votes.csv` rows for one voter are counted once. The import
+organization disables public self-registration because its historical records
+are identity-linked.
+
 ## Frontend interaction
 
 `web/index.html`, `web/app.js`, `web/style.css`, and `web/assets/` implement the

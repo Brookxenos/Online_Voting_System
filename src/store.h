@@ -153,7 +153,8 @@ private:
     Database& db_;
 
     void importLegacyCsvIfPresent(const std::string& dataDir);
-    long long importOrg(const std::string& name, const std::string& slug);
+    long long importOrg(const std::string& name, const std::string& slug,
+                        bool allowSelfRegistration);
 };
 
 #endif // STORE_H

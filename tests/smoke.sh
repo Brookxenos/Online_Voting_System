@@ -113,7 +113,11 @@ jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/ad
 check "create disposable account for safe deletion checks" '"username":"cleanup"' \
   "$(jpost /api/users '{"username":"cleanup","password":"password123","role":"voter","orgId":2}' -b "$TMP/admin.jar")"
 jpost /api/auth/login '{"username":"cleanup","password":"password123"}' -c "$TMP/cleanup.jar" > /dev/null
-check "authorized administrator can delete an active unused account" '"recordsRetained":false' \
+check "active unused account cannot be deleted before disabling" "Disable the account before deleting it" \
+  "$(jdelete /api/users/6 -b "$TMP/admb.jar")"
+check "org admin disables disposable account before deletion" '"ok":true' \
+  "$(jpost /api/users/6/disable '{"disabled":true}' -b "$TMP/admb.jar")"
+check "authorized administrator can delete a disabled unused account" '"recordsRetained":false' \
   "$(jdelete /api/users/6 -b "$TMP/admb.jar")"
 check "hard-deleted account is absent from user-list API" 'User not found' \
   "$(jget /api/users/6 -b "$TMP/admin.jar")"
@@ -158,6 +162,14 @@ check "platform admin resets user password" '"ok":true' \
 check "administrative password reset revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"
 jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}' -c "$TMP/outsider-new.jar" > /dev/null
 check "administrative password reset enables new password login" '"role":"voter"' "$(jget /api/me -b "$TMP/outsider-new.jar")"
+check "administrator disables account before reset regression check" '"ok":true' \
+  "$(jpost /api/users/4/disable '{"disabled":true}' -b "$TMP/admin.jar")"
+check "password reset on a disabled account succeeds without re-enabling it" '"ok":true' \
+  "$(jpost /api/users/4/password '{"password":"still-disabled-pw-1"}' -b "$TMP/admin.jar")"
+check "disabled account remains unable to sign in after password reset" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"outsider","password":"still-disabled-pw-1"}')"
+check "administrator re-enables account for later checks" '"ok":true' \
+  "$(jpost /api/users/4/disable '{"disabled":false}' -b "$TMP/admin.jar")"
 check "user API never exposes the reset password hash" 'passwordHash' \
   "$(jget /api/users/4 -b "$TMP/admin.jar" | if grep -q 'passwordHash\|password_hash'; then echo 'passwordHash exposed'; else echo 'passwordHash absent'; fi)"
 check "admin summary is organization scoped" '"totalElections":0' \
@@ -418,7 +430,11 @@ else
   PASS=$((PASS+1)); echo "  PASS: audit omits the temporary password value"
 fi
 check "voter cannot read audit" "Administrator or observer" "$(jget /api/audit -b "$TMP/voterA.jar")"
-check "deleting a voter with historical election records retains them safely" '"recordsRetained":true' \
+check "linked active account cannot be deleted before disabling" "Disable the account before deleting it" \
+  "$(jdelete /api/users/2 -b "$TMP/admin.jar")"
+check "linked account is disabled before deletion" '"ok":true' \
+  "$(jpost /api/users/2/disable '{"disabled":true}' -b "$TMP/admin.jar")"
+check "deleting a disabled voter with historical election records retains them safely" '"recordsRetained":true' \
   "$(jdelete /api/users/2 -b "$TMP/admin.jar")"
 check "deleted linked user is absent from user-list API" 'voterA absent' \
   "$(jget /api/users -b "$TMP/admin.jar" | if grep -q '"username":"voterA"'; then echo 'deleted voter is still listed'; else echo 'voterA absent'; fi)"
@@ -435,6 +451,44 @@ check "org admin B cannot read org A audit for A1" "Access denied" \
   "$(jget '/api/audit?electionId=1' -b "$TMP/admb.jar")"
 AUDIT_B=$(jget /api/audit -b "$TMP/admb.jar")
 check "org admin B unfiltered audit omits org A election events" '"entries":[]' "$AUDIT_B"
+
+echo "-- permanent election deletion (purge) --"
+check "draft election cannot be permanently deleted" "Only published or archived" \
+  "$(jpost /api/elections/4/purge '{"confirmName":"Scheduled","acknowledgeIrreversible":true}' -b "$TMP/admin.jar")"
+check "open election cannot be permanently deleted" "Only published or archived" \
+  "$(jpost /api/elections/5/purge '{"confirmName":"Expired window","acknowledgeIrreversible":true}' -b "$TMP/admin.jar")"
+check "permanent deletion requires explicit acknowledgement" "Explicit acknowledgement" \
+  "$(jpost /api/elections/1/purge '{"confirmName":"Election A1"}' -b "$TMP/admin.jar")"
+check "permanent deletion requires the exact election name" "does not match" \
+  "$(jpost /api/elections/1/purge '{"confirmName":"election a1","acknowledgeIrreversible":true}' -b "$TMP/admin.jar")"
+check "cross-organization admin cannot permanently delete an election" "Administrator access required" \
+  "$(jpost /api/elections/1/purge '{"confirmName":"Election A1","acknowledgeIrreversible":true}' -b "$TMP/admb.jar")"
+check "voter cannot permanently delete an election" "Administrator access required" \
+  "$(jpost /api/elections/1/purge '{"confirmName":"Election A1","acknowledgeIrreversible":true}' -b "$TMP/voterB.jar")"
+check "archived election can be permanently deleted" '"auditRetained":true' \
+  "$(jpost /api/elections/1/purge '{"confirmName":"Election A1","acknowledgeIrreversible":true}' -b "$TMP/admin.jar")"
+check "purged election is no longer readable" "Election not found" \
+  "$(jget /api/elections/1 -b "$TMP/admin.jar")"
+check "purged election disappears from the public results index" 'Election A1 absent' \
+  "$(jget '/api/public/results?limit=100' | if grep -q 'Election A1'; then echo 'Election A1 present'; else echo 'Election A1 absent'; fi)"
+check "published election can be permanently deleted" '"ballots":6' \
+  "$(jpost /api/elections/2/purge '{"confirmName":"Race Election","acknowledgeIrreversible":true}' -b "$TMP/admin.jar")"
+check "purged published election is no longer readable" "Election not found" \
+  "$(jget /api/elections/2 -b "$TMP/admin.jar")"
+check "purge removes ballots from the aggregate summary" '"acceptedBallots":0' \
+  "$(jget /api/admin/summary -b "$TMP/admin.jar")"
+AUDIT_PURGE=$(jget /api/audit -b "$TMP/admin.jar")
+check "audit retains a permanent-deletion event" "ELECTION_PURGED" "$AUDIT_PURGE"
+PURGE_DETAIL=$(grep -o '"detail":"org=[^"]*"' <<< "$AUDIT_PURGE" | grep 'ballots=')
+check "purge audit snapshot retains aggregate counts only" \
+  'ballots=6;participations=6;candidates=1;eligible=6' "$PURGE_DETAIL"
+if [[ "$PURGE_DETAIL" == *"candidateId"* || "$PURGE_DETAIL" == *"choice"* ]]; then
+  FAIL=$((FAIL+1)); echo "  FAIL: purge audit snapshot contains ballot choice data"
+else
+  PASS=$((PASS+1)); echo "  PASS: purge audit snapshot omits ballot choice data"
+fi
+AUDIT_B_AFTER=$(jget /api/audit -b "$TMP/admb.jar")
+check "org-scoped audit does not expose another organization's purge event" '"entries":[]' "$AUDIT_B_AFTER"
 
 echo "-- rate limiting --"
 for i in 1 2 3 4 5 6; do
@@ -472,7 +526,13 @@ CSV
 cat > "$MIGTMP/data/votes.csv" <<'CSV'
 voterId,candidateId,timestamp,signature
 V001,C001,2020-01-01T00:00:00Z,legacy-signature
+V001,C001,2020-01-01T00:00:01Z,duplicate-signature
 CSV
+# Convert every fixture to CRLF so the import must tolerate Windows line
+# endings, a common real-world CSV format.
+for f in voters.csv candidates.csv votes.csv; do
+  sed -i 's/$/\r/' "$MIGTMP/data/$f"
+done
 OV_INITIAL_ADMIN_PASSWORD="$ADMIN_PW" "$HERE/voting_server" "$MIG_PORT" "$TMP/web" "$MIGTMP/data" > "$MIGTMP/server.log" 2>&1 &
 SERVER_PID=$!
 sleep 0.8
@@ -485,6 +545,11 @@ check "legacy election imported as closed" '"status":"closed"' "$IMPORTED"
 check "legacy election marked identity-linked" "NOT anonymous" "$IMPORTED"
 check "legacy election without published tally is not recalculated on read" 'No tally has been run' \
   "$(jget /api/elections/1/results -b "$MIGTMP/admin.jar")"
+check "legacy import deduplicates repeated votes.csv rows" '"acceptedBallots":1' \
+  "$(jget /api/admin/summary -b "$MIGTMP/admin.jar")"
+MIG_ORGS=$(jget /api/orgs -b "$MIGTMP/admin.jar")
+check "legacy import organization is identifiable" '"slug":"legacy-import"' "$MIG_ORGS"
+check "legacy import organization disables public self-registration" '"allowSelfRegistration":false' "$MIG_ORGS"
 if [[ -f "$MIGTMP/data/voters.csv" && -f "$MIGTMP/data/candidates.csv" && -f "$MIGTMP/data/votes.csv" ]]; then
   PASS=$((PASS+1)); echo "  PASS: source CSV files preserved"
 else

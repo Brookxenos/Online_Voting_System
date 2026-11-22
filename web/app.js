@@ -506,6 +506,7 @@ function renderLogin(view) {
           </label>
           <div class="error-box" id="login-error" role="alert" aria-live="polite" hidden></div>
           <button type="submit" class="btn btn-primary login-submit">Sign in</button>
+          <p class="login-register-prompt login-help">Forgot your password? Contact your organization administrator to reset it.</p>
           <p class="login-register-prompt">New to ElectraVote? <a href="#/register">Create an account ${arrowIcon()}</a></p>
         </form>
       </div>
@@ -873,7 +874,8 @@ async function renderResultsIndex(view) {
   try {
     const data = await api(state.user ? 'elections' : 'public/results?limit=100');
     if (state.view !== 'resultsIndex') return;
-    const published = (data.elections || []).filter(e => e.status === 'published' || e.status === 'archived');
+    const published = (data.elections || []).filter(e =>
+      e.resultsPublic && (e.status === 'published' || e.status === 'archived'));
     const publicTotal = Number(data.total || published.length);
     const box = document.getElementById('results-election-list');
     const draw = () => {
@@ -1303,7 +1305,7 @@ async function renderAdmin(view) {
     if (!adminUsers.length) { userList.innerHTML = '<div class="empty-state"><h2>No users available</h2></div>'; return; }
     if (!filtered.length) { userList.innerHTML = '<div class="empty-state"><h2>No matching users</h2><p>Change your search or filters.</p></div>'; return; }
     userList.innerHTML = `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Organization</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
-      shown.map(u => `<tr><td data-label="ID">${u.id}</td><td data-label="Username"><strong>${escapeHtml(u.username)}</strong></td><td data-label="Display name">${escapeHtml(u.displayName)}</td><td data-label="Role"><span class="user-role-pill">${roleLabel(u.role)}</span></td><td data-label="Organization">${escapeHtml(adminOrganizationNames[u.orgId] || (u.orgId || '—'))}</td><td data-label="Status">${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td data-label="Actions">${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-secondary" type="button" data-reset-user="${u.id}" aria-label="Reset password for ${escapeHtml(u.username)}">Reset password</button><button class="btn btn-secondary" type="button" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable account' : 'Disable account'}</button>${u.role !== 'platform_admin' ? `<button class="btn btn-danger" type="button" data-delete-user="${u.id}" data-name="${escapeHtml(u.username)}">Delete account</button>` : ''}</div>` : '<span class="muted small">Current account</span>'}</td></tr>`).join('') + '</tbody></table>';
+      shown.map(u => `<tr><td data-label="ID">${u.id}</td><td data-label="Username"><strong>${escapeHtml(u.username)}</strong></td><td data-label="Display name">${escapeHtml(u.displayName)}</td><td data-label="Role"><span class="user-role-pill">${roleLabel(u.role)}</span></td><td data-label="Organization">${escapeHtml(adminOrganizationNames[u.orgId] || (u.orgId || '—'))}</td><td data-label="Status">${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td data-label="Actions">${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-secondary" type="button" data-reset-user="${u.id}" aria-label="Reset password for ${escapeHtml(u.username)}">Reset password</button><button class="btn btn-secondary" type="button" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable account' : 'Disable account'}</button>${u.role !== 'platform_admin' ? (u.disabled ? `<button class="btn btn-danger" type="button" data-delete-user="${u.id}" data-name="${escapeHtml(u.username)}">Delete account</button>` : '<span class="muted small admin-delete-hint">Disable first to delete</span>') : ''}</div>` : '<span class="muted small">Current account</span>'}</td></tr>`).join('') + '</tbody></table>';
     if (filtered.length > shown.length) userList.innerHTML += '<button class="btn btn-secondary" id="admin-user-load-more">Load more</button>';
     const more = document.getElementById('admin-user-load-more');
     if (more) more.addEventListener('click',() => { adminUserPageSize += 10; drawAdminUsers(); });
@@ -1551,11 +1553,11 @@ async function renderAdminElection(view) {
       <p class="muted">${escapeHtml(e.description || 'No election description has been added.')}</p>
 
       <nav class="tabs election-admin-tabs" role="tablist" aria-label="Election management sections">
-        <button class="tab active" id="tab-button-lifecycle" data-tab="lifecycle" aria-controls="tab-lifecycle" aria-selected="true" role="tab">Lifecycle</button>
-        <button class="tab" id="tab-button-config" data-tab="config" aria-controls="tab-config" aria-selected="false" role="tab">Configuration</button>
-        <button class="tab" id="tab-button-candidates" data-tab="candidates" aria-controls="tab-candidates" aria-selected="false" role="tab">Candidates</button>
-        <button class="tab" id="tab-button-eligibility" data-tab="eligibility" aria-controls="tab-eligibility" aria-selected="false" role="tab">Voter list</button>
-        <button class="tab" id="tab-button-admresults" data-tab="admresults" aria-controls="tab-admresults" aria-selected="false" role="tab">Results</button>
+        <button class="tab active" id="tab-button-lifecycle" data-tab="lifecycle" aria-controls="tab-lifecycle" aria-selected="true" role="tab" tabindex="0">Lifecycle</button>
+        <button class="tab" id="tab-button-config" data-tab="config" aria-controls="tab-config" aria-selected="false" role="tab" tabindex="-1">Configuration</button>
+        <button class="tab" id="tab-button-candidates" data-tab="candidates" aria-controls="tab-candidates" aria-selected="false" role="tab" tabindex="-1">Candidates</button>
+        <button class="tab" id="tab-button-eligibility" data-tab="eligibility" aria-controls="tab-eligibility" aria-selected="false" role="tab" tabindex="-1">Voter list</button>
+        <button class="tab" id="tab-button-admresults" data-tab="admresults" aria-controls="tab-admresults" aria-selected="false" role="tab" tabindex="-1">Results</button>
       </nav>
 
       <div id="tab-lifecycle" class="tab-panel active" role="tabpanel" aria-labelledby="tab-button-lifecycle" tabindex="0">
@@ -1570,6 +1572,14 @@ async function renderAdminElection(view) {
           ${lifecycleButtons.length === 0 ? '<div class="empty">This election has no further lifecycle actions.</div>' : ''}
         </div>
         <div class="error-box" id="lifecycle-error" role="alert" aria-live="polite" hidden></div>
+        ${(e.status === 'published' || e.status === 'archived') ? `
+        <section class="danger-zone" aria-labelledby="danger-zone-title">
+          <div>
+            <h3 id="danger-zone-title">Permanent deletion</h3>
+            <p>Remove this posted election and its candidates, voter-list entries, participation records, ballots and stored tally results. A sanitized audit snapshot (aggregate counts only) is retained. This cannot be undone.</p>
+          </div>
+          <button class="btn btn-danger" id="btn-purge-election" type="button">Permanently delete election</button>
+        </section>` : ''}
       </div>
 
       <div id="tab-config" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-config" tabindex="0">
@@ -1630,20 +1640,105 @@ async function renderAdminElection(view) {
         ${e.status === 'closed' ? '<div class="banner banner-info">Voting has ended. Publish results from the Lifecycle tab when ready.</div>' : ''}
         ${e.resultsPublic && (e.status === 'published' || e.status === 'archived') ? `<div class="btn-row"><a class="btn btn-primary" href="#/results/${e.id}">View published results</a><a class="btn btn-secondary" href="/api/elections/${e.id}/results.csv">Download CSV report</a></div><div id="tally-output" class="table-wrap"><div class="empty">Loading saved tally…</div></div>` : '<div class="empty">Results are not published for this election.</div>'}
       </div>
+
+      <dialog id="purge-election-dialog" class="admin-password-dialog purge-election-dialog" aria-labelledby="purge-dialog-title">
+        <form id="purge-election-form" class="admin-password-form">
+          <header>
+            <p class="section-kicker">Danger zone</p>
+            <h2 id="purge-dialog-title">Permanently delete election</h2>
+            <p>This permanently removes <strong>${escapeHtml(e.name)}</strong> and its election records. A sanitized audit snapshot is retained. This cannot be undone.</p>
+          </header>
+          <label for="purge-confirm-name">Type the election name to confirm <code>${escapeHtml(e.name)}</code></label>
+          <input id="purge-confirm-name" name="confirmName" type="text" autocomplete="off" spellcheck="false" required>
+          <label class="check-label admin-reset-confirm"><input id="purge-acknowledge" type="checkbox" required> I understand this permanently deletes the election records and that only a sanitized audit snapshot is retained.</label>
+          <div id="purge-feedback" class="error-box" role="alert" aria-live="polite" hidden></div>
+          <div class="btn-row"><button class="btn btn-danger" type="submit" id="purge-submit" disabled>Delete permanently</button><button class="btn btn-link" id="purge-cancel" type="button">Cancel</button></div>
+        </form>
+      </dialog>
     </section>`;
 
   bindTabs(view);
   function bindTabs(view) {
-    view.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        view.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        view.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        view.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
-        view.querySelector('#tab-' + tab.getAttribute('data-tab')).classList.add('active');
+    const tabs = [...view.querySelectorAll('.election-admin-tabs .tab')];
+    const activate = tab => {
+      tabs.forEach(t => {
+        const active = t === tab;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', String(active));
+        t.tabIndex = active ? 0 : -1;
+      });
+      view.querySelectorAll('.tab-panel').forEach(p =>
+        p.classList.toggle('active', p.id === 'tab-' + tab.getAttribute('data-tab')));
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activate(tab));
+      tab.addEventListener('keydown', ev => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(ev.key)) return;
+        ev.preventDefault();
+        const next = ev.key === 'Home' ? 0 : ev.key === 'End' ? tabs.length - 1
+          : (index + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+        tabs[next].focus(); activate(tabs[next]);
       });
     });
   }
+
+  // Permanent deletion of a posted election. The server repeats every check;
+  // this dialog exists to make the irreversible action deliberate and clear.
+  const purgeDialog = document.getElementById('purge-election-dialog');
+  const purgeForm = document.getElementById('purge-election-form');
+  const purgeName = document.getElementById('purge-confirm-name');
+  const purgeAck = document.getElementById('purge-acknowledge');
+  const purgeSubmit = document.getElementById('purge-submit');
+  const purgeFeedback = document.getElementById('purge-feedback');
+  let purgeOpener = null;
+  const updatePurgeSubmit = () => {
+    purgeSubmit.disabled = !(purgeName.value === e.name && purgeAck.checked);
+  };
+  const purgeButton = document.getElementById('btn-purge-election');
+  if (purgeButton) {
+    purgeButton.addEventListener('click', () => {
+      purgeOpener = purgeButton;
+      purgeForm.reset();
+      purgeFeedback.hidden = true;
+      purgeSubmit.disabled = true;
+      purgeDialog.showModal();
+      purgeName.focus();
+    });
+  }
+  purgeName.addEventListener('input', updatePurgeSubmit);
+  purgeAck.addEventListener('change', updatePurgeSubmit);
+  document.getElementById('purge-cancel').addEventListener('click', () => purgeDialog.close());
+  purgeDialog.addEventListener('close', () => {
+    purgeForm.reset();
+    purgeFeedback.hidden = true;
+    if (purgeOpener && purgeOpener.isConnected) purgeOpener.focus();
+    purgeOpener = null;
+  });
+  purgeForm.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    if (purgeName.value !== e.name || !purgeAck.checked) {
+      purgeFeedback.textContent = 'Type the exact election name and confirm that you understand this cannot be undone.';
+      purgeFeedback.hidden = false;
+      return;
+    }
+    purgeSubmit.disabled = true;
+    purgeSubmit.setAttribute('aria-busy','true');
+    purgeFeedback.hidden = true;
+    try {
+      await api('elections/' + e.id + '/purge', {
+        method: 'POST',
+        body: { confirmName: purgeName.value, acknowledgeIrreversible: true }
+      });
+      purgeDialog.close();
+      toast('Election permanently deleted. A sanitized audit snapshot was retained.');
+      go('#/admin');
+    } catch (err) {
+      purgeFeedback.textContent = err.message;
+      purgeFeedback.hidden = false;
+      purgeSubmit.disabled = false;
+      purgeSubmit.removeAttribute('aria-busy');
+    }
+  });
 
   // Lifecycle transitions
   view.querySelectorAll('[data-transition]').forEach(btn => {

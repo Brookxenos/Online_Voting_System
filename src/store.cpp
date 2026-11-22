@@ -1210,6 +1210,7 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
         std::string line;
         std::getline(candFile, line); // header
         while (std::getline(candFile, line)) {
+            chompLine(line);
             if (line.empty()) continue;
             auto f = splitCsv(line);
             if (f.size() < 6) continue;
@@ -1226,6 +1227,7 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
         std::string line;
         std::getline(adminsFile, line); // header
         while (std::getline(adminsFile, line)) {
+            chompLine(line);
             if (line.empty()) continue;
             auto f = splitCsv(line);
             if (f.size() < 2) continue;
@@ -1240,6 +1242,7 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
         std::string line;
         std::getline(votersFile, line); // header
         while (std::getline(votersFile, line)) {
+            chompLine(line);
             if (line.empty()) continue;
             auto f = splitCsv(line);
             if (f.size() < 5) continue;
@@ -1256,117 +1259,130 @@ void Store::importLegacyCsvIfPresent(const std::string& dataDir) {
                            (long long)legacyVoters.size();
     if (importable == 0) return; // only headers/empty rows: nothing to migrate
 
-    addAudit("system", "LEGACY_IMPORT_BEGIN", 0,
-             "importing historical CSV data; historical records are identity-linked and not anonymous");
+    // One transaction: a partial failure rolls the whole import back so a
+    // later startup can retry instead of leaving an unusable half-import.
+    db_.tx([&] {
+        addAudit("system", "LEGACY_IMPORT_BEGIN", 0,
+                 "importing historical CSV data; historical records are identity-linked and not anonymous");
 
-    long long orgId = importOrg("Imported (legacy CSV data)", "legacy-import");
+        // The imported organization is archival and must not expose public
+        // self-registration into identity-linked legacy data.
+        long long orgId = importOrg("Imported (legacy CSV data)", "legacy-import", false);
 
-    // Admins -> platform_admin with legacy-format password hashes.
-    // (Verification of the old SHA-256 scheme happens on first login, after
-    // which the hash is upgraded to Argon2id.)
-    for (const auto& la : legacyAdmins) {
-        User u;
-        u.username = la.username;
-        u.displayName = la.username;
-        u.role = "platform_admin";
-        // Old format "<salt>$<hash>" -> tagged "sha256$<salt>$<hash>".
-        u.passwordHash = "sha256$" + la.hash;
-        if (createUser(u) != CreateUserResult::Ok) {
-            addAudit("system", "LEGACY_IMPORT_SKIP_ADMIN", 0, "username " + u.username);
+        // Admins -> platform_admin with legacy-format password hashes.
+        // (Verification of the old SHA-256 scheme happens on first login, after
+        // which the hash is upgraded to Argon2id.)
+        for (const auto& la : legacyAdmins) {
+            User u;
+            u.username = la.username;
+            u.displayName = la.username;
+            u.role = "platform_admin";
+            // Old format "<salt>$<hash>" -> tagged "sha256$<salt>$<hash>".
+            u.passwordHash = "sha256$" + la.hash;
+            if (createUser(u) != CreateUserResult::Ok) {
+                addAudit("system", "LEGACY_IMPORT_SKIP_ADMIN", 0, "username " + u.username);
+            }
         }
-    }
 
-    // Voters -> voter role in the import organization.
-    std::map<std::string, long long> voterIds;      // legacy "V001" -> new user id
-    std::map<std::string, bool> voterHasVoted;
-    for (const auto& lv : legacyVoters) {
-        User u;
-        u.username = lv.username;                    // legacy voter ID as username
-        u.displayName = lv.displayName;
-        u.role = "voter";
-        u.orgId = orgId;
-        u.passwordHash = "sha256$" + lv.hash;
-        u.nationalId = lv.nationalId;
-        voterHasVoted[u.username] = lv.hasVoted;
-        if (createUser(u) == CreateUserResult::Ok) {
-            voterIds[u.username] = u.id;
-        } else {
-            addAudit("system", "LEGACY_IMPORT_SKIP_VOTER", 0, "username " + u.username);
+        // Voters -> voter role in the import organization.
+        std::map<std::string, long long> voterIds;      // legacy "V001" -> new user id
+        std::map<std::string, bool> voterHasVoted;
+        for (const auto& lv : legacyVoters) {
+            User u;
+            u.username = lv.username;                    // legacy voter ID as username
+            u.displayName = lv.displayName;
+            u.role = "voter";
+            u.orgId = orgId;
+            u.passwordHash = "sha256$" + lv.hash;
+            u.nationalId = lv.nationalId;
+            voterHasVoted[u.username] = lv.hasVoted;
+            if (createUser(u) == CreateUserResult::Ok) {
+                voterIds[u.username] = u.id;
+            } else {
+                addAudit("system", "LEGACY_IMPORT_SKIP_VOTER", 0, "username " + u.username);
+            }
         }
-    }
 
-    // Candidates + votes -> one closed "imported" election, so the historical
-    // records are preserved and consistent, and can never be mixed with new
-    // ballots. Candidate vote counts from the CSV are NOT trusted; the actual
-    // votes.csv rows are imported as ballots instead (discrepancies audited).
-    // No election is created when the CSV had no candidate rows.
-    if (!legacyCandidates.empty()) {
-        Election e;
-        e.orgId = orgId;
-        e.name = "Imported legacy election";
-        e.description =
-            "Historical election data migrated from the legacy CSV system. "
-            "These records are identity-linked (voter and choice were stored "
-            "together by the old system) and are NOT anonymous.";
-        e.createdBy = 0;
-        if (createElection(e) == CreateElectionResult::Ok) {
-            long long legacyElectionId = e.id;
-            std::map<std::string, long long> candIds; // legacy candidate id -> new id
-            long long pos = 0;
-            for (const auto& lc : legacyCandidates) {
-                Candidate c;
-                c.electionId = legacyElectionId;
-                c.name = lc.name;
-                c.party = lc.party;
-                c.description = "legacy symbol: " + lc.symbol + ", position: " + lc.position;
-                c.position = ++pos;
-                if (addCandidate(c) == AddCandidateResult::Ok) {
-                    candIds[lc.legacyId] = c.id;
+        // Candidates + votes -> one closed "imported" election, so the historical
+        // records are preserved and consistent, and can never be mixed with new
+        // ballots. Candidate vote counts from the CSV are NOT trusted; the actual
+        // votes.csv rows are imported as ballots instead (discrepancies audited).
+        // No election is created when the CSV had no candidate rows.
+        if (!legacyCandidates.empty()) {
+            Election e;
+            e.orgId = orgId;
+            e.name = "Imported legacy election";
+            e.description =
+                "Historical election data migrated from the legacy CSV system. "
+                "These records are identity-linked (voter and choice were stored "
+                "together by the old system) and are NOT anonymous.";
+            e.createdBy = 0;
+            if (createElection(e) == CreateElectionResult::Ok) {
+                long long legacyElectionId = e.id;
+                std::map<std::string, long long> candIds; // legacy candidate id -> new id
+                long long pos = 0;
+                for (const auto& lc : legacyCandidates) {
+                    Candidate c;
+                    c.electionId = legacyElectionId;
+                    c.name = lc.name;
+                    c.party = lc.party;
+                    c.description = "legacy symbol: " + lc.symbol + ", position: " + lc.position;
+                    c.position = ++pos;
+                    if (addCandidate(c) == AddCandidateResult::Ok) {
+                        candIds[lc.legacyId] = c.id;
+                    }
                 }
-            }
-            addAudit("system", "LEGACY_IMPORT_ELECTION", legacyElectionId, "imported candidates in CSV order");
+                addAudit("system", "LEGACY_IMPORT_ELECTION", legacyElectionId, "imported candidates in CSV order");
 
-            long long votesImported = 0, votesSkipped = 0;
-            if (votesFile) {
-                std::string vline;
-                std::getline(votesFile, vline); // header
-                while (std::getline(votesFile, vline)) {
-                    if (vline.empty()) continue;
-                    auto f = splitCsv(vline);
-                    if (f.size() < 4) continue;
-                    std::string legacyVoter = unescapeCsv(f[0]);
-                    std::string legacyCand = unescapeCsv(f[1]);
-                    auto vi = voterIds.find(legacyVoter);
-                    auto ci = candIds.find(legacyCand);
-                    if (vi == voterIds.end() || ci == candIds.end()) { votesSkipped++; continue; }
-                    // Historical record: identity and choice are imported
-                    // together because they were linked in the source data.
-                    // Marked as legacy participation; NOT anonymous.
-                    db_.exec("INSERT OR IGNORE INTO participation(election_id,user_id,voted_at) VALUES(?,?,?)",
-                             {std::to_string(legacyElectionId), std::to_string(vi->second),
-                              unescapeCsv(f[2])});
-                    db_.exec("INSERT INTO ballots(election_id,candidate_id,cast_at,receipt_nonce) VALUES(?,?,?,?)",
-                             {std::to_string(legacyElectionId), std::to_string(ci->second),
-                              unescapeCsv(f[2]), "legacy"});
-                    votesImported++;
+                long long votesImported = 0, votesSkipped = 0;
+                std::set<std::string> importedVoters;
+                if (votesFile) {
+                    std::string vline;
+                    std::getline(votesFile, vline); // header
+                    while (std::getline(votesFile, vline)) {
+                        chompLine(vline);
+                        if (vline.empty()) continue;
+                        auto f = splitCsv(vline);
+                        if (f.size() < 4) continue;
+                        std::string legacyVoter = unescapeCsv(f[0]);
+                        std::string legacyCand = unescapeCsv(f[1]);
+                        auto vi = voterIds.find(legacyVoter);
+                        auto ci = candIds.find(legacyCand);
+                        if (vi == voterIds.end() || ci == candIds.end()) { votesSkipped++; continue; }
+                        // votes.csv is a historical log, not a ballot-box
+                        // constraint: a duplicate row must not create a second
+                        // ballot for the same voter and break tally integrity.
+                        if (!importedVoters.insert(legacyVoter).second) { votesSkipped++; continue; }
+                        // Historical record: identity and choice are imported
+                        // together because they were linked in the source data.
+                        // Marked as legacy participation; NOT anonymous.
+                        db_.exec("INSERT OR IGNORE INTO participation(election_id,user_id,voted_at) VALUES(?,?,?)",
+                                 {std::to_string(legacyElectionId), std::to_string(vi->second),
+                                  unescapeCsv(f[2])});
+                        db_.exec("INSERT INTO ballots(election_id,candidate_id,cast_at,receipt_nonce) VALUES(?,?,?,?)",
+                                 {std::to_string(legacyElectionId), std::to_string(ci->second),
+                                  unescapeCsv(f[2]), "legacy"});
+                        votesImported++;
+                    }
                 }
+                if (votesImported != (long long)voterIds.size() &&
+                    std::any_of(voterHasVoted.begin(), voterHasVoted.end(),
+                                [](auto& kv){ return kv.second; })) {
+                    addAudit("system", "LEGACY_IMPORT_MISMATCH", legacyElectionId,
+                             "votes.csv rows do not cover every voter marked as voted");
+                }
+                db_.exec("UPDATE elections SET status='closed', results_public=0 WHERE id=?",
+                         {std::to_string(legacyElectionId)});
+                addAudit("system", "LEGACY_IMPORT_DONE", legacyElectionId,
+                         "votes imported: " + std::to_string(votesImported) +
+                         ", skipped: " + std::to_string(votesSkipped) +
+                         " (duplicate or unmatched rows)");
             }
-            if (votesImported != (long long)voterIds.size() &&
-                std::any_of(voterHasVoted.begin(), voterHasVoted.end(),
-                            [](auto& kv){ return kv.second; })) {
-                addAudit("system", "LEGACY_IMPORT_MISMATCH", legacyElectionId,
-                         "votes.csv rows do not cover every voter marked as voted");
-            }
-            db_.exec("UPDATE elections SET status='closed', results_public=0 WHERE id=?",
-                     {std::to_string(legacyElectionId)});
-            addAudit("system", "LEGACY_IMPORT_DONE", legacyElectionId,
-                     "votes imported: " + std::to_string(votesImported) +
-                     ", skipped: " + std::to_string(votesSkipped));
         }
-    }
 
-    // Only mark the migration as complete when something was actually
-    // imported; otherwise a later populated CSV set is still picked up.
-    db_.exec("INSERT INTO migration_markers(name,applied_at) VALUES('legacy_csv',?)", {nowIso()});
-    addAudit("system", "LEGACY_IMPORT_COMPLETE", 0, "");
+        // Only mark the migration as complete when something was actually
+        // imported; otherwise a later populated CSV set is still picked up.
+        db_.exec("INSERT INTO migration_markers(name,applied_at) VALUES('legacy_csv',?)", {nowIso()});
+        addAudit("system", "LEGACY_IMPORT_COMPLETE", 0, "");
+    });
 }

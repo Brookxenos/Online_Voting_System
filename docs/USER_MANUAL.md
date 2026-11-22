@@ -22,7 +22,8 @@ be visible only to signed-in members of the organization running them.
    voter list.
 3. Open **Log in**, enter your username and password, and submit.
 4. If login fails, check spelling and ask the organization administrator for
-   account help. The application has no web-based password recovery.
+   account help. The application has no web-based password recovery; an
+   administrator can reset your password after verifying your identity.
 
 ## Use your voter dashboard
 
@@ -95,7 +96,7 @@ backups may still create correlation risks.
 | Voting is not open | Check the election schedule and status; the server enforces its voting window. |
 | Already voted | The account has an accepted participation record. Ballots cannot be submitted twice. |
 | Results are not published | Ask the organizer when results will be released. |
-| Login fails | Recheck username/password and contact an administrator; there is no web recovery flow. |
+| Login fails | Recheck username/password and contact an administrator; there is no web recovery flow, but an administrator can reset the password. |
 | Page cannot connect | Check the supplied site address and contact the service operator. |
 
 For legal, privacy, or accessibility concerns, contact the organization

@@ -49,7 +49,8 @@ permissions. UI controls do not replace backend authorization.
    organizations.
 5. Use the account actions to enable or disable a user. Disabling an account
    revokes its active sessions. Re-enabling permits a new login but does not
-   restore revoked sessions.
+   restore revoked sessions. An account must be disabled before it can be
+   deleted; the server rejects deletion of an active account.
 6. Use **Reset password** in the user actions to set or generate a temporary
    password. The reset revokes the user's active sessions and is recorded in
    the audit log. The application does not enforce a first-login password
@@ -135,6 +136,25 @@ after a confirmation. The server allows this only while there are no ballots,
 participation rows, tally records, or published results. Elections with
 records must be archived; their history and audit trail are retained.
 
+## Permanently delete a posted election
+
+1. Open the election's administration page and use the **Permanent deletion**
+   danger zone, which is available for **Published** and **Archived**
+   elections.
+2. Read the warning, type the exact election name, and tick the acknowledgement
+   checkbox. The **Delete permanently** button remains disabled until both
+   match.
+3. Confirm the action. The server re-checks authorization, status and the exact
+   name before deleting the election, its candidates, eligibility entries,
+   participation records, ballots and stored tally results.
+4. A sanitized `ELECTION_PURGED` audit event is retained. It records the
+   organization, election name, prior status and aggregate counts only; it does
+   not contain ballot choices or voter identities.
+
+Permanent deletion cannot be undone. Prefer archiving when the records must be
+preserved. Draft and open elections cannot be purged; archive or complete them
+first. This action is intentionally separate from deleting an unused draft.
+
 ## Manage organizations and accounts
 
 Platform administrators can edit an organization's name, slug, and
@@ -142,18 +162,20 @@ self-registration setting from its row in the Organizations tab. These
 changes are saved through the organization API and appear in the audit log.
 The Users tab supports searching, role/status filtering, activation changes,
 account removal, and password resets within the actor's permissions. Removing
-an account revokes sessions. Accounts with no election links are deleted;
-accounts referenced by eligibility, participation, or election ownership are
-hidden tombstones with identifying profile fields cleared so their linked
-records and stable user IDs remain intact. In both cases the account cannot
-log in and is excluded from user management. Audit history is retained.
+an account requires it to be disabled first and revokes sessions. Accounts with
+no election links are deleted; accounts referenced by eligibility,
+participation, or election ownership are hidden tombstones with identifying
+profile fields cleared so their linked records and stable user IDs remain
+intact. In both cases the account cannot log in and is excluded from user
+management. Audit history is retained.
 
 Password reset opens a dialog. Choose a generated password or enter one
 manually, reveal it as needed, and use the copy controls before closing the
 dialog. Confirm the reset in the dialog; the backend stores only the existing
-Argon2id hash and revokes the target's sessions. The application does not
-enforce a password change on the next login; deliver the temporary password
-securely and ask the user to change it from Profile.
+Argon2id hash and revokes the target's sessions. Resetting a disabled account's
+password does not re-enable it. The application does not enforce a password
+change on the next login; deliver the temporary password securely and ask the
+user to change it from Profile.
 
 The Audit log tab is read-only. Its search filters the currently loaded audit
 events by actor, action, election identifier, date, and detail text.
@@ -163,9 +185,13 @@ events by actor, action, election identifier, date, and detail text.
 Legacy CSV migration runs automatically at startup only when initializing a
 database with no users and no prior legacy-import marker. It reads the
 recognized files from the configured data directory and preserves those
-files. When importable rows exist, the importer creates an organization named
-**Imported (legacy CSV data)** (`legacy-import`) and, when candidate rows are
-present, a closed historical election. The organization appears in the
+files. Both LF and CRLF line endings are accepted. When importable rows exist,
+the importer creates an organization named **Imported (legacy CSV data)**
+(`legacy-import`) with public self-registration disabled and, when candidate
+rows are present, a closed historical election. Duplicate `votes.csv` rows for
+the same voter are counted once so tally integrity is not broken. The import
+runs in a single transaction: a failure rolls it back so a later startup can
+retry instead of leaving a partial migration. The organization appears in the
 election-creation selector only after that import succeeds. This is not a
 repeatable upload workflow; do not try to trigger it by creating a new
 organization or election. Historical ballots were identity-linked in the
@@ -182,6 +208,9 @@ procedure before any future re-import or correction.
 | Organization administrators cannot create platform administrators | Only a platform administrator can assign that role. |
 | Cannot edit election | Configuration, candidates, and eligibility are draft-only. Use the lifecycle workflow. |
 | Cannot open election | Check for at least one option and whether its scheduled start has arrived. |
+| Disable the account before deleting it | Account removal is a two-step action. Disable the account, then delete it. |
+| Only published or archived elections can be permanently deleted | Draft or open elections must be completed or archived first. |
+| The election name does not match | Type the election name exactly as shown, including spacing and capitalization. |
 | Results not available | Confirm the election was closed and published successfully. Reads do not run tallies. |
 | Session ended after disabling | Disabling revokes sessions. Re-enable the account and have the user sign in again. |
 
