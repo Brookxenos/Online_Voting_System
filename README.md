@@ -19,6 +19,10 @@ elections**.
   duplicate participation protection, and a non-revealing submission receipt.
 - Lifecycle-controlled tally persistence, internal publication integrity
   checks, published results, and aggregate CSV export.
+- Two-step account removal (disable first) and scoped, name-confirmed permanent
+  deletion of posted elections with a retained sanitized audit snapshot.
+- Legacy CSV migration that preserves source files, accepts CRLF, deduplicates
+  repeated vote rows, and keeps identity-linked records clearly labeled.
 - Sanitized audit events, public discovery opt-in, and the existing responsive
   HTML/CSS/vanilla JavaScript interface.
 

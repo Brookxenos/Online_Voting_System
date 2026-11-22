@@ -9,3 +9,12 @@
 7. Review security/operations separately. No schema migration, production-readiness claim, or Step 3 work is implied by this roadmap.
 
 Each step requires build, smoke tests against temporary data, route/response comparison and a data-preservation check. Never point tests at `data/openvote.db`.
+
+## Recent incremental completions
+
+- Account deletion now requires the target to be disabled first; active accounts return HTTP 409.
+- Published and archived elections can be permanently purged through a scoped, name-confirmed, explicitly acknowledged route that retains a sanitized aggregate audit snapshot.
+- Legacy CSV import tolerates CRLF, deduplicates repeated vote rows, runs in one transaction, and disables self-registration for the import organization.
+- Election-admin tabs support keyboard navigation; the published-results index filters on `resultsPublic`.
+
+Next recommended task: complete the manual browser walkthrough of the admin and voter flows, including the new disable-then-delete and permanent-purge confirmations, and record any visual or accessibility defects before starting the next backend seam.

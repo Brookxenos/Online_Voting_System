@@ -2664,15 +2664,18 @@ input[type="checkbox"]:disabled { cursor:not-allowed;opacity:.58; }
    their text wraps, so the control and label stay readable. */
 .admin-dashboard .admin-create-form > .check-label,
 .admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label,
+.admin-election-detail .stack-form > .check-label,
 .admin-dashboard .admin-create-form > .admin-form-wide {
   grid-column: 1 / -1;
 }
 .admin-dashboard .admin-create-form > .check-label,
-.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label {
-  align-items: flex-start;
+.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label,
+.admin-election-detail .stack-form > .check-label {
+  align-items: flex-start !important;
 }
 .admin-dashboard .admin-create-form > .check-label > input[type="checkbox"],
-.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label > input[type="checkbox"] {
+.admin-dashboard .stack-form.panel:not(.admin-create-form) > .check-label > input[type="checkbox"],
+.admin-election-detail .stack-form > .check-label > input[type="checkbox"] {
   margin-top: 0.15rem;
 }
 .admin-dashboard .admin-delete-hint { align-self: center; padding: 0 2px; }

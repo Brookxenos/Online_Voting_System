@@ -27,7 +27,7 @@
 -   Preferred architecture: a modular monolith first; avoid premature
     microservices.
 
-## 2. Current repository --- verified 2026-11-17
+## 2. Current repository --- verified 2026-11-22
 
 The repository has moved on from the original CSV-only archive described in
 older handover notes. The checked-out source and tests are authoritative.
@@ -61,8 +61,17 @@ older handover notes. The checked-out source and tests are authoritative.
 - Results are tallied and persisted; publication is gated on a tally integrity
   check. Public discovery is opt-in. Draft archiving retains its records and
   clears public discovery and live-results flags.
-- Legacy CSV import preserves the CSV files and labels imported vote records
-  as identity-linked historical records.
+- Account deletion is two-step: an account must be disabled first. Active
+  accounts receive HTTP 409. Linked accounts are retained as hidden tombstones
+  so election records and stable user IDs stay consistent.
+- Posted elections (published/archived) can be permanently purged only through
+  `POST /api/elections/:id/purge`, with scoped authorization, the exact election
+  name, and an explicit irreversible-action acknowledgement. A sanitized
+  `ELECTION_PURGED` audit snapshot with aggregate counts is retained.
+- Legacy CSV import preserves the CSV files, accepts LF and CRLF, deduplicates
+  repeated `votes.csv` rows, runs in one transaction, and labels imported vote
+  records as identity-linked historical records. The import organization has
+  public self-registration disabled.
 - `make` builds `voting_server`; `make test` runs the HTTP smoke suite.
   Runtime data defaults to `data/openvote.db`; do not run tests against or
   replace the user's runtime data.
@@ -83,7 +92,8 @@ older handover notes. The checked-out source and tests are authoritative.
    handling is not specified and the API does not claim an official winner.
 6. Password recovery, email verification, notifications, independent tally
    verification, operational backup/restore procedures, and deployment
-   hardening are incomplete.
+   hardening are incomplete. An administrator can reset a password, but there
+   is no self-service web recovery flow.
 7. The app is not certified or approved for legally binding public elections.
 
 Do not assume a previous agent's analysis is correct without verifying the
