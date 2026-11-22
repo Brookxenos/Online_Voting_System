@@ -5,7 +5,7 @@
 class UserService {
 public:
     enum class Status { Ok, Invalid, Forbidden, NotFound, Duplicate, OrgNotFound,
-                        Protected, Retained };
+                        Protected, Retained, NotDisabled };
     struct Result { Status status = Status::Invalid; User user; };
     explicit UserService(UserRepository& repository) : repository_(repository) {}
     std::vector<User> list(const User& actor, long long requestedOrgId, Status& status);

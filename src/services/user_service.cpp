@@ -105,6 +105,7 @@ UserService::Status UserService::remove(const User& actor, long long id) {
         case Store::DeleteUserResult::Retained: return Status::Retained;
         case Store::DeleteUserResult::NotFound: return Status::NotFound;
         case Store::DeleteUserResult::Protected: return Status::Protected;
+        case Store::DeleteUserResult::NotDisabled: return Status::NotDisabled;
     }
     return Status::Invalid;
 }

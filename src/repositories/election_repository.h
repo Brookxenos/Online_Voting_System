@@ -9,6 +9,10 @@ public:
     Store::DeleteElectionResult deleteDraftSafely(long long id, const std::string& actor) {
         return store_.deleteDraftElectionSafely(id, actor);
     }
+    Store::PurgeElectionOutcome purgeSafely(long long id, const std::string& actor,
+                                            const std::string& confirmName) {
+        return store_.purgeElectionSafely(id, actor, confirmName);
+    }
     std::optional<Election> get(long long id) { return store_.getElection(id); }
     std::vector<Election> listVisible(const User& user) { return store_.listElectionsVisibleTo(user); }
     bool updateDraft(long long id, const Election& e) { return store_.updateElectionDraft(id, e); }

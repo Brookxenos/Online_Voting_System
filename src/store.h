@@ -39,7 +39,9 @@ public:
 
     // --- Users --------------------------------------------------------------
     enum class CreateUserResult { Ok, DuplicateUsername, OrgNotFound };
-    enum class DeleteUserResult { Deleted, Retained, NotFound, Protected };
+    // Active accounts must be disabled first: deletion is a two-step action so
+    // an administrator cannot remove a working account by a single mistake.
+    enum class DeleteUserResult { Deleted, Retained, NotFound, Protected, NotDisabled };
     CreateUserResult createUser(User& user); // fills id/createdAt
     DeleteUserResult deleteUserSafely(long long userId, const std::string& actor);
     std::optional<User> findUserByUsername(const std::string& username);
@@ -63,8 +65,21 @@ public:
     // --- Elections ----------------------------------------------------------
     enum class CreateElectionResult { Ok, OrgNotFound };
     enum class DeleteElectionResult { Deleted, NotFound, NotDraft, HasVotingRecords };
+    // Permanent purge is limited to posted elections (published/archived) and
+    // requires the caller to repeat the exact election name. A sanitized audit
+    // snapshot is retained because audit_events has no foreign key to elections.
+    enum class PurgeElectionResult { Purged, NotFound, NotPosted, NameMismatch };
+    struct PurgeElectionOutcome {
+        PurgeElectionResult status = PurgeElectionResult::NotFound;
+        long long ballots = 0;
+        long long participations = 0;
+        long long candidates = 0;
+        long long eligible = 0;
+    };
     CreateElectionResult createElection(Election& e); // fills id/createdAt
     DeleteElectionResult deleteDraftElectionSafely(long long electionId, const std::string& actor);
+    PurgeElectionOutcome purgeElectionSafely(long long electionId, const std::string& actor,
+                                             const std::string& confirmName);
     std::optional<Election> getElection(long long id);
     // Elections the user may see:
     //   platform_admin: all elections

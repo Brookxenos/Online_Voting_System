@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <map>
+#include <set>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -347,6 +348,10 @@ Store::DeleteUserResult Store::deleteUserSafely(long long userId, const std::str
             result = DeleteUserResult::Protected;
             return;
         }
+        if (user.at("disabled") != "1") {
+            result = DeleteUserResult::NotDisabled;
+            return;
+        }
         const auto linked = db_.query(
             "SELECT (SELECT COUNT(*) FROM participation WHERE user_id=?) + "
             "(SELECT COUNT(*) FROM eligibility WHERE user_id=?) + "
@@ -496,6 +501,68 @@ Store::DeleteElectionResult Store::deleteDraftElectionSafely(long long electionI
         result = DeleteElectionResult::Deleted;
     });
     return result;
+}
+
+Store::PurgeElectionOutcome Store::purgeElectionSafely(long long electionId,
+                                                       const std::string& actor,
+                                                       const std::string& confirmName) {
+    PurgeElectionOutcome out;
+    db_.tx([&] {
+        const auto elections = db_.query(
+            "SELECT name,status,org_id FROM elections WHERE id=?",
+            {std::to_string(electionId)});
+        if (elections.empty()) return;
+        const auto& election = elections.front();
+        if (election.at("status") != "published" && election.at("status") != "archived") {
+            out.status = PurgeElectionResult::NotPosted;
+            return;
+        }
+        // Exact-name confirmation is checked inside the transaction so the
+        // record cannot change between the caller's check and the delete.
+        if (confirmName != election.at("name")) {
+            out.status = PurgeElectionResult::NameMismatch;
+            return;
+        }
+        const auto counts = db_.query(
+            "SELECT (SELECT COUNT(*) FROM ballots WHERE election_id=?) AS ballots,"
+            "(SELECT COUNT(*) FROM participation WHERE election_id=?) AS participations,"
+            "(SELECT COUNT(*) FROM candidates WHERE election_id=?) AS candidates,"
+            "(SELECT COUNT(*) FROM eligibility WHERE election_id=?) AS eligible",
+            {std::to_string(electionId), std::to_string(electionId),
+             std::to_string(electionId), std::to_string(electionId)});
+        if (!counts.empty()) {
+            out.ballots = std::stoll(counts.front().at("ballots"));
+            out.participations = std::stoll(counts.front().at("participations"));
+            out.candidates = std::stoll(counts.front().at("candidates"));
+            out.eligible = std::stoll(counts.front().at("eligible"));
+        }
+        // Record a sanitized snapshot before deleting. It contains aggregate
+        // counts only: never ballot choices, voter identities or credentials.
+        // audit_events has no foreign key, so this row survives the purge.
+        addAudit(actor, "ELECTION_PURGED", electionId,
+                 "org=" + election.at("org_id") +
+                 ";name=" + election.at("name") +
+                 ";status=" + election.at("status") +
+                 ";ballots=" + std::to_string(out.ballots) +
+                 ";participations=" + std::to_string(out.participations) +
+                 ";candidates=" + std::to_string(out.candidates) +
+                 ";eligible=" + std::to_string(out.eligible));
+        // Delete dependants explicitly in dependency order. ballots references
+        // candidates without ON DELETE CASCADE, so relying on election cascade
+        // ordering alone would be fragile.
+        db_.exec("DELETE FROM tally_results WHERE tally_id IN "
+                 "(SELECT id FROM tally_runs WHERE election_id=?)",
+                 {std::to_string(electionId)});
+        db_.exec("DELETE FROM tally_runs WHERE election_id=?", {std::to_string(electionId)});
+        db_.exec("DELETE FROM ballots WHERE election_id=?", {std::to_string(electionId)});
+        db_.exec("DELETE FROM participation WHERE election_id=?", {std::to_string(electionId)});
+        db_.exec("DELETE FROM eligibility WHERE election_id=?", {std::to_string(electionId)});
+        db_.exec("DELETE FROM candidates WHERE election_id=?", {std::to_string(electionId)});
+        db_.exec("DELETE FROM elections WHERE id=? AND status IN ('published','archived')",
+                 {std::to_string(electionId)});
+        out.status = PurgeElectionResult::Purged;
+    });
+    return out;
 }
 
 std::optional<Election> Store::getElection(long long id) {
@@ -1052,9 +1119,10 @@ std::vector<AuditEvent> Store::listAuditForOrganization(long long orgId,
     std::vector<AuditEvent> out;
     if (orgId <= 0) return out;
     std::string sql =
-        "SELECT a.* FROM audit_events a JOIN elections e ON e.id=a.election_id "
-        "WHERE e.org_id=?";
-    std::vector<DbValue> binds{std::to_string(orgId)};
+        "SELECT a.* FROM audit_events a WHERE ("
+        "a.election_id IN (SELECT id FROM elections WHERE org_id=?) "
+        "OR (a.action='ELECTION_PURGED' AND a.detail LIKE ?))";
+    std::vector<DbValue> binds{std::to_string(orgId), "org=" + std::to_string(orgId) + ";%"};
     if (electionId != 0) {
         sql += " AND a.election_id=?";
         binds.emplace_back(std::to_string(electionId));
@@ -1103,9 +1171,17 @@ static std::string unescapeCsv(const std::string& s) {
     return s;
 }
 
-long long Store::importOrg(const std::string& name, const std::string& slug) {
-    db_.exec("INSERT INTO organizations(name,slug,allow_self_registration,created_at) VALUES(?,?,1,?)",
-             {name, slug, nowIso()});
+// std::getline removes the line feed but leaves the carriage return from
+// CRLF files. Strip it (and any stray trailing CR) before parsing fields so
+// the final field does not silently become unusable.
+static void chompLine(std::string& line) {
+    while (!line.empty() && line.back() == '\r') line.pop_back();
+}
+
+long long Store::importOrg(const std::string& name, const std::string& slug,
+                           bool allowSelfRegistration) {
+    db_.exec("INSERT INTO organizations(name,slug,allow_self_registration,created_at) VALUES(?,?,?,?)",
+             {name, slug, allowSelfRegistration ? "1" : "0", nowIso()});
     return db_.lastInsertId();
 }
 

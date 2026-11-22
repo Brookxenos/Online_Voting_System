@@ -72,3 +72,30 @@ ElectionService::DeleteStatus ElectionService::removeSafely(const User& actor, l
     }
     return DeleteStatus::Conflict;
 }
+
+ElectionService::PurgeResult ElectionService::purge(const User& actor, long long id,
+                                                   const std::string& confirmName) {
+    PurgeResult result;
+    if (id <= 0) { result.status = PurgeStatus::Invalid; return result; }
+    auto current = repository_.get(id);
+    if (!current) { result.status = PurgeStatus::NotFound; return result; }
+    if (!canManage(actor, *current)) { result.status = PurgeStatus::Forbidden; return result; }
+    auto outcome = repository_.purgeSafely(id, actor.username, confirmName);
+    switch (outcome.status) {
+        case Store::PurgeElectionResult::Purged:
+            result.status = PurgeStatus::Purged;
+            result.ballots = outcome.ballots;
+            result.participations = outcome.participations;
+            result.candidates = outcome.candidates;
+            result.eligible = outcome.eligible;
+            return result;
+        case Store::PurgeElectionResult::NotFound:
+            result.status = PurgeStatus::NotFound; return result;
+        case Store::PurgeElectionResult::NotPosted:
+            result.status = PurgeStatus::Conflict; return result;
+        case Store::PurgeElectionResult::NameMismatch:
+            result.status = PurgeStatus::ConfirmationMismatch; return result;
+    }
+    result.status = PurgeStatus::Conflict;
+    return result;
+}

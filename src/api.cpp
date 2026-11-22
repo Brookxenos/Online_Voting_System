@@ -658,6 +658,46 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         return ok({{"message", json::Value(std::string("Draft election deleted; audit history retained"))}});
     });
 
+    // Permanent deletion of a posted election. This is deliberately separate
+    // from DELETE /api/elections/:id (draft-only) and requires both the exact
+    // election name and an explicit irreversible-action acknowledgement.
+    server.addRoute("POST", "/api/elections/:id/purge", [&, authService, electionService](const HttpServer::Request& req) {
+        auto actor = currentUser(req, *authService);
+        if (!actor) return fail(401, "Not authenticated");
+        long long id;
+        try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
+        json::Value body;
+        HttpServer::Response err;
+        if (!parseBody(req, body, err)) return err;
+        if (!body.has("acknowledgeIrreversible") || !body.at("acknowledgeIrreversible").asBool()) {
+            return fail(400, "Explicit acknowledgement of permanent deletion is required");
+        }
+        const std::string confirmName = trimStr(body.getString("confirmName"));
+        if (confirmName.empty()) {
+            return fail(400, "Type the exact election name to confirm permanent deletion");
+        }
+        auto result = electionService->purge(*actor, id, confirmName);
+        if (result.status == ElectionService::PurgeStatus::Invalid) return fail(400, "Invalid election id");
+        if (result.status == ElectionService::PurgeStatus::NotFound) return fail(404, "Election not found");
+        if (result.status == ElectionService::PurgeStatus::Forbidden)
+            return fail(403, "Administrator access required for this election");
+        if (result.status == ElectionService::PurgeStatus::Conflict)
+            return fail(409, "Only published or archived elections can be permanently deleted; archive the election first");
+        if (result.status == ElectionService::PurgeStatus::ConfirmationMismatch)
+            return fail(400, "The election name does not match; type the exact name to confirm permanent deletion");
+        json::Object deleted;
+        deleted["ballots"] = (double)result.ballots;
+        deleted["participations"] = (double)result.participations;
+        deleted["candidates"] = (double)result.candidates;
+        deleted["eligible"] = (double)result.eligible;
+        json::Object response;
+        response["message"] = json::Value(std::string(
+            "Election permanently deleted; a sanitized audit snapshot was retained"));
+        response["auditRetained"] = json::Value(true);
+        response["deleted"] = json::Value(deleted);
+        return ok(response);
+    });
+
     // ======================= Candidates ====================================
 
     server.addRoute("GET", "/api/elections/:id/candidates", [&, authService, candidateService, candidateRepository](const HttpServer::Request& req) {
@@ -1085,6 +1125,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (status == UserService::Status::NotFound) return fail(404, "User not found");
         if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
         if (status == UserService::Status::Protected) return fail(403, "Platform administrator accounts are protected");
+        if (status == UserService::Status::NotDisabled)
+            return fail(409, "Disable the account before deleting it; this prevents accidental removal of active accounts");
         if (status == UserService::Status::Retained)
             return ok({{"message", json::Value(std::string("Account removed; linked election records retained and sessions revoked"))},
                        {"recordsRetained", json::Value(true)}});
