@@ -1064,6 +1064,19 @@ async function renderAdmin(view) {
         </form>
         <div class="admin-user-controls"><label>Search users<input id="admin-user-search" type="search" placeholder="Search username or display name"></label><label>Role<select id="admin-user-role"><option value="all">All roles</option><option value="voter">Voter</option><option value="org_admin">Organization admin</option><option value="platform_admin">Platform admin</option><option value="observer">Observer</option></select></label><label>Status<select id="admin-user-status"><option value="all">All accounts</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label><label>Sort by<select id="admin-user-sort"><option value="username">Username</option><option value="displayName">Display name</option><option value="role">Role</option></select></label></div>
         <div id="user-list" class="table-wrap"><div class="loading-state">Loading users…</div></div>
+        <dialog id="admin-password-dialog" class="admin-password-dialog" aria-labelledby="admin-password-title">
+          <form id="admin-password-form" class="admin-password-form">
+            <header><p class="section-kicker">User management</p><h2 id="admin-password-title">Reset password</h2><p>Reset access for <strong id="admin-reset-username"></strong>.</p><span class="pill pill-muted" id="admin-reset-account-status"></span></header>
+            <label for="admin-reset-password">Temporary password</label>
+            <div class="admin-password-field"><input id="admin-reset-password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required><button class="btn btn-secondary" id="admin-password-reveal" type="button" aria-pressed="false">Show</button></div>
+            <div class="btn-row admin-password-tools"><button class="btn btn-secondary" id="admin-password-generate" type="button">Generate password</button><button class="btn btn-secondary" id="admin-password-copy" type="button">Copy password</button><button class="btn btn-secondary" id="admin-account-copy" type="button">Copy account details</button></div>
+            <label class="check-label admin-reset-confirm"><input id="admin-reset-confirm" type="checkbox" required> I confirm this reset. The user's current sessions will be revoked.</label>
+            <div id="admin-password-feedback" class="error-box" role="alert" aria-live="polite" hidden></div>
+            <div id="admin-password-copy-feedback" class="success-box" role="status" aria-live="polite" hidden></div>
+            <div id="admin-password-success" class="success-box" role="status" aria-live="polite" hidden></div>
+            <div class="btn-row"><button class="btn btn-primary" type="submit">Reset password</button><button class="btn btn-link" id="admin-password-cancel" type="button">Cancel</button></div>
+          </form>
+        </dialog>
       </div>
       <div id="tab-audit" class="tab-panel">
         <div class="admin-section-heading"><div><h2>Audit log</h2><p>Read-only history of administrative and election activity.</p></div><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
@@ -1289,50 +1302,107 @@ async function renderAdmin(view) {
     const shown = filtered.slice(0,adminUserPageSize);
     if (!adminUsers.length) { userList.innerHTML = '<div class="empty-state"><h2>No users available</h2></div>'; return; }
     if (!filtered.length) { userList.innerHTML = '<div class="empty-state"><h2>No matching users</h2><p>Change your search or filters.</p></div>'; return; }
-    userList.innerHTML = `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Org</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
-      shown.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.displayName)}</td><td>${roleLabel(u.role)}</td><td>${escapeHtml(adminOrganizationNames[u.orgId] || (u.orgId || '—'))}</td><td>${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td>${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-link" data-reset-toggle="${u.id}" aria-expanded="false">Reset password</button><button class="btn btn-link btn-danger" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable' : 'Disable'}</button>${u.disabled && u.role !== 'platform_admin' ? `<button class="btn btn-link btn-danger" data-delete-user="${u.id}" data-name="${escapeHtml(u.username)}">Delete account</button>` : u.role !== 'platform_admin' ? '<small class="admin-delete-hint">Disable account before deletion</small>' : ''}<form class="admin-reset-form" data-reset-form="${u.id}" hidden><label>Temporary password<input type="password" name="password" minlength="8" maxlength="256" autocomplete="new-password" required></label><button class="btn btn-secondary" type="button" data-generate="${u.id}">Generate</button><button class="btn btn-primary" type="submit">Set password</button><small>Existing sessions will be revoked. Share this temporary password securely; the user must update it from Profile.</small><div class="error-box" hidden></div></form></div>` : ''}</td></tr>`).join('') + '</tbody></table>';
+    userList.innerHTML = `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Organization</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
+      shown.map(u => `<tr><td data-label="ID">${u.id}</td><td data-label="Username"><strong>${escapeHtml(u.username)}</strong></td><td data-label="Display name">${escapeHtml(u.displayName)}</td><td data-label="Role"><span class="user-role-pill">${roleLabel(u.role)}</span></td><td data-label="Organization">${escapeHtml(adminOrganizationNames[u.orgId] || (u.orgId || '—'))}</td><td data-label="Status">${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td data-label="Actions">${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-secondary" type="button" data-reset-user="${u.id}" aria-label="Reset password for ${escapeHtml(u.username)}">Reset password</button><button class="btn btn-secondary" type="button" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable account' : 'Disable account'}</button>${u.role !== 'platform_admin' ? `<button class="btn btn-danger" type="button" data-delete-user="${u.id}" data-name="${escapeHtml(u.username)}">Delete account</button>` : ''}</div>` : '<span class="muted small">Current account</span>'}</td></tr>`).join('') + '</tbody></table>';
     if (filtered.length > shown.length) userList.innerHTML += '<button class="btn btn-secondary" id="admin-user-load-more">Load more</button>';
     const more = document.getElementById('admin-user-load-more');
     if (more) more.addEventListener('click',() => { adminUserPageSize += 10; drawAdminUsers(); });
     userList.querySelectorAll('[data-delete-user]').forEach(btn => btn.addEventListener('click', async () => {
       const name = btn.dataset.name;
-      if (!window.confirm(`Permanently delete disabled account “${name}”? Accounts with election eligibility, participation, or elections they created cannot be deleted. Audit history is retained. This cannot be undone.`)) return;
+      if (!window.confirm(`Remove disabled account “${name}”? The account will no longer appear in user management and all sessions will be revoked. Any election eligibility, participation, ballots, results and audit history will be retained. This cannot be undone.`)) return;
       btn.disabled = true;
-      try { await api('users/' + btn.dataset.deleteUser, {method:'DELETE'}); toast('User account deleted.'); await loadUsers(); }
+      try {
+        const result = await api('users/' + btn.dataset.deleteUser, {method:'DELETE'});
+        adminUsers = adminUsers.filter(u => String(u.id) !== String(btn.dataset.deleteUser));
+        drawAdminUsers();
+        toast(result.recordsRetained ? 'Account removed. Linked election records were retained.' : 'Account deleted.');
+        await loadUsers();
+      }
       catch (err) { toast(err.message, 'error'); btn.disabled = false; }
     }));
     userList.querySelectorAll('[data-disable]').forEach(btn => btn.addEventListener('click',async () => {
-      const disable = btn.textContent.trim() === 'Disable';
+      const disable = btn.textContent.trim() === 'Disable account';
       if (!window.confirm((disable ? 'Disable' : 'Enable') + ' account ' + btn.getAttribute('data-name') + '?')) return;
       try { await api('users/' + btn.getAttribute('data-disable') + '/disable',{method:'POST',body:{disabled:disable}}); await loadUsers(); }
       catch (err) { toast(err.message,'error'); }
     }));
-    userList.querySelectorAll('[data-reset-toggle]').forEach(btn => btn.addEventListener('click', () => {
-      const form = userList.querySelector(`[data-reset-form="${btn.dataset.resetToggle}"]`);
-      form.hidden = !form.hidden;
-      btn.setAttribute('aria-expanded', String(!form.hidden));
-      if (!form.hidden) form.querySelector('input').focus();
-    }));
-    userList.querySelectorAll('[data-generate]').forEach(btn => btn.addEventListener('click', () => {
-      const bytes = new Uint8Array(18); crypto.getRandomValues(bytes);
-      const value = Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
-      userList.querySelector(`[data-reset-form="${btn.dataset.generate}"] input[name="password"]`).value = value;
-    }));
-    userList.querySelectorAll('[data-reset-form]').forEach(form => form.addEventListener('submit', async ev => {
-      ev.preventDefault();
-      const password = new FormData(form).get('password');
-      const target = adminUsers.find(u => String(u.id) === form.dataset.resetForm);
-      if (!target || !window.confirm(`Reset ${target.username}'s password? All of their active sessions will be signed out.`)) return;
-      const button = form.querySelector('[type="submit"]'); button.disabled = true;
-      const errorBox = form.querySelector('.error-box'); errorBox.hidden = true;
-      try {
-        await api(`users/${target.id}/password`, {method:'POST',body:{password}});
-        form.reset(); form.hidden = true;
-        toast(`Password reset for ${target.username}. Share the temporary password securely and ask them to change it in Profile.`);
-      } catch (err) { errorBox.textContent = err.message; errorBox.hidden = false; }
-      finally { button.disabled = false; }
-    }));
+    userList.querySelectorAll('[data-reset-user]').forEach(btn => btn.addEventListener('click', () => openPasswordReset(btn.dataset.resetUser, btn)));
   };
+
+  const resetDialog = document.getElementById('admin-password-dialog');
+  const resetForm = document.getElementById('admin-password-form');
+  const resetPassword = document.getElementById('admin-reset-password');
+  const resetFeedback = document.getElementById('admin-password-feedback');
+  const resetCopyFeedback = document.getElementById('admin-password-copy-feedback');
+  const resetSuccess = document.getElementById('admin-password-success');
+  let resetTarget = null;
+  let resetOpener = null;
+  const resetMessage = (element, message) => { element.textContent = message; element.hidden = !message; };
+  function openPasswordReset(userId, opener) {
+    resetTarget = adminUsers.find(u => String(u.id) === String(userId));
+    if (!resetTarget) return;
+    resetOpener = opener;
+    resetForm.reset();
+    resetPassword.type = 'password';
+    document.getElementById('admin-password-reveal').textContent = 'Show';
+    document.getElementById('admin-password-reveal').setAttribute('aria-pressed','false');
+    document.getElementById('admin-reset-username').textContent = resetTarget.username;
+    document.getElementById('admin-reset-account-status').textContent = `${roleLabel(resetTarget.role)} · ${resetTarget.disabled ? 'Disabled' : 'Active'}`;
+    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, '');
+    resetForm.querySelector('[type="submit"]').disabled = false;
+    resetDialog.showModal();
+    resetPassword.focus();
+  }
+  document.getElementById('admin-password-generate').addEventListener('click', () => {
+    const bytes = new Uint8Array(18);
+    crypto.getRandomValues(bytes);
+    resetPassword.value = Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
+    resetPassword.type = 'text';
+    document.getElementById('admin-password-reveal').textContent = 'Hide';
+    document.getElementById('admin-password-reveal').setAttribute('aria-pressed','true');
+    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetPassword.focus();
+  });
+  document.getElementById('admin-password-reveal').addEventListener('click', ev => {
+    const show = resetPassword.type === 'password';
+    resetPassword.type = show ? 'text' : 'password';
+    ev.currentTarget.textContent = show ? 'Hide' : 'Show';
+    ev.currentTarget.setAttribute('aria-pressed', String(show));
+  });
+  const copyResetText = async value => {
+    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, '');
+    if (!value) { resetMessage(resetFeedback, 'Enter or generate a password first.'); return; }
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('Clipboard access is unavailable.');
+      await navigator.clipboard.writeText(value);
+      resetMessage(resetCopyFeedback, 'Copied to clipboard.');
+    } catch (_) {
+      resetPassword.focus(); resetPassword.select();
+      resetMessage(resetFeedback, 'Clipboard access is unavailable. The password is selected so you can copy it manually.');
+    }
+  };
+  document.getElementById('admin-password-copy').addEventListener('click', () => copyResetText(resetPassword.value));
+  document.getElementById('admin-account-copy').addEventListener('click', () => {
+    if (!resetTarget) return;
+    copyResetText(`Username: ${resetTarget.username}\nTemporary password: ${resetPassword.value}`);
+  });
+  resetForm.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    if (!resetTarget || !resetForm.reportValidity()) return;
+    const submit = resetForm.querySelector('[type="submit"]');
+    submit.disabled = true; resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, '');
+    try {
+      await api(`users/${resetTarget.id}/password`, {method:'POST',body:{password:resetPassword.value}});
+      resetMessage(resetSuccess, `Password reset for ${resetTarget.username}. Their active sessions were revoked. Copy the temporary password and deliver it securely.`);
+      submit.disabled = true;
+    } catch (err) { resetMessage(resetFeedback, err.message); submit.disabled = false; }
+  });
+  document.getElementById('admin-password-cancel').addEventListener('click', () => resetDialog.close());
+  resetDialog.addEventListener('close', () => {
+    resetForm.reset(); resetPassword.type = 'password';
+    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, ''); resetTarget = null;
+    if (resetOpener && resetOpener.isConnected) resetOpener.focus();
+    resetOpener = null;
+  });
   ['admin-user-search','admin-user-role','admin-user-status','admin-user-sort'].forEach(id => {
     document.getElementById(id).addEventListener(id === 'admin-user-search' ? 'input' : 'change',drawAdminUsers);
   });

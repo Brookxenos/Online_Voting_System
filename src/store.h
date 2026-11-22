@@ -39,7 +39,7 @@ public:
 
     // --- Users --------------------------------------------------------------
     enum class CreateUserResult { Ok, DuplicateUsername, OrgNotFound };
-    enum class DeleteUserResult { Deleted, NotFound, MustDisable, Protected, HasLinkedRecords };
+    enum class DeleteUserResult { Deleted, Retained, NotFound, Protected };
     CreateUserResult createUser(User& user); // fills id/createdAt
     DeleteUserResult deleteUserSafely(long long userId, const std::string& actor);
     std::optional<User> findUserByUsername(const std::string& username);

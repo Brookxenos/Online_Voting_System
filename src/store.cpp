@@ -71,6 +71,7 @@ static User userFromRow(const Database::Row& r) {
     u.orgId = r.at("org_id").empty() ? 0 : std::stoll(r.at("org_id"));
     u.nationalId = r.count("national_id") ? r.at("national_id") : "";
     u.disabled = r.at("disabled") == "1";
+    u.deleted = r.count("deleted") && r.at("deleted") == "1";
     u.createdAt = r.at("created_at");
     return u;
 }
@@ -208,6 +209,12 @@ CREATE INDEX idx_elections_published ON elections(results_public, status, publis
 UPDATE elections SET published_at=(SELECT MAX(created_at) FROM tally_runs WHERE tally_runs.election_id=elections.id)
 WHERE results_public=1 AND status IN ('published','archived');
 )SQL",
+    // 4 — deleted account tombstones preserve foreign-key-linked election
+    // history while preventing authentication and removing accounts from
+    // administration lists.
+    R"SQL(
+ALTER TABLE users ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
+)SQL",
 };
 
 // ---------------------------------------------------------------------------
@@ -286,7 +293,7 @@ Store::CreateUserResult Store::createUser(User& user) {
 }
 
 std::optional<User> Store::findUserByUsername(const std::string& username) {
-    auto rows = db_.query("SELECT * FROM users WHERE username=?", {username});
+    auto rows = db_.query("SELECT * FROM users WHERE username=? AND deleted=0", {username});
     if (rows.empty()) return std::nullopt;
     return userFromRow(rows[0]);
 }
@@ -300,10 +307,10 @@ std::optional<User> Store::findUserById(long long id) {
 std::vector<User> Store::listUsers(std::optional<long long> orgId) {
     std::vector<User> out;
     if (orgId) {
-        for (const auto& r : db_.query("SELECT * FROM users WHERE org_id=? ORDER BY id",
+        for (const auto& r : db_.query("SELECT * FROM users WHERE org_id=? AND deleted=0 ORDER BY id",
                                        {std::to_string(*orgId)})) out.push_back(userFromRow(r));
     } else {
-        for (const auto& r : db_.query("SELECT * FROM users ORDER BY id")) out.push_back(userFromRow(r));
+        for (const auto& r : db_.query("SELECT * FROM users WHERE deleted=0 ORDER BY id")) out.push_back(userFromRow(r));
     }
     return out;
 }
@@ -324,23 +331,20 @@ void Store::updatePasswordHash(long long userId, const std::string& hash) {
 }
 
 void Store::setUserDisabled(long long userId, bool disabled) {
-    db_.exec("UPDATE users SET disabled=? WHERE id=?", {disabled ? "1" : "0", std::to_string(userId)});
+    db_.exec("UPDATE users SET disabled=? WHERE id=? AND deleted=0", {disabled ? "1" : "0", std::to_string(userId)});
     if (disabled) revokeAllSessions(userId);
 }
 
 Store::DeleteUserResult Store::deleteUserSafely(long long userId, const std::string& actor) {
     DeleteUserResult result = DeleteUserResult::NotFound;
     db_.tx([&] {
-        const auto users = db_.query("SELECT username,role,disabled FROM users WHERE id=?",
+        const auto users = db_.query("SELECT username,role,disabled,deleted FROM users WHERE id=?",
                                      {std::to_string(userId)});
         if (users.empty()) return;
         const auto& user = users.front();
+        if (user.at("deleted") == "1") return;
         if (user.at("role") == "platform_admin") {
             result = DeleteUserResult::Protected;
-            return;
-        }
-        if (user.at("disabled") != "1") {
-            result = DeleteUserResult::MustDisable;
             return;
         }
         const auto linked = db_.query(
@@ -348,14 +352,23 @@ Store::DeleteUserResult Store::deleteUserSafely(long long userId, const std::str
             "(SELECT COUNT(*) FROM eligibility WHERE user_id=?) + "
             "(SELECT COUNT(*) FROM elections WHERE created_by=?) AS n",
             {std::to_string(userId), std::to_string(userId), std::to_string(userId)});
-        if (!linked.empty() && std::stoll(linked.front().at("n")) > 0) {
-            result = DeleteUserResult::HasLinkedRecords;
-            return;
-        }
         addAudit(actor, "USER_DELETED", 0,
                  "user id " + std::to_string(userId) + " username " + user.at("username"));
-        db_.exec("DELETE FROM users WHERE id=?", {std::to_string(userId)});
-        result = DeleteUserResult::Deleted;
+        if (!linked.empty() && std::stoll(linked.front().at("n")) > 0) {
+            // Keep the stable user ID referenced by historical eligibility,
+            // participation, and election ownership. Replace login and
+            // personal profile data, hide the tombstone from admin lists,
+            // and ensure no existing session survives.
+            const std::string tombstone = "deleted-account-" + std::to_string(userId);
+            db_.exec("UPDATE users SET username=?,display_name='Deleted account',password_hash='!deleted!',"
+                     "national_id='',disabled=1,deleted=1 WHERE id=?",
+                     {tombstone, std::to_string(userId)});
+            revokeAllSessions(userId);
+            result = DeleteUserResult::Retained;
+        } else {
+            db_.exec("DELETE FROM users WHERE id=?", {std::to_string(userId)});
+            result = DeleteUserResult::Deleted;
+        }
     });
     return result;
 }
@@ -422,7 +435,7 @@ std::optional<User> Store::userForSessionToken(const std::string& token) {
         {hash, nowIso()});
     if (rows.empty()) return std::nullopt;
     User u = userFromRow(rows[0]);
-    if (u.disabled) return std::nullopt;
+    if (u.disabled || u.deleted) return std::nullopt;
     return u;
 }
 

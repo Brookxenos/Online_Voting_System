@@ -1085,11 +1085,12 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (status == UserService::Status::NotFound) return fail(404, "User not found");
         if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
         if (status == UserService::Status::Protected) return fail(403, "Platform administrator accounts are protected");
-        if (status == UserService::Status::MustDisable) return fail(409, "Disable the account before deleting it");
-        if (status == UserService::Status::HasLinkedRecords)
-            return fail(409, "This account has election participation, eligibility, or created elections; disable it to preserve those records");
+        if (status == UserService::Status::Retained)
+            return ok({{"message", json::Value(std::string("Account removed; linked election records retained and sessions revoked"))},
+                       {"recordsRetained", json::Value(true)}});
         if (status != UserService::Status::Ok) return fail(400, "User could not be deleted");
-        return ok({{"message", json::Value(std::string("User deleted; audit history retained"))}});
+        return ok({{"message", json::Value(std::string("User deleted; sessions and audit history handled"))},
+                   {"recordsRetained", json::Value(false)}});
     });
 
     server.addRoute("POST", "/api/users/:id/password", [&, authService, userService, userRepository](const HttpServer::Request& req) {

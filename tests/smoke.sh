@@ -107,17 +107,19 @@ check "platform administrator creation clears organization scope" '"orgId":0' \
 jpost /api/auth/login '{"username":"admb","password":"password123"}' -c "$TMP/admb.jar" > /dev/null
 check "create disposable account for safe deletion checks" '"username":"cleanup"' \
   "$(jpost /api/users '{"username":"cleanup","password":"password123","role":"voter","orgId":2}' -b "$TMP/admin.jar")"
-check "active user cannot be deleted" "Disable the account before deleting it" \
-  "$(jdelete /api/users/6 -b "$TMP/admin.jar")"
+jpost /api/auth/login '{"username":"cleanup","password":"password123"}' -c "$TMP/cleanup.jar" > /dev/null
+check "authorized administrator can delete an active unused account" '"recordsRetained":false' \
+  "$(jdelete /api/users/6 -b "$TMP/admb.jar")"
+check "hard-deleted account is absent from user-list API" 'User not found' \
+  "$(jget /api/users/6 -b "$TMP/admin.jar")"
+check "hard-deleted account cannot log in" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"cleanup","password":"password123"}')"
+check "hard-deleted account's existing session is invalid" "Not authenticated" \
+  "$(jget /api/me -b "$TMP/cleanup.jar")"
 check "organization admin cannot delete users outside its organization" "Access denied" \
   "$(jdelete /api/users/2 -b "$TMP/admb.jar")"
 check "platform administrator account cannot be deleted" "Platform administrator accounts are protected" \
   "$(jdelete /api/users/5 -b "$TMP/admin.jar")"
-check "disable unused account before removal" '"ok":true' \
-  "$(jpost /api/users/6/disable '{"disabled":true}' -b "$TMP/admb.jar")"
-check "organization admin deletes disabled unused account" '"ok":true' \
-  "$(jdelete /api/users/6 -b "$TMP/admb.jar")"
-check "deleted account no longer exists" "User not found" "$(jget /api/users/6 -b "$TMP/admin.jar")"
 check "org admin B exists" '"role":"org_admin"' "$(jget /api/me -b "$TMP/admb.jar")"
 check "organization admin views own organization" '"slug":"org-b"' "$(jget /api/orgs/2 -b "$TMP/admb.jar")"
 check "organization admin cannot view another organization" "Access denied" "$(jget /api/orgs/1 -b "$TMP/admb.jar")"
@@ -404,10 +406,16 @@ else
   PASS=$((PASS+1)); echo "  PASS: audit contains no password strings"
 fi
 check "voter cannot read audit" "Administrator or observer" "$(jget /api/audit -b "$TMP/voterA.jar")"
-check "disable participation-linked voter before removal check" '"ok":true' \
-  "$(jpost /api/users/2/disable '{"disabled":true}' -b "$TMP/admin.jar")"
-check "participation-linked voter deletion is blocked" "participation, eligibility, or created elections" \
+check "deleting a voter with historical election records retains them safely" '"recordsRetained":true' \
   "$(jdelete /api/users/2 -b "$TMP/admin.jar")"
+check "deleted linked user is absent from user-list API" 'voterA absent' \
+  "$(jget /api/users -b "$TMP/admin.jar" | if grep -q '"username":"voterA"'; then echo 'deleted voter is still listed'; else echo 'voterA absent'; fi)"
+check "deleted user cannot authenticate again" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"voterA","password":"password123"}')"
+check "deleted user's existing session cannot be used" "Not authenticated" \
+  "$(jget /api/me -b "$TMP/voterA.jar")"
+check "published ballot tally remains after account removal" '"totalBallots":1' \
+  "$(jget /api/elections/1/results)"
 check "org admin B cannot read org A audit for A1" "Access denied" \
   "$(jget '/api/audit?electionId=1' -b "$TMP/admb.jar")"
 AUDIT_B=$(jget /api/audit -b "$TMP/admb.jar")

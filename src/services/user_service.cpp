@@ -18,6 +18,7 @@ bool validPassword(const std::string& p) { return p.size() >= 8 && p.size() <= 2
 }
 
 bool UserService::mayManage(const User& actor, const User& target) const {
+    if (target.deleted) return false;
     if (actor.role == "platform_admin") return true;
     return actor.role == "org_admin" && actor.orgId > 0 && actor.orgId == target.orgId &&
            target.role != "platform_admin";
@@ -34,7 +35,7 @@ std::vector<User> UserService::list(const User& actor, long long orgId, Status& 
 
 UserService::Result UserService::get(const User& actor, long long id) {
     auto target = repository_.find(id);
-    if (!target) return {Status::NotFound, {}};
+    if (!target || target->deleted) return {Status::NotFound, {}};
     if (actor.id != target->id && !mayManage(actor, *target)) return {Status::Forbidden, {}};
     return {Status::Ok, *target};
 }
@@ -59,7 +60,7 @@ UserService::Result UserService::create(const User& actor, User user, const std:
 UserService::Result UserService::update(const User& actor, long long id, const std::string& name,
                                          const std::string& role, long long orgId) {
     auto target = repository_.find(id);
-    if (!target) return {Status::NotFound, {}};
+    if (!target || target->deleted) return {Status::NotFound, {}};
     if (!mayManage(actor, *target)) return {Status::Forbidden, {}};
     if (name.empty() || name.size() > 100 || !validRole(role)) return {Status::Invalid, {}};
     if (actor.role == "org_admin" && role == "platform_admin") return {Status::Forbidden, {}};
@@ -76,7 +77,7 @@ UserService::Result UserService::update(const User& actor, long long id, const s
 
 UserService::Status UserService::setDisabled(const User& actor, long long id, bool disabled) {
     auto target = repository_.find(id);
-    if (!target) return Status::NotFound;
+    if (!target || target->deleted) return Status::NotFound;
     if (!mayManage(actor, *target) || target->id == actor.id) return Status::Forbidden;
     repository_.setDisabled(id, disabled);
     return Status::Ok;
@@ -84,7 +85,7 @@ UserService::Status UserService::setDisabled(const User& actor, long long id, bo
 
 UserService::Status UserService::changePassword(const User& actor, long long id, const std::string& password) {
     auto target = repository_.find(id);
-    if (!target) return Status::NotFound;
+    if (!target || target->deleted) return Status::NotFound;
     // This endpoint is for administrator-initiated resets. Self-service
     // password changes use /api/auth/password, which verifies the current
     // password before updating the hash.
@@ -97,14 +98,13 @@ UserService::Status UserService::changePassword(const User& actor, long long id,
 
 UserService::Status UserService::remove(const User& actor, long long id) {
     auto target = repository_.find(id);
-    if (!target) return Status::NotFound;
+    if (!target || target->deleted) return Status::NotFound;
     if (target->id == actor.id || !mayManage(actor, *target)) return Status::Forbidden;
     switch (repository_.deleteSafely(id, actor.username)) {
         case Store::DeleteUserResult::Deleted: return Status::Ok;
+        case Store::DeleteUserResult::Retained: return Status::Retained;
         case Store::DeleteUserResult::NotFound: return Status::NotFound;
-        case Store::DeleteUserResult::MustDisable: return Status::MustDisable;
         case Store::DeleteUserResult::Protected: return Status::Protected;
-        case Store::DeleteUserResult::HasLinkedRecords: return Status::HasLinkedRecords;
     }
     return Status::Invalid;
 }

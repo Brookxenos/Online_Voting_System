@@ -31,6 +31,7 @@ struct User {
     long long orgId = 0;    // 0 = no organization (platform-level only)
     std::string nationalId; // legacy data only; not collected from new registrations
     bool disabled = false;
+    bool deleted = false;
     std::string createdAt;
 };
 
