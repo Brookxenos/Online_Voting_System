@@ -983,13 +983,13 @@ async function renderAdmin(view) {
   }
   view.innerHTML = `
     <section class="card admin-dashboard">
-      <header class="page-head-inline admin-dashboard-heading"><div><p class="section-kicker">ElectraVote</p><h1>Administration</h1><p class="muted">Manage elections, organizations, accounts and the audit trail.</p></div><button class="btn btn-primary" id="btn-new-election">+ New election</button></header>
+      <header class="page-head-inline admin-dashboard-heading"><div><p class="section-kicker">ElectraVote</p><h1>Administration</h1><p class="muted">Manage elections, organizations, accounts and the audit trail.</p></div><button class="btn btn-primary" id="btn-new-election" type="button" aria-expanded="false" aria-controls="form-new-election">+ New election</button></header>
       <div class="dashboard-stats" id="admin-statistics" aria-label="Administration summary"><div class="stat-card"><span>Total Elections</span><strong>—</strong></div><div class="stat-card"><span>Active Elections</span><strong>—</strong></div><div class="stat-card"><span>Total Candidates</span><strong>—</strong></div><div class="stat-card"><span>Registered Voters</span><strong>—</strong></div><div class="stat-card"><span>Votes Cast</span><strong>—</strong></div></div>
       <nav class="tabs" role="tablist">
-        <button class="tab active" data-tab="elections" role="tab">Elections</button>
-        ${state.user.role === 'platform_admin' ? '<button class="tab" data-tab="orgs" role="tab">Organizations</button>' : ''}
-        <button class="tab" data-tab="users" role="tab">Users</button>
-        <button class="tab" data-tab="audit" role="tab">Audit log</button>
+        <button class="tab active" id="admin-tab-elections" data-tab="elections" role="tab" aria-selected="true" aria-controls="tab-elections" tabindex="0">Elections</button>
+        ${state.user.role === 'platform_admin' ? '<button class="tab" id="admin-tab-orgs" data-tab="orgs" role="tab" aria-selected="false" aria-controls="tab-orgs" tabindex="-1">Organizations</button>' : ''}
+        <button class="tab" id="admin-tab-users" data-tab="users" role="tab" aria-selected="false" aria-controls="tab-users" tabindex="-1">Users</button>
+        <button class="tab" id="admin-tab-audit" data-tab="audit" role="tab" aria-selected="false" aria-controls="tab-audit" tabindex="-1">Audit log</button>
       </nav>
       <div id="tab-elections" class="tab-panel active">
         <div class="admin-section-heading"><div><h2>Elections</h2><p>Manage schedules, voter access and publication.</p></div></div>
@@ -1067,7 +1067,8 @@ async function renderAdmin(view) {
       </div>
       <div id="tab-audit" class="tab-panel">
         <div class="admin-section-heading"><div><h2>Audit log</h2><p>Read-only history of administrative and election activity.</p></div><button class="btn btn-secondary" id="btn-refresh-audit">Refresh</button></div>
-        <div id="audit-list" class="table-wrap"><div class="empty">Loading…</div></div>
+        <label class="admin-audit-search">Search audit events<input id="admin-audit-search" type="search" placeholder="Search actor, action, election or details"></label>
+        <div id="audit-list" class="table-wrap"><div class="loading-state">Loading audit events…</div></div>
       </div>
     </section>`;
 
@@ -1075,12 +1076,23 @@ async function renderAdmin(view) {
 
   // ---- tabs helpers ----
   function bindTabs(view) {
-    view.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        view.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        view.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        view.querySelector('#tab-' + tab.getAttribute('data-tab')).classList.add('active');
+    const tabs = [...view.querySelectorAll('.tab')];
+    const activate = tab => {
+      tabs.forEach(t => {
+        const active = t === tab;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', String(active));
+        t.tabIndex = active ? 0 : -1;
+      });
+      view.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab.dataset.tab));
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activate(tab));
+      tab.addEventListener('keydown', ev => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(ev.key)) return;
+        ev.preventDefault();
+        const next = ev.key === 'Home' ? 0 : ev.key === 'End' ? tabs.length - 1 : (index + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+        tabs[next].focus(); activate(tabs[next]);
       });
     });
   }
@@ -1167,10 +1179,12 @@ async function renderAdmin(view) {
 
   // ---- new election ----
   const neForm = document.getElementById('form-new-election');
-  document.getElementById('btn-new-election').addEventListener('click', () => {
+  document.getElementById('btn-new-election').addEventListener('click', (ev) => {
     neForm.hidden = !neForm.hidden;
+    ev.currentTarget.setAttribute('aria-expanded', String(!neForm.hidden));
+    if (!neForm.hidden) neForm.querySelector('input[name="name"]').focus();
   });
-  document.getElementById('ne-cancel').addEventListener('click', () => { neForm.hidden = true; });
+  document.getElementById('ne-cancel').addEventListener('click', () => { neForm.reset(); neForm.hidden = true; document.getElementById('btn-new-election').setAttribute('aria-expanded','false'); });
   neForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(neForm);
@@ -1194,7 +1208,7 @@ async function renderAdmin(view) {
     try {
       const r = await api('elections', { method: 'POST', body });
       toast('Election created.');
-      neForm.reset(); neForm.hidden = true;
+      neForm.reset(); neForm.hidden = true; document.getElementById('btn-new-election').setAttribute('aria-expanded','false');
       go('#/admin/election/' + r.election.id);
     } catch (err) {
       errBox.textContent = err.message; errBox.hidden = false;
@@ -1208,8 +1222,8 @@ async function renderAdmin(view) {
   if (state.user.role === 'platform_admin') {
     const orgList = document.getElementById('org-list');
     const noForm = document.getElementById('form-new-org');
-    document.getElementById('btn-new-org').addEventListener('click', () => { noForm.hidden = !noForm.hidden; });
-    document.getElementById('no-cancel').addEventListener('click', () => { noForm.hidden = true; });
+    document.getElementById('btn-new-org').addEventListener('click', ev => { noForm.hidden = !noForm.hidden; ev.currentTarget.setAttribute('aria-expanded',String(!noForm.hidden)); });
+    document.getElementById('no-cancel').addEventListener('click', () => { noForm.reset(); noForm.hidden = true; document.getElementById('btn-new-org').setAttribute('aria-expanded','false'); });
     noForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const fd = new FormData(noForm);
@@ -1224,7 +1238,7 @@ async function renderAdmin(view) {
           }
         });
         toast('Organization created.');
-        noForm.reset(); noForm.hidden = true;
+        noForm.reset(); noForm.hidden = true; document.getElementById('btn-new-org').setAttribute('aria-expanded','false');
         await loadOrgSelects(); await loadOrgs();
       } catch (err) {
         errBox.textContent = err.message; errBox.hidden = false;
@@ -1233,10 +1247,30 @@ async function renderAdmin(view) {
     async function loadOrgs() {
       const data = await api('orgs');
       const orgs = data.orgs || [];
-      orgList.innerHTML = orgs.length === 0 ? '<div class="empty">No organizations yet.</div>' :
-        `<table><thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Self-registration</th></tr></thead><tbody>` +
-        orgs.map(o => `<tr><td>${o.id}</td><td>${escapeHtml(o.name)}</td><td>${escapeHtml(o.slug)}</td><td>${o.allowSelfRegistration ? 'Yes' : 'No'}</td></tr>`).join('') +
+      orgList.innerHTML = orgs.length === 0 ? '<div class="empty-state"><h2>No organizations yet</h2><p>Create an organization to start managing its elections and users.</p></div>' :
+        `<table><thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Self-registration</th><th>Actions</th></tr></thead><tbody>` +
+        orgs.map(o => `<tr><td>${o.id}</td><td>${escapeHtml(o.name)}</td><td><code>${escapeHtml(o.slug)}</code></td><td><span class="pill ${o.allowSelfRegistration ? 'pill-success' : 'pill-muted'}">${o.allowSelfRegistration ? 'Enabled' : 'Disabled'}</span></td><td><button class="btn btn-secondary" type="button" data-org-edit="${o.id}" aria-expanded="false" aria-controls="org-edit-${o.id}">Edit settings</button><form id="org-edit-${o.id}" class="admin-org-edit" data-org-form="${o.id}" hidden><label>Name<input name="name" maxlength="100" value="${escapeHtml(o.name)}" required></label><label>Slug<input name="slug" maxlength="32" value="${escapeHtml(o.slug)}" required></label><label class="check-label"><input type="checkbox" name="allowSelfRegistration" ${o.allowSelfRegistration ? 'checked' : ''}> Allow self-registration</label><div class="btn-row"><button class="btn btn-primary" type="submit">Save settings</button><button class="btn btn-link" type="button" data-org-cancel="${o.id}">Cancel</button></div><div class="error-box" hidden></div></form></td></tr>`).join('') +
         '</tbody></table>';
+      orgList.querySelectorAll('[data-org-edit]').forEach(button => button.addEventListener('click', () => {
+        const form = document.getElementById(`org-edit-${button.dataset.orgEdit}`);
+        form.hidden = !form.hidden;
+        button.setAttribute('aria-expanded', String(!form.hidden));
+      }));
+      orgList.querySelectorAll('[data-org-cancel]').forEach(button => button.addEventListener('click', () => {
+        const form = orgList.querySelector(`[data-org-form="${button.dataset.orgCancel}"]`);
+        form.hidden = true;
+        orgList.querySelector(`[data-org-edit="${button.dataset.orgCancel}"]`).setAttribute('aria-expanded','false');
+      }));
+      orgList.querySelectorAll('[data-org-form]').forEach(form => form.addEventListener('submit', async ev => {
+        ev.preventDefault();
+        const fd = new FormData(form), submit = form.querySelector('[type="submit"]'), error = form.querySelector('.error-box');
+        error.hidden = true; submit.disabled = true;
+        try {
+          await api(`orgs/${form.dataset.orgForm}`, {method:'POST',body:{name:fd.get('name'),slug:fd.get('slug'),allowSelfRegistration:fd.get('allowSelfRegistration') === 'on'}});
+          toast('Organization settings updated.'); await loadOrgs(); await loadOrgSelects();
+        } catch (err) { error.textContent = err.message; error.hidden = false; }
+        finally { submit.disabled = false; }
+      }));
     }
     await loadOrgs();
   }
@@ -1341,18 +1375,25 @@ async function renderAdmin(view) {
 
   // ---- audit ----
   const auditList = document.getElementById('audit-list');
+  let auditEntries = [];
+  const drawAudit = () => {
+    const term = document.getElementById('admin-audit-search').value.trim().toLocaleLowerCase();
+    const entries = auditEntries.filter(e => !term || `${e.ts} ${e.actor} ${e.action} ${e.electionId || ''} ${e.detail || ''}`.toLocaleLowerCase().includes(term));
+    auditList.innerHTML = entries.length === 0 ? `<div class="empty-state"><h2>${auditEntries.length ? 'No matching audit events' : 'No audit events yet'}</h2><p>${auditEntries.length ? 'Try another search term.' : 'Administrative and election activity will appear here.'}</p></div>` :
+        `<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Election</th><th>Detail</th></tr></thead><tbody>` +
+        entries.map(e => `<tr><td><time datetime="${escapeHtml(e.ts)}">${escapeHtml(new Date(e.ts).toLocaleString())}</time></td><td>${escapeHtml(e.actor)}</td><td><span class="audit-action">${escapeHtml(e.action.replaceAll('_',' ').toLocaleLowerCase().replace(/\b\w/g,c => c.toLocaleUpperCase()))}</span></td><td>${e.electionId || '—'}</td><td>${escapeHtml(e.detail || '')}</td></tr>`).join('') +
+        '</tbody></table>';
+  };
   async function loadAudit() {
     try {
       const data = await api('audit');
-      const entries = data.entries || [];
-      auditList.innerHTML = entries.length === 0 ? '<div class="empty">No audit events yet.</div>' :
-        `<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Election</th><th>Detail</th></tr></thead><tbody>` +
-        entries.map(e => `<tr><td class="mono">${escapeHtml(e.ts)}</td><td>${escapeHtml(e.actor)}</td><td>${escapeHtml(e.action)}</td><td>${e.electionId || '—'}</td><td>${escapeHtml(e.detail || '')}</td></tr>`).join('') +
-        '</tbody></table>';
+      auditEntries = data.entries || [];
+      drawAudit();
     } catch (err) {
       auditList.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
     }
   }
+  document.getElementById('admin-audit-search').addEventListener('input', drawAudit);
   document.getElementById('btn-refresh-audit').addEventListener('click', loadAudit);
   await loadAudit();
   state.adminRefreshTimer = setInterval(() => {

@@ -2548,3 +2548,20 @@ textarea { min-height:92px;resize:vertical; }
 @media(prefers-reduced-motion:reduce) {
   .admin-dashboard .btn,.admin-dashboard .election-row,.admin-dashboard .tab,.admin-dashboard .admin-live-indicator i { transition:none;animation:none; }
 }
+
+/* Administration table actions and compact audit search use the shared controls. */
+.admin-dashboard .admin-org-edit { display:grid;gap:10px;min-width:min(320px,72vw);margin-top:10px;padding:13px;border:1px solid #dfe8e5;border-radius:10px;background:#f7faf9; }
+.admin-dashboard .admin-org-edit label { display:grid;gap:5px;color:#354541;font-size:.8rem;font-weight:700; }
+.admin-dashboard .admin-org-edit .check-label { display:flex;align-items:center;gap:8px; }
+.admin-dashboard .admin-org-edit input:not([type="checkbox"]) { width:100%;min-height:40px;padding:8px 10px;border:1px solid #d3dfdc;border-radius:8px;background:#fff;color:var(--brand-ink); }
+.admin-dashboard .admin-org-edit[hidden] { display:none!important; }
+.admin-dashboard .admin-audit-search { display:grid;gap:7px;max-width:440px;margin:0 0 14px;color:#536360;font-size:.8rem;font-weight:700; }
+.admin-dashboard .admin-audit-search input { width:100%;min-height:42px;padding:9px 11px;border:1px solid #d3dfdc;border-radius:8px;background:#fff;color:var(--brand-ink); }
+.admin-dashboard .admin-audit-search input:focus { outline:0;border-color:var(--brand-teal);box-shadow:0 0 0 3px rgba(13,115,119,.12); }
+.admin-dashboard .audit-action { font-weight:700;color:var(--brand-dark); }
+.admin-dashboard .admin-user-controls + .table-wrap,
+.admin-dashboard .admin-audit-search + .table-wrap { min-width:0; }
+@media(max-width:760px) {
+  .admin-dashboard .admin-org-edit { min-width:0; }
+  .admin-dashboard .admin-audit-search { max-width:none; }
+}
