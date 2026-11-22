@@ -130,6 +130,25 @@ does not announce an official winner or provide independent tally verification.
    archiving does not delete ballots or participation records.
 3. Draft archives are terminal and likewise retain election records.
 
+Unused draft elections can be permanently deleted from the Elections list
+after a confirmation. The server allows this only while there are no ballots,
+participation rows, tally records, or published results. Elections with
+records must be archived; their history and audit trail are retained.
+
+## Manage organizations and accounts
+
+Platform administrators can edit an organization's name, slug, and
+self-registration setting from its row in the Organizations tab. These
+changes are saved through the organization API and appear in the audit log.
+The Users tab supports searching, role/status filtering, activation changes,
+and password resets within the actor's permissions. A reset replaces the
+password hash, revokes the target's sessions, and is audited. The application
+does not enforce a password change on the next login; deliver any temporary
+password securely and ask the user to change it from Profile.
+
+The Audit log tab is read-only. Its search filters the currently loaded audit
+events by actor, action, election identifier, date, and detail text.
+
 ## Legacy CSV records
 
 Legacy CSV migration runs automatically at startup only when initializing a

@@ -1028,7 +1028,7 @@ async function renderAdmin(view) {
       </div>
       ${state.user.role === 'platform_admin' ? `
       <div id="tab-orgs" class="tab-panel">
-        <div class="admin-section-heading"><div><h2>Organizations</h2><p>Manage organization settings and registration.</p></div><button class="btn btn-primary" id="btn-new-org">+ New organization</button></div>
+        <div class="admin-section-heading"><div><h2>Organizations</h2><p>Manage organization settings and registration.</p></div><button class="btn btn-primary" id="btn-new-org" type="button" aria-expanded="false" aria-controls="form-new-org">+ New organization</button></div>
         <form id="form-new-org" class="stack-form panel" hidden>
           <label>Name<input type="text" name="name" maxlength="100" required></label>
           <label>Slug (URL-safe identifier)<input type="text" name="slug" maxlength="32" required></label>
@@ -1041,7 +1041,7 @@ async function renderAdmin(view) {
         <div id="org-list" class="table-wrap"><div class="empty">Loading…</div></div>
       </div>` : ''}
       <div id="tab-users" class="tab-panel">
-        <div class="admin-section-heading"><div><h2>Users</h2><p>Manage accounts, roles and access.</p></div><button class="btn btn-primary" id="btn-new-user">+ New user</button></div>
+        <div class="admin-section-heading"><div><h2>Users</h2><p>Manage accounts, roles and access.</p></div><button class="btn btn-primary" id="btn-new-user" type="button" aria-expanded="false" aria-controls="form-new-user">+ New user</button></div>
         <form id="form-new-user" class="stack-form panel" hidden>
           <label>Username<input type="text" name="username" maxlength="32" required></label>
           <label>Display name<input type="text" name="displayName" maxlength="100"></label>
@@ -1336,8 +1336,8 @@ async function renderAdmin(view) {
   ['admin-user-search','admin-user-role','admin-user-status','admin-user-sort'].forEach(id => {
     document.getElementById(id).addEventListener(id === 'admin-user-search' ? 'input' : 'change',drawAdminUsers);
   });
-  document.getElementById('btn-new-user').addEventListener('click', () => { nuForm.hidden = !nuForm.hidden; });
-  document.getElementById('nu-cancel').addEventListener('click', () => { nuForm.hidden = true; });
+  document.getElementById('btn-new-user').addEventListener('click', ev => { nuForm.hidden = !nuForm.hidden; ev.currentTarget.setAttribute('aria-expanded',String(!nuForm.hidden)); });
+  document.getElementById('nu-cancel').addEventListener('click', () => { nuForm.reset(); nuForm.hidden = true; document.getElementById('btn-new-user').setAttribute('aria-expanded','false'); });
   nuForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(nuForm);
@@ -1353,7 +1353,7 @@ async function renderAdmin(view) {
     try {
       await api('users', { method: 'POST', body });
       toast('User created.');
-      nuForm.reset(); nuForm.hidden = true;
+      nuForm.reset(); nuForm.hidden = true; document.getElementById('btn-new-user').setAttribute('aria-expanded','false');
       await loadUsers();
     } catch (err) {
       errBox.textContent = err.message; errBox.hidden = false;

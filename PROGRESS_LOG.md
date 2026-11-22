@@ -1677,3 +1677,15 @@
 - **Tests:** 6 AuthService, 6 lifecycle integrity, 17 voting service and 160 HTTP smoke checks passed (189 total, 0 failed). Browser access host reports unavailable, so no rendered screenshot review.
 - **Known gaps:** Visual browser QA remains required when the browser host is available.
 - **Exact next task:** Verify JS, build and existing suite; then review the admin page in a browser at desktop and mobile widths.
+
+### 2026-11-22 --- Codex --- Step 12 administration follow-up
+
+- **Status:** Added accessible keyboard navigation and selected state to the Administration tabs, explicit expanded/collapsed states for create forms, inline editing for organization name/slug/self-registration using the existing audited API, and searchable audit events with localized timestamps and readable action labels. Kept the established palette and backend contracts.
+- **Approved scope:** Owner-requested completion of Step 12, including admin usability and consistency. Existing architecture and privacy rules retained.
+- **Files changed:** `web/app.js`, `web/style.css`, `docs/ADMIN_MANUAL.md`, `PROGRESS_LOG.md`.
+- **Investigation and decisions:** Source confirms election DELETE is already implemented and accepts only an unused draft with no ballots, participation, tally, or published results; archived elections retain records. Password reset is hashed by the existing Argon2id path, scoped by `UserService::mayManage`, disallows self-reset, revokes sessions, and audits the action. No forced-change field exists, so no schema migration was introduced. Legacy CSV import is a one-time startup import for a fresh database, preserves files, creates `legacy-import` only when valid rows exist, and imports identity-linked historical ballots; smoke coverage exercises import, source preservation, and idempotent restart. No administrator upload/re-import feature exists, and no CSVs or runtime election data were altered. Earlier log wording that claimed no election delete API exists was inaccurate; this entry records the source-verified behavior.
+- **Commands run:** `node --check web/app.js` (passed before the final edits; rerun pending); `make -j2` and `make test` pending; browser visual verification unavailable in this session.
+- **Tests:** Existing smoke coverage includes organization settings, scoped password reset and session revocation, archived-record retention, deletion restrictions, and legacy import/idempotence. Full verification pending.
+- **Security/privacy implications:** No database/schema, ballot, lifecycle, or authorization changes. Password hashes and reset values remain absent from responses/logs; audit stays read-only; archive/delete guards stay server-side. The current account model cannot force a password update on next login.
+- **Known issues:** A browser walkthrough at desktop/mobile widths remains unverified. Legacy import has no admin upload/re-import workflow; the existing migration is for preserved initial import only.
+- **Next exact task:** Run the frontend syntax check, C++ build, and isolated full test suite; review the administration UI in a browser when browser access is available.
