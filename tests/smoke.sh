@@ -57,7 +57,10 @@ echo "-- static and auth --"
 check "serves ElectraVote index.html" "<title>ElectraVote" "$(jget /)"
 check "serves ElectraVote participant access label" "ELECTRAVOTE · PARTICIPANT ACCESS" "$(jget /app.js)"
 check "serves the administrator password reset dialog" "admin-password-dialog" "$(jget /app.js)"
+check "password reset dialog includes generate and copy actions" "admin-account-copy" "$(jget /app.js)"
+check "generated temporary password is revealed for copying" "resetPassword.type = 'text'" "$(jget /app.js)"
 check "serves the shared custom checkbox style" "label.check-label" "$(jget /style.css)"
+check "custom checkbox retains visible keyboard focus" "input[type=\"checkbox\"]:focus-visible" "$(jget /style.css)"
 check "serves ElectraVote logo asset" "Content-Type: image/png" "$(curl -s "$BASE/assets/electravote-logo.png" -D - -o /dev/null | tr -d '\r')"
 check "serves ElectraVote favicon" "Content-Type: image/png" "$(curl -s "$BASE/favicon.png" -D - -o /dev/null | tr -d '\r')"
 check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"
@@ -155,6 +158,8 @@ check "platform admin resets user password" '"ok":true' \
 check "administrative password reset revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"
 jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}' -c "$TMP/outsider-new.jar" > /dev/null
 check "administrative password reset enables new password login" '"role":"voter"' "$(jget /api/me -b "$TMP/outsider-new.jar")"
+check "user API never exposes the reset password hash" 'passwordHash' \
+  "$(jget /api/users/4 -b "$TMP/admin.jar" | if grep -q 'passwordHash\|password_hash'; then echo 'passwordHash exposed'; else echo 'passwordHash absent'; fi)"
 check "admin summary is organization scoped" '"totalElections":0' \
   "$(jget /api/admin/summary -b "$TMP/admb.jar")"
 check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"
@@ -407,11 +412,19 @@ if [[ "$AUDIT" == *"password"* ]]; then
 else
   PASS=$((PASS+1)); echo "  PASS: audit contains no password strings"
 fi
+if [[ "$AUDIT" == *"reset-password-123"* ]]; then
+  FAIL=$((FAIL+1)); echo "  FAIL: audit contains the temporary password"
+else
+  PASS=$((PASS+1)); echo "  PASS: audit omits the temporary password value"
+fi
 check "voter cannot read audit" "Administrator or observer" "$(jget /api/audit -b "$TMP/voterA.jar")"
 check "deleting a voter with historical election records retains them safely" '"recordsRetained":true' \
   "$(jdelete /api/users/2 -b "$TMP/admin.jar")"
 check "deleted linked user is absent from user-list API" 'voterA absent' \
   "$(jget /api/users -b "$TMP/admin.jar" | if grep -q '"username":"voterA"'; then echo 'deleted voter is still listed'; else echo 'voterA absent'; fi)"
+jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin-after-delete.jar" > /dev/null
+check "linked deleted user remains absent after administrator signs in again" 'voterA absent' \
+  "$(jget /api/users -b "$TMP/admin-after-delete.jar" | if grep -q '"username":"voterA"'; then echo 'deleted voter is still listed'; else echo 'voterA absent'; fi)"
 check "deleted user cannot authenticate again" "Invalid username or password" \
   "$(jpost /api/auth/login '{"username":"voterA","password":"password123"}')"
 check "deleted user's existing session cannot be used" "Not authenticated" \
