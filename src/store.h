@@ -50,7 +50,7 @@ public:
     void updateDisplayName(long long userId, const std::string& displayName);
     void updateUserRoleAndOrg(long long userId, const std::string& role, long long orgId);
     void updatePasswordHash(long long userId, const std::string& hash);
-    void resetPassword(long long userId, const std::string& hash, int expireMinutes = 3);
+    void resetPassword(long long userId, const std::string& hash, int expireMinutes = 2);
     void markResetPasswordUsed(long long userId);
     void setUserDisabled(long long userId, bool disabled);
     std::string participationAt(long long electionId, long long userId);
