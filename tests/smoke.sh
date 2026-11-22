@@ -56,6 +56,8 @@ fi
 echo "-- static and auth --"
 check "serves ElectraVote index.html" "<title>ElectraVote" "$(jget /)"
 check "serves ElectraVote participant access label" "ELECTRAVOTE · PARTICIPANT ACCESS" "$(jget /app.js)"
+check "serves the administrator password reset dialog" "admin-password-dialog" "$(jget /app.js)"
+check "serves the shared custom checkbox style" "label.check-label" "$(jget /style.css)"
 check "serves ElectraVote logo asset" "Content-Type: image/png" "$(curl -s "$BASE/assets/electravote-logo.png" -D - -o /dev/null | tr -d '\r')"
 check "serves ElectraVote favicon" "Content-Type: image/png" "$(curl -s "$BASE/favicon.png" -D - -o /dev/null | tr -d '\r')"
 check "login sets cookie" "ov_session" "$(jpost /api/auth/login '{"username":"admin","password":"'$ADMIN_PW'"}' -c "$TMP/admin.jar" -D - | tr -d '\r')"

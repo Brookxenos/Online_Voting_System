@@ -141,10 +141,19 @@ Platform administrators can edit an organization's name, slug, and
 self-registration setting from its row in the Organizations tab. These
 changes are saved through the organization API and appear in the audit log.
 The Users tab supports searching, role/status filtering, activation changes,
-and password resets within the actor's permissions. A reset replaces the
-password hash, revokes the target's sessions, and is audited. The application
-does not enforce a password change on the next login; deliver any temporary
-password securely and ask the user to change it from Profile.
+account removal, and password resets within the actor's permissions. Removing
+an account revokes sessions. Accounts with no election links are deleted;
+accounts referenced by eligibility, participation, or election ownership are
+hidden tombstones with identifying profile fields cleared so their linked
+records and stable user IDs remain intact. In both cases the account cannot
+log in and is excluded from user management. Audit history is retained.
+
+Password reset opens a dialog. Choose a generated password or enter one
+manually, reveal it as needed, and use the copy controls before closing the
+dialog. Confirm the reset in the dialog; the backend stores only the existing
+Argon2id hash and revokes the target's sessions. The application does not
+enforce a password change on the next login; deliver the temporary password
+securely and ask the user to change it from Profile.
 
 The Audit log tab is read-only. Its search filters the currently loaded audit
 events by actor, action, election identifier, date, and detail text.
