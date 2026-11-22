@@ -91,7 +91,7 @@ UserService::Status UserService::changePassword(const User& actor, long long id,
     // password before updating the hash.
     if (actor.id == target->id || !mayManage(actor, *target)) return Status::Forbidden;
     if (!validPassword(password)) return Status::Invalid;
-    repository_.updatePasswordHash(id, crypto::hashPassword(password));
+    repository_.resetPassword(id, crypto::hashPassword(password), 3);
     repository_.revokeSessions(id);
     return Status::Ok;
 }

@@ -11,6 +11,14 @@ struct Bucket { std::vector<long long> failures; };
 std::mutex rateMutex;
 std::map<std::string, Bucket> buckets;
 long long nowSeconds() { return static_cast<long long>(std::time(nullptr)); }
+std::string nowIso() {
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+    ::gmtime_r(&t, &tm);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+    return buf;
+}
 bool limited(const std::string& key) {
     std::lock_guard<std::mutex> lock(rateMutex);
     auto it = buckets.find(key);
@@ -74,6 +82,22 @@ AuthService::LoginResult AuthService::login(const std::string& username, const s
     if (!user || user->disabled || !crypto::verifyPassword(password, user->passwordHash)) {
         failure(key); store_.addAudit(username, "LOGIN_FAIL", 0, "");
         return {};
+    }
+    if (user->mustChangePassword) {
+        std::string now = nowIso();
+        if (!user->passwordResetExpiresAt.empty() && now > user->passwordResetExpiresAt) {
+            failure(key);
+            store_.addAudit(username, "LOGIN_FAIL", 0, "credential expired");
+            return {};
+        }
+        if (user->passwordResetUsed) {
+            failure(key);
+            store_.addAudit(username, "LOGIN_FAIL", 0, "credential already used");
+            return {};
+        }
+        store_.markResetPasswordUsed(user->id);
+        user->passwordResetUsed = true;
+        store_.addAudit(username, "RESET_LOGIN", 0, "one-time credential consumed");
     }
     if (!crypto::isModernHash(user->passwordHash)) {
         store_.updatePasswordHash(user->id, crypto::hashPassword(password));

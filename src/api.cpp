@@ -102,6 +102,7 @@ json::Value userJson(const User& u) {
     o["displayName"] = u.displayName;
     o["role"] = u.role;
     o["orgId"] = (double)u.orgId;
+    o["mustChangePassword"] = u.mustChangePassword;
     return json::Value(o);
 }
 
@@ -1020,6 +1021,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
             jo["role"] = u.role;
             jo["orgId"] = (double)u.orgId;
             jo["disabled"] = u.disabled;
+            jo["mustChangePassword"] = u.mustChangePassword;
             arr.push_back(json::Value(jo));
         }
         return ok({{"users", json::Value(arr)}});
@@ -1147,7 +1149,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
         if (status != UserService::Status::Ok) return fail(400, "Password must be between 8 and 256 characters");
         store.addAudit(actor->username, "USER_PASSWORD_CHANGED", 0, std::to_string(id));
-        return ok();
+        return ok({{"message", json::Value(std::string("Temporary password generated; expires in 3 minutes and is valid for one-time use"))},
+                   {"expiresInSeconds", json::Value(180.0)}});
     });
 
     // ======================= Audit =========================================

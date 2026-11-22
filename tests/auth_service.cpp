@@ -30,6 +30,42 @@ int main() {
     auto login2 = auth.login("authvoter", "password123", "auth-test-login-2", 1);
     check(login2.ok, "login succeeds after logout");
     auth.logout(login2.token);
+
+    // Reset password security tests:
+    // 1) Temporary reset password expires after 3 minutes
+    // 2) Can only be used once (one-time login)
+    // 3) Flags user to change password (mustChangePassword == true)
+    store.resetPassword(registered.user.id, crypto::hashPassword("temporary-pw-123"), 3);
+    auto resetUserOpt = store.findUserById(registered.user.id);
+    check(resetUserOpt && resetUserOpt->mustChangePassword && !resetUserOpt->passwordResetExpiresAt.empty(),
+          "reset password sets mustChangePassword and expiration timestamp");
+
+    auto resetLogin1 = auth.login("authvoter", "temporary-pw-123", "auth-test-login-3", 1);
+    check(resetLogin1.ok && resetLogin1.user.mustChangePassword,
+          "first login with valid temporary password succeeds and flags user to change password");
+
+    auto resetLogin2 = auth.login("authvoter", "temporary-pw-123", "auth-test-login-4", 1);
+    check(!resetLogin2.ok, "second login with temporary reset password is rejected (single-use enforced)");
+
+    check(auth.changePassword(resetLogin1.user, "temporary-pw-123", "new-permanent-pw-456"),
+          "user can update password using temporary password as current credential");
+
+    auto updatedUserOpt = store.findUserById(registered.user.id);
+    check(updatedUserOpt && !updatedUserOpt->mustChangePassword && updatedUserOpt->passwordResetExpiresAt.empty(),
+          "password update clears mustChangePassword and expiration state");
+
+    auto permLogin1 = auth.login("authvoter", "new-permanent-pw-456", "auth-test-login-5", 1);
+    check(permLogin1.ok && !permLogin1.user.mustChangePassword,
+          "login with new permanent password succeeds and account is unflagged");
+
+    auto permLogin2 = auth.login("authvoter", "new-permanent-pw-456", "auth-test-login-6", 1);
+    check(permLogin2.ok, "permanent password allows repeated logins");
+
+    // Expiration test:
+    store.resetPassword(registered.user.id, crypto::hashPassword("expired-temp-pw-789"), -1);
+    auto expLogin = auth.login("authvoter", "expired-temp-pw-789", "auth-test-login-7", 1);
+    check(!expLogin.ok, "expired temporary reset password is rejected at login");
+
     if (failures) std::cerr << failures << " auth service checks failed\n";
     std::remove(path.c_str());
     std::remove((path + "-shm").c_str());

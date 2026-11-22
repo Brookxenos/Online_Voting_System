@@ -78,12 +78,12 @@ separate reviewer approval state or independent tally verification.
 | `POST /api/users/:id` | Platform admin or organization admin for the target's organization | `displayName`, `role`, `orgId` | Updates account profile and role; organization-bound roles require an existing organization; platform-admin accounts have no organization assignment |
 | `POST /api/users/:id/disable` | Platform admin or organization admin in same organization | optional `disabled` (defaults true) | Changes account state; disabling revokes sessions |
 | `DELETE /api/users/:id` | Platform admin or organization admin in same organization | — | Removes a disabled non-platform-admin account and revokes sessions. Active accounts must be disabled first (409 otherwise), which prevents accidental removal of working accounts. Accounts without election links are hard-deleted; linked accounts become hidden tombstones so eligibility, participation, ballots, results, and election ownership remain intact. Audit history is retained. |
-| `POST /api/users/:id/password` | Platform admin or organization admin for a different user in the same organization | `password` (8–256 characters) | Replaces the password hash, revokes sessions and records an audit event; self-service changes require the current password at `/api/auth/password` |
+| `POST /api/users/:id/password` | Platform admin or organization admin for a different user in the same organization | `password` (8–256 characters) | Sets a temporary reset password that expires in 3 minutes, is single-use, flags the account with `mustChangePassword: true`, revokes existing sessions and records an audit event. Self-service password changes via `POST /api/auth/password` clear the flag and establish a permanent password. |
 | `GET /api/audit` | Platform admin (platform-wide), organization admin or observer (own-organization election events only) | optional `electionId` | Recent sanitized audit events; no audit mutation or deletion route is exposed. Organization-scoped reads include retained `ELECTION_PURGED` snapshots for elections in that organization. |
 
 ## Current limits
 
-- Password recovery, email verification, and notifications are not implemented. A separate result-review/finalization state is
+- Password recovery is administrator-initiated; reset passwords are restricted to single-use within 3 minutes and require an immediate password change upon sign-in. Self-service email recovery is not yet implemented. A separate result-review/finalization state is
   deferred until reviewer roles and approval rules are specified.
 - Tally publication uses the current single-choice model. Tie resolution is
   undefined; the API does not claim an official winner.

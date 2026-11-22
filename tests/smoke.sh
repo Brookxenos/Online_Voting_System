@@ -59,6 +59,8 @@ check "serves ElectraVote participant access label" "ELECTRAVOTE · PARTICIPANT 
 check "serves the administrator password reset dialog" "admin-password-dialog" "$(jget /app.js)"
 check "password reset dialog includes generate and copy actions" "admin-account-copy" "$(jget /app.js)"
 check "generated temporary password is revealed for copying" "resetPassword.type = 'text'" "$(jget /app.js)"
+check "serves password reset awareness banner component" "password-reset-alert-banner" "$(jget /app.js)"
+check "serves password reset awareness styles" ".password-reset-alert-banner" "$(jget /style.css)"
 check "serves the shared custom checkbox style" "label.check-label" "$(jget /style.css)"
 check "custom checkbox retains visible keyboard focus" "input[type=\"checkbox\"]:focus-visible" "$(jget /style.css)"
 check "serves ElectraVote logo asset" "Content-Type: image/png" "$(curl -s "$BASE/assets/electravote-logo.png" -D - -o /dev/null | tr -d '\r')"
@@ -162,6 +164,9 @@ check "platform admin resets user password" '"ok":true' \
 check "administrative password reset revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"
 jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}' -c "$TMP/outsider-new.jar" > /dev/null
 check "administrative password reset enables new password login" '"role":"voter"' "$(jget /api/me -b "$TMP/outsider-new.jar")"
+check "administrative password reset flags user to change password" '"mustChangePassword":true' "$(jget /api/me -b "$TMP/outsider-new.jar")"
+check "one-time reset password cannot be used for a second login" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}')"
 check "administrator disables account before reset regression check" '"ok":true' \
   "$(jpost /api/users/4/disable '{"disabled":true}' -b "$TMP/admin.jar")"
 check "password reset on a disabled account succeeds without re-enabling it" '"ok":true' \
@@ -170,6 +175,25 @@ check "disabled account remains unable to sign in after password reset" "Invalid
   "$(jpost /api/auth/login '{"username":"outsider","password":"still-disabled-pw-1"}')"
 check "administrator re-enables account for later checks" '"ok":true' \
   "$(jpost /api/users/4/disable '{"disabled":false}' -b "$TMP/admin.jar")"
+jpost /api/auth/login '{"username":"outsider","password":"still-disabled-pw-1"}' -c "$TMP/outsider-dis.jar" > /dev/null
+check "re-enabled user signs in with reset password and receives mustChangePassword flag" '"mustChangePassword":true' "$(jget /api/me -b "$TMP/outsider-dis.jar")"
+check "second login with temporary reset password is rejected" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"outsider","password":"still-disabled-pw-1"}')"
+check "user updates password from temporary to permanent" "Password updated" \
+  "$(jpost /api/auth/password '{"currentPassword":"still-disabled-pw-1","newPassword":"permanent-password-1"}' -b "$TMP/outsider-dis.jar")"
+jpost /api/auth/login '{"username":"outsider","password":"permanent-password-1"}' -c "$TMP/outsider-perm.jar" > /dev/null
+check "permanent password login clears mustChangePassword" '"mustChangePassword":false' "$(jget /api/me -b "$TMP/outsider-perm.jar")"
+check "permanent password can be used multiple times" '"role":"voter"' \
+  "$(jpost /api/auth/login '{"username":"outsider","password":"permanent-password-1"}' -c "$TMP/outsider-perm2.jar" > /dev/null; jget /api/me -b "$TMP/outsider-perm2.jar")"
+
+# Expiration test: reset password with expired timestamp
+jpost /api/users/4/password '{"password":"expired-test-pw-1"}' -b "$TMP/admin.jar" > /dev/null
+python3 -c "import sqlite3; conn = sqlite3.connect('$TMP/data/openvote.db'); conn.execute(\"UPDATE users SET password_reset_expires_at='2020-01-01T00:00:00Z' WHERE id=4\"); conn.commit(); conn.close()"
+check "expired reset password rejected after 3 minutes" "Invalid username or password" \
+  "$(jpost /api/auth/login '{"username":"outsider","password":"expired-test-pw-1"}')"
+jpost /api/users/4/password '{"password":"temp-restore-pw-1"}' -b "$TMP/admin.jar" > /dev/null
+jpost /api/auth/login '{"username":"outsider","password":"temp-restore-pw-1"}' -c "$TMP/outsider-rest.jar" > /dev/null
+jpost /api/auth/password '{"currentPassword":"temp-restore-pw-1","newPassword":"permanent-password-1"}' -b "$TMP/outsider-rest.jar" > /dev/null
 check "user API never exposes the reset password hash" 'passwordHash' \
   "$(jget /api/users/4 -b "$TMP/admin.jar" | if grep -q 'passwordHash\|password_hash'; then echo 'passwordHash exposed'; else echo 'passwordHash absent'; fi)"
 check "admin summary is organization scoped" '"totalElections":0' \

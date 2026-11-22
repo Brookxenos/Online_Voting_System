@@ -32,6 +32,15 @@ static std::string isoInHours(int hours) {
     return buf;
 }
 
+static std::string isoInMinutes(int minutes) {
+    std::time_t t = std::time(nullptr) + (std::time_t)minutes * 60;
+    std::tm tm{};
+    ::gmtime_r(&t, &tm);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+    return buf;
+}
+
 // Audit details must not contain delimiters or control characters.
 static std::string sanitizeDetail(std::string s) {
     std::string out;
@@ -73,6 +82,9 @@ static User userFromRow(const Database::Row& r) {
     u.nationalId = r.count("national_id") ? r.at("national_id") : "";
     u.disabled = r.at("disabled") == "1";
     u.deleted = r.count("deleted") && r.at("deleted") == "1";
+    u.mustChangePassword = r.count("must_change_password") && r.at("must_change_password") == "1";
+    u.passwordResetExpiresAt = r.count("password_reset_expires_at") ? r.at("password_reset_expires_at") : "";
+    u.passwordResetUsed = r.count("password_reset_used") && r.at("password_reset_used") == "1";
     u.createdAt = r.at("created_at");
     return u;
 }
@@ -216,6 +228,13 @@ WHERE results_public=1 AND status IN ('published','archived');
     R"SQL(
 ALTER TABLE users ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
 )SQL",
+    // 5 — password reset security: temporary reset passwords expire in 3 minutes,
+    // can be used only once, and flag the account to require a password change.
+    R"SQL(
+ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN password_reset_expires_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN password_reset_used INTEGER NOT NULL DEFAULT 0;
+)SQL",
 };
 
 // ---------------------------------------------------------------------------
@@ -328,7 +347,21 @@ void Store::updateUserRoleAndOrg(long long userId, const std::string& role, long
 }
 
 void Store::updatePasswordHash(long long userId, const std::string& hash) {
-    db_.exec("UPDATE users SET password_hash=? WHERE id=?", {hash, std::to_string(userId)});
+    db_.exec("UPDATE users SET password_hash=?, must_change_password=0, "
+             "password_reset_expires_at='', password_reset_used=0 WHERE id=?",
+             {hash, std::to_string(userId)});
+}
+
+void Store::resetPassword(long long userId, const std::string& hash, int expireMinutes) {
+    std::string expiresAt = isoInMinutes(expireMinutes);
+    db_.exec("UPDATE users SET password_hash=?, must_change_password=1, "
+             "password_reset_expires_at=?, password_reset_used=0 WHERE id=? AND deleted=0",
+             {hash, expiresAt, std::to_string(userId)});
+}
+
+void Store::markResetPasswordUsed(long long userId) {
+    db_.exec("UPDATE users SET password_reset_used=1 WHERE id=? AND deleted=0",
+             {std::to_string(userId)});
 }
 
 void Store::setUserDisabled(long long userId, bool disabled) {

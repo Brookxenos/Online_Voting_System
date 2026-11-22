@@ -32,6 +32,9 @@ struct User {
     std::string nationalId; // legacy data only; not collected from new registrations
     bool disabled = false;
     bool deleted = false;
+    bool mustChangePassword = false;
+    std::string passwordResetExpiresAt;
+    bool passwordResetUsed = false;
     std::string createdAt;
 };
 
