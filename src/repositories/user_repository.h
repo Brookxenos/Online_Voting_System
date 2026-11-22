@@ -16,7 +16,7 @@ public:
         return store_.deleteUserSafely(id, actor);
     }
     void updatePasswordHash(long long id, const std::string& hash) { store_.updatePasswordHash(id, hash); }
-    void resetPassword(long long id, const std::string& hash, int expireMinutes = 3) {
+    void resetPassword(long long id, const std::string& hash, int expireMinutes = 2) {
         store_.resetPassword(id, hash, expireMinutes);
     }
     void revokeSessions(long long id) { store_.revokeAllSessions(id); }

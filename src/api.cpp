@@ -856,6 +856,7 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
     server.addRoute("POST", "/api/elections/:id/vote", [&, votingService, ballotRepository, authService](const HttpServer::Request& req) {
         auto user = currentUser(req, *authService);
         if (!user) return fail(401, "Not authenticated");
+        if (user->mustChangePassword) return fail(403, "You must change your temporary password before casting a ballot");
         long long id;
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid election id"); }
         json::Value body;
@@ -1149,8 +1150,8 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
         if (status != UserService::Status::Ok) return fail(400, "Password must be between 8 and 256 characters");
         store.addAudit(actor->username, "USER_PASSWORD_CHANGED", 0, std::to_string(id));
-        return ok({{"message", json::Value(std::string("Temporary password generated; expires in 3 minutes and is valid for one-time use"))},
-                   {"expiresInSeconds", json::Value(180.0)}});
+        return ok({{"message", json::Value(std::string("Temporary password generated; expires in 2 minutes and is valid for one-time use"))},
+                   {"expiresInSeconds", json::Value(120.0)}});
     });
 
     // ======================= Audit =========================================

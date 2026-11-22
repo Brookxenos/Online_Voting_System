@@ -93,7 +93,7 @@ older handover notes. The checked-out source and tests are authoritative.
 6. Password recovery, email verification, notifications, independent tally
    verification, operational backup/restore procedures, and deployment
    hardening are incomplete. An administrator can reset a password with single-use,
-   3-minute expiration and a required password change upon sign-in, but there
+   2-minute expiration and a required password change upon sign-in, but there
    is no self-service web recovery flow.
 7. The app is not certified or approved for legally binding public elections.
 

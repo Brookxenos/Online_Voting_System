@@ -32,10 +32,10 @@ int main() {
     auth.logout(login2.token);
 
     // Reset password security tests:
-    // 1) Temporary reset password expires after 3 minutes
+    // 1) Temporary reset password expires after 2 minutes
     // 2) Can only be used once (one-time login)
     // 3) Flags user to change password (mustChangePassword == true)
-    store.resetPassword(registered.user.id, crypto::hashPassword("temporary-pw-123"), 3);
+    store.resetPassword(registered.user.id, crypto::hashPassword("temporary-pw-123"), 2);
     auto resetUserOpt = store.findUserById(registered.user.id);
     check(resetUserOpt && resetUserOpt->mustChangePassword && !resetUserOpt->passwordResetExpiresAt.empty(),
           "reset password sets mustChangePassword and expiration timestamp");

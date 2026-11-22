@@ -60,6 +60,8 @@ check "serves the administrator password reset dialog" "admin-password-dialog" "
 check "password reset dialog includes generate and copy actions" "admin-account-copy" "$(jget /app.js)"
 check "generated temporary password is revealed for copying" "resetPassword.type = 'text'" "$(jget /app.js)"
 check "serves password reset awareness banner component" "password-reset-alert-banner" "$(jget /app.js)"
+check "serves change password dedicated view" "change-password-page" "$(jget /app.js)"
+check "serves redirect click handler for warning banner" "btn-banner-change-password" "$(jget /app.js)"
 check "serves password reset awareness styles" ".password-reset-alert-banner" "$(jget /style.css)"
 check "serves the shared custom checkbox style" "label.check-label" "$(jget /style.css)"
 check "custom checkbox retains visible keyboard focus" "input[type=\"checkbox\"]:focus-visible" "$(jget /style.css)"
@@ -159,12 +161,15 @@ check "deactivation revokes active sessions" "Not authenticated" "$(jget /api/me
 check "org admin reactivates organization user" '"ok":true' \
   "$(jpost /api/users/4/disable '{"disabled":false}' -b "$TMP/admb.jar")"
 jpost /api/auth/login '{"username":"outsider","password":"password123"}' -c "$TMP/outsider.jar" > /dev/null
-check "platform admin resets user password" '"ok":true' \
-  "$(jpost /api/users/4/password '{"password":"reset-password-123"}' -b "$TMP/admin.jar")"
+RESET_RESP="$(jpost /api/users/4/password '{"password":"reset-password-123"}' -b "$TMP/admin.jar")"
+check "platform admin resets user password" '"ok":true' "$RESET_RESP"
+check "reset password metadata specifies 120 seconds expiry" '"expiresInSeconds":120' "$RESET_RESP"
 check "administrative password reset revokes active sessions" "Not authenticated" "$(jget /api/me -b "$TMP/outsider.jar")"
 jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}' -c "$TMP/outsider-new.jar" > /dev/null
 check "administrative password reset enables new password login" '"role":"voter"' "$(jget /api/me -b "$TMP/outsider-new.jar")"
 check "administrative password reset flags user to change password" '"mustChangePassword":true' "$(jget /api/me -b "$TMP/outsider-new.jar")"
+check "voter with temporary reset password cannot cast ballot" "You must change your temporary password before casting a ballot" \
+  "$(jpost /api/elections/1/vote '{"candidateId":1}' -b "$TMP/outsider-new.jar")"
 check "one-time reset password cannot be used for a second login" "Invalid username or password" \
   "$(jpost /api/auth/login '{"username":"outsider","password":"reset-password-123"}')"
 check "administrator disables account before reset regression check" '"ok":true' \
@@ -189,7 +194,7 @@ check "permanent password can be used multiple times" '"role":"voter"' \
 # Expiration test: reset password with expired timestamp
 jpost /api/users/4/password '{"password":"expired-test-pw-1"}' -b "$TMP/admin.jar" > /dev/null
 python3 -c "import sqlite3; conn = sqlite3.connect('$TMP/data/openvote.db'); conn.execute(\"UPDATE users SET password_reset_expires_at='2020-01-01T00:00:00Z' WHERE id=4\"); conn.commit(); conn.close()"
-check "expired reset password rejected after 3 minutes" "Invalid username or password" \
+check "expired reset password rejected after 2 minutes" "Invalid username or password" \
   "$(jpost /api/auth/login '{"username":"outsider","password":"expired-test-pw-1"}')"
 jpost /api/users/4/password '{"password":"temp-restore-pw-1"}' -b "$TMP/admin.jar" > /dev/null
 jpost /api/auth/login '{"username":"outsider","password":"temp-restore-pw-1"}' -c "$TMP/outsider-rest.jar" > /dev/null

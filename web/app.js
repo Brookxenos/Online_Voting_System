@@ -135,10 +135,15 @@ const routes = [
   { name: 'adminElection', pattern: /^#\/admin\/election\/(\d+)$/, params: ['id'] },
   { name: 'observer',   pattern: /^#\/observer$/ },
   { name: 'settings',   pattern: /^#\/settings$/ },
+  { name: 'changePassword', pattern: /^#\/change-password$/ },
 ];
 
 function navigate() {
   const hash = location.hash || '#/';
+  if (state.user && state.user.mustChangePassword && hash !== '#/change-password' && hash !== '#/settings' && !hash.startsWith('#/login')) {
+    go('#/change-password');
+    return;
+  }
   for (const r of routes) {
     const m = hash.match(r.pattern);
     if (m) {
@@ -205,7 +210,7 @@ function awarenessBannerHtml() {
         <strong>Password change required:</strong> You signed in using a temporary reset password. For your security, you must update your password now.
       </div>
     </div>
-    <a class="btn btn-secondary password-reset-alert-btn" href="#/settings">Change password</a>
+    <button class="btn btn-secondary password-reset-alert-btn" id="btn-banner-change-password" type="button">Change password</button>
   </aside>`;
 }
 
@@ -247,6 +252,7 @@ function render() {
     adminElection: renderAdminElection,
     observer: renderObserver,
     settings: renderSettings,
+    changePassword: renderChangePassword,
     notfound: renderNotFound,
   };
   (renderers[state.view] || renderNotFound)(view);
@@ -543,8 +549,8 @@ function renderLogin(view) {
       });
       state.user = r.user;
       if (r.user.mustChangePassword) {
-        toast('Temporary password in use. Please choose a new password now.');
-        go('#/settings');
+        toast('Temporary password in use. Please set your permanent password now.');
+        go('#/change-password');
       } else {
         toast('Welcome, ' + r.user.displayName + '!');
         go(dashboardPath(r.user));
@@ -1088,7 +1094,7 @@ async function renderAdmin(view) {
           <form id="admin-password-form" class="admin-password-form">
             <header><p class="section-kicker">User management</p><h2 id="admin-password-title">Reset password</h2><p>Reset access for <strong id="admin-reset-username"></strong>.</p><span class="pill pill-muted" id="admin-reset-account-status"></span></header>
             <label for="admin-reset-password">Temporary password</label>
-            <p class="muted small admin-reset-time-notice">This temporary password expires in 3 minutes and can only be used once. The user will be required to change their password upon sign-in.</p>
+            <p class="muted small admin-reset-time-notice">This temporary password expires in 2 minutes and can only be used once. The user will be required to change their password upon sign-in.</p>
             <div class="admin-password-field"><input id="admin-reset-password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required><button class="btn btn-secondary" id="admin-password-reveal" type="button" aria-pressed="false">Show</button></div>
             <div class="btn-row admin-password-tools"><button class="btn btn-secondary" id="admin-password-generate" type="button">Generate password</button><button class="btn btn-secondary" id="admin-password-copy" type="button">Copy password</button><button class="btn btn-secondary" id="admin-account-copy" type="button">Copy account details</button></div>
             <label class="check-label admin-reset-confirm"><input id="admin-reset-confirm" type="checkbox" required> I confirm this reset. The user's current sessions will be revoked.</label>
@@ -1324,7 +1330,7 @@ async function renderAdmin(view) {
     if (!adminUsers.length) { userList.innerHTML = '<div class="empty-state"><h2>No users available</h2></div>'; return; }
     if (!filtered.length) { userList.innerHTML = '<div class="empty-state"><h2>No matching users</h2><p>Change your search or filters.</p></div>'; return; }
     userList.innerHTML = `<table><thead><tr><th>ID</th><th>Username</th><th>Display name</th><th>Role</th><th>Organization</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
-      shown.map(u => `<tr><td data-label="ID">${u.id}</td><td data-label="Username"><strong>${escapeHtml(u.username)}</strong></td><td data-label="Display name">${escapeHtml(u.displayName)}</td><td data-label="Role"><span class="user-role-pill">${roleLabel(u.role)}</span></td><td data-label="Organization">${escapeHtml(adminOrganizationNames[u.orgId] || (u.orgId || '—'))}</td><td data-label="Status">${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}${u.mustChangePassword ? ' <span class="pill pill-muted" title="Temporary reset password active">Reset pending</span>' : ''}</td><td data-label="Actions">${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-secondary" type="button" data-reset-user="${u.id}" aria-label="Reset password for ${escapeHtml(u.username)}">Reset password</button><button class="btn btn-secondary" type="button" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable account' : 'Disable account'}</button>${u.role !== 'platform_admin' ? (u.disabled ? `<button class="btn btn-danger" type="button" data-delete-user="${u.id}" data-name="${escapeHtml(u.username)}">Delete account</button>` : '<span class="muted small admin-delete-hint">Disable first to delete</span>') : ''}</div>` : '<span class="muted small">Current account</span>'}</td></tr>`).join('') + '</tbody></table>';
+      shown.map(u => `<tr><td data-label="ID">${u.id}</td><td data-label="Username"><strong>${escapeHtml(u.username)}</strong></td><td data-label="Display name">${escapeHtml(u.displayName)}</td><td data-label="Role"><span class="user-role-pill">${roleLabel(u.role)}</span></td><td data-label="Organization">${escapeHtml(adminOrganizationNames[u.orgId] || (u.orgId || '—'))}</td><td data-label="Status">${u.disabled ? '<span class="pill pill-warn">Disabled</span>' : '<span class="pill pill-success">Active</span>'}</td><td data-label="Actions">${u.id !== state.user.id ? `<div class="admin-user-actions"><button class="btn btn-secondary" type="button" data-reset-user="${u.id}" aria-label="Reset password for ${escapeHtml(u.username)}">Reset password</button><button class="btn btn-secondary" type="button" data-disable="${u.id}" data-name="${escapeHtml(u.username)}">${u.disabled ? 'Enable account' : 'Disable account'}</button>${u.role !== 'platform_admin' ? (u.disabled ? `<button class="btn btn-danger" type="button" data-delete-user="${u.id}" data-name="${escapeHtml(u.username)}">Delete account</button>` : '<span class="muted small admin-delete-hint">Disable first to delete</span>') : ''}</div>` : '<span class="muted small">Current account</span>'}</td></tr>`).join('') + '</tbody></table>';
     if (filtered.length > shown.length) userList.innerHTML += '<button class="btn btn-secondary" id="admin-user-load-more">Load more</button>';
     const more = document.getElementById('admin-user-load-more');
     if (more) more.addEventListener('click',() => { adminUserPageSize += 10; drawAdminUsers(); });
@@ -1413,7 +1419,7 @@ async function renderAdmin(view) {
     submit.disabled = true; resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, '');
     try {
       await api(`users/${resetTarget.id}/password`, {method:'POST',body:{password:resetPassword.value}});
-      resetMessage(resetSuccess, `Password reset for ${resetTarget.username}. Their active sessions were revoked. This temporary password expires in 3 minutes, is valid for one use only, and requires the user to set a new password upon sign-in. Deliver it securely.`);
+      resetMessage(resetSuccess, `Password reset for ${resetTarget.username}. Their active sessions were revoked. This temporary password expires in 2 minutes, is valid for one use only, and requires the user to set a new password upon sign-in. Deliver it securely.`);
       submit.disabled = true;
     } catch (err) { resetMessage(resetFeedback, err.message); submit.disabled = false; }
   });
@@ -2110,6 +2116,74 @@ function renderSettings(view) {
     }
   });
 }
+
+function renderChangePassword(view) {
+  if (!state.user) { go('#/login'); return; }
+  view.innerHTML = `
+    <section class="card settings-card change-password-page">
+      <header class="settings-hero">
+        <div class="settings-identity">
+          <img class="settings-brand-image" src="/assets/electravote-logo.png" alt="ElectraVote">
+          <div><span class="settings-eyebrow">SECURITY NOTICE</span><h2>Change your password</h2><p>A temporary password was assigned to your account and must be replaced.</p></div>
+        </div>
+      </header>
+      <section class="settings-section security-section" aria-labelledby="forced-security-title">
+        <div class="alert-box alert-warn password-must-change-callout" role="alert">
+          <strong>Action required:</strong> You signed in using a temporary reset password. Enter your temporary password below and choose a new permanent password to secure your account.
+        </div>
+        <form id="form-forced-password" class="stack-form">
+          <label>Current temporary password<span class="password-input-wrap"><input id="forced-current-password" type="password" name="currentPassword" autocomplete="current-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-current-password" aria-pressed="false">Show</button></span></label>
+          <label>New password (min 8 chars)<span class="password-input-wrap"><input id="forced-new-password" type="password" name="newPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-new-password" aria-pressed="false">Show</button></span></label>
+          <div class="error-box" id="forced-pwd-error" hidden></div>
+          <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8.5" width="12" height="9" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v2"/></svg><span>Set new password</span></button>
+        </form>
+      </section>
+    </section>`;
+  const form = document.getElementById('form-forced-password');
+  bindPasswordToggles(form);
+  const currentInput = document.getElementById('forced-current-password');
+  if (currentInput) setTimeout(() => currentInput.focus(), 60);
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const errBox = document.getElementById('forced-pwd-error');
+    errBox.hidden = true;
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy','true');
+    submitButton.querySelector('span').textContent = 'Updating…';
+    try {
+      await api('auth/password', {
+        method: 'POST',
+        body: { currentPassword: fd.get('currentPassword'), newPassword: fd.get('newPassword') }
+      });
+      state.user = null;
+      toast('Password updated successfully! Please log in with your new permanent password.');
+      go('#/login');
+    } catch (err) {
+      errBox.textContent = err.message; errBox.hidden = false;
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
+      submitButton.querySelector('span').textContent = 'Set new password';
+    }
+  });
+}
+
+document.addEventListener('click', (ev) => {
+  const target = ev.target.closest('#btn-banner-change-password, .password-reset-alert-btn');
+  if (target) {
+    ev.preventDefault();
+    go('#/change-password');
+    setTimeout(() => {
+      const inp = document.getElementById('forced-current-password') || document.getElementById('settings-current-password');
+      if (inp) {
+        inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        inp.focus();
+      }
+    }, 60);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Boot
