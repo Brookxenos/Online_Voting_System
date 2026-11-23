@@ -204,9 +204,10 @@ check "user API never exposes the reset password hash" 'passwordHash' \
 AUTO_RESET="$(jpost /api/users/5/password '{}' -b "$TMP/admin.jar")"
 check "administrative password reset without explicit password auto-generates credential" '"ok":true' "$AUTO_RESET"
 check "auto-generated password reset includes temporary password in response" '"temporaryPassword":' "$AUTO_RESET"
-AUTO_PW="$(python3 -c "import json; print(json.loads('''$AUTO_RESET''').get('temporaryPassword',''))")"
-jpost /api/auth/login "{\"username\":\"noorg\",\"password\":\"$AUTO_PW\"}" -c "$TMP/noorg-temp.jar" > /dev/null
-check "auto-generated temporary password logs in and flags mustChangePassword" '"mustChangePassword":true' "$(jget /api/me -b "$TMP/noorg-temp.jar")"
+AUTO_PW="$(echo "$AUTO_RESET" | grep -o '"temporaryPassword":"[^"]*"' | cut -d'"' -f4)"
+LOGIN_BODY="$(python3 -c "import json, sys; print(json.dumps({'username':'platform2','password':sys.argv[1]}))" "$AUTO_PW")"
+jpost /api/auth/login "$LOGIN_BODY" -c "$TMP/plat2-temp.jar" > /dev/null
+check "auto-generated temporary password logs in and flags mustChangePassword" '"mustChangePassword":true' "$(jget /api/me -b "$TMP/plat2-temp.jar")"
 check "admin summary is organization scoped" '"totalElections":0' \
   "$(jget /api/admin/summary -b "$TMP/admb.jar")"
 check "voter cannot list users" "Administrator access required" "$(jget /api/users -b "$TMP/voterA.jar")"

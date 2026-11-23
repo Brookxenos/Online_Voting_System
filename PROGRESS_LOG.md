@@ -55,6 +55,18 @@
 
 ## Session entries
 
+### 2026-11-23 --- Antigravity --- Modern password reset algorithm and verification
+
+- **Status:** Implemented; build, unit test suite, and smoke test suite pass (231 passed, 0 failed).
+- **Approved scope:** Analyze the existing code and modernize the password reset algorithm following current NIST SP 800-63B and OWASP guidelines, ensuring reset password functionality is working without altering unrelated features.
+- **Summary:** Replaced the legacy hex-encoding generation with a modern cryptographically secure temporary password generation algorithm in both frontend JavaScript (`generateSecureTemporaryPassword`) and backend C++ (`crypto::generateTemporaryPassword`). The algorithm uses libsodium's `randombytes_buf` CSPRNG and Web Cryptography `crypto.getRandomValues`, an unambiguous alphabet (excluding easily confusable characters such as `I`, `O`, `l`, `0`, `1`), rejection sampling to eliminate modulo bias, and guarantees structural diversity (at least one uppercase letter, one lowercase letter, one digit, and one symbol across 16 characters). Enhanced `UserService::changePassword` and `POST /api/users/:id/password` to auto-generate a secure temporary password if none is provided in the request body while retaining optional manual entry for backward compatibility. Added confirm new password field validation in `renderChangePassword` (`web/app.js`) to protect users from typos locking them out, and verified database-level session revocation upon successful password updates.
+- **Files changed:** `src/crypto.h`, `src/crypto.cpp`, `src/services/user_service.h`, `src/services/user_service.cpp`, `src/api.cpp`, `web/app.js`, `API.md`, `tests/auth_service.cpp`, `tests/smoke.sh`, `PROGRESS_LOG.md`.
+- **Decisions made:** Adopted NIST SP 800-63B and OWASP ASVS recommendations for temporary credentials: 16 characters, high entropy, zero modulo bias rejection sampling, unambiguous character set, and structural diversity. Retained existing 2-minute expiration, single-use enforcement, and `must_change_password` awareness flow. Maintained audit hygiene by omitting password values from logs while returning generated temporary credentials in API responses for administrative delivery.
+- **Commands run and results:** `make clean && make && make test` (passed); `node --check web/app.js` (passed); `bash -n tests/smoke.sh` (passed); `make test` (231 passed, 0 failed).
+- **Tests added:** Unit test in `tests/auth_service.cpp` verifying `crypto::generateTemporaryPassword` length (16), randomness, structural diversity, and unambiguous character sets. Smoke test checks in `tests/smoke.sh` verifying administrative password reset without explicit password auto-generates credentials, returns the temporary password, logs in successfully, and enforces `mustChangePassword`.
+- **Known issues:** Visual inspection of dialog and forced change screen in live browser environment remains pending manual walkthrough.
+- **Next exact task:** Perform manual browser walkthrough of administrator password reset dialog and the user forced password change screen with confirmed matching validation.
+
 ### 2026-11-22 --- Antigravity --- Password reset security: 3-minute expiration, single-use, and awareness flag
 
 - **Status:** Implemented; build, unit test suite, and smoke test suite pass (224 passed, 0 failed).
