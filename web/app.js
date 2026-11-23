@@ -1497,7 +1497,6 @@ async function renderAdmin(view) {
     if (resetOpener && resetOpener.isConnected) resetOpener.focus();
     resetOpener = null;
   });
-  });
   ['admin-user-search','admin-user-role','admin-user-status','admin-user-sort'].forEach(id => {
     document.getElementById(id).addEventListener(id === 'admin-user-search' ? 'input' : 'change',drawAdminUsers);
   });
