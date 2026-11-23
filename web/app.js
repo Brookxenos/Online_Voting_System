@@ -1380,10 +1380,41 @@ async function renderAdmin(view) {
     resetDialog.showModal();
     resetPassword.focus();
   }
+  function generateSecureTemporaryPassword(length = 16) {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnopqrstuvwxyz';
+    const digits = '23456789';
+    const symbols = '!@#$%*&-_=+';
+    const all = upper + lower + digits + symbols;
+    const n = all.length;
+    const limit = 256 - (256 % n);
+    while (true) {
+      let pwd = '';
+      const buf = new Uint8Array(length * 2);
+      crypto.getRandomValues(buf);
+      let bufIdx = 0;
+      while (pwd.length < length) {
+        if (bufIdx >= buf.length) {
+          crypto.getRandomValues(buf);
+          bufIdx = 0;
+        }
+        const b = buf[bufIdx++];
+        if (b < limit) {
+          pwd += all[b % n];
+        }
+      }
+      const hasUpper = /[A-Z]/.test(pwd);
+      const hasLower = /[a-z]/.test(pwd);
+      const hasDigit = /[0-9]/.test(pwd);
+      const hasSymbol = /[!@#$%*&_\-=+]/.test(pwd);
+      if (hasUpper && hasLower && hasDigit && hasSymbol) {
+        return pwd;
+      }
+    }
+  }
+
   document.getElementById('admin-password-generate').addEventListener('click', () => {
-    const bytes = new Uint8Array(18);
-    crypto.getRandomValues(bytes);
-    resetPassword.value = Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
+    resetPassword.value = generateSecureTemporaryPassword(16);
     resetPassword.type = 'text';
     document.getElementById('admin-password-reveal').textContent = 'Hide';
     document.getElementById('admin-password-reveal').setAttribute('aria-pressed','true');
@@ -2134,6 +2165,7 @@ function renderChangePassword(view) {
         <form id="form-forced-password" class="stack-form">
           <label>Current temporary password<span class="password-input-wrap"><input id="forced-current-password" type="password" name="currentPassword" autocomplete="current-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-current-password" aria-pressed="false">Show</button></span></label>
           <label>New password (min 8 chars)<span class="password-input-wrap"><input id="forced-new-password" type="password" name="newPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-new-password" aria-pressed="false">Show</button></span></label>
+          <label>Confirm new password<span class="password-input-wrap"><input id="forced-confirm-password" type="password" name="confirmPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-confirm-password" aria-pressed="false">Show</button></span></label>
           <div class="error-box" id="forced-pwd-error" hidden></div>
           <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8.5" width="12" height="9" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v2"/></svg><span>Set new password</span></button>
         </form>
@@ -2150,13 +2182,20 @@ function renderChangePassword(view) {
     errBox.hidden = true;
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton.disabled) return;
+    const newPwd = fd.get('newPassword') || '';
+    const confirmPwd = fd.get('confirmPassword') || '';
+    if (newPwd !== confirmPwd) {
+      errBox.textContent = 'New passwords do not match.';
+      errBox.hidden = false;
+      return;
+    }
     submitButton.disabled = true;
     submitButton.setAttribute('aria-busy','true');
     submitButton.querySelector('span').textContent = 'Updating…';
     try {
       await api('auth/password', {
         method: 'POST',
-        body: { currentPassword: fd.get('currentPassword'), newPassword: fd.get('newPassword') }
+        body: { currentPassword: fd.get('currentPassword'), newPassword: newPwd }
       });
       state.user = null;
       toast('Password updated successfully! Please log in with your new permanent password.');

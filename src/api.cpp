@@ -1145,13 +1145,15 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         try { id = std::stoll(req.param("id")); } catch (...) { return fail(400, "Invalid user id"); }
         json::Value body; HttpServer::Response err;
         if (!parseBody(req, body, err)) return err;
-        auto status = userService->changePassword(*actor, id, body.getString("password"));
+        std::string password = body.getString("password");
+        auto status = userService->changePassword(*actor, id, password);
         if (status == UserService::Status::NotFound) return fail(404, "User not found");
         if (status == UserService::Status::Forbidden) return fail(403, "Access denied");
         if (status != UserService::Status::Ok) return fail(400, "Password must be between 8 and 256 characters");
         store.addAudit(actor->username, "USER_PASSWORD_CHANGED", 0, std::to_string(id));
         return ok({{"message", json::Value(std::string("Temporary password generated; expires in 2 minutes and is valid for one-time use"))},
-                   {"expiresInSeconds", json::Value(120.0)}});
+                   {"expiresInSeconds", json::Value(120.0)},
+                   {"temporaryPassword", json::Value(password)}});
     });
 
     // ======================= Audit =========================================

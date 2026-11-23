@@ -66,6 +66,19 @@ int main() {
     auto expLogin = auth.login("authvoter", "expired-temp-pw-789", "auth-test-login-7", 1);
     check(!expLogin.ok, "expired temporary reset password is rejected at login");
 
+    // Modern temporary password generation test:
+    std::string genPw1 = crypto::generateTemporaryPassword(16);
+    std::string genPw2 = crypto::generateTemporaryPassword(16);
+    bool hasUpper = false, hasLower = false, hasDigit = false, hasSymbol = false;
+    for (char c : genPw1) {
+        if (c >= 'A' && c <= 'Z') hasUpper = true;
+        else if (c >= 'a' && c <= 'z') hasLower = true;
+        else if (c >= '0' && c <= '9') hasDigit = true;
+        else hasSymbol = true;
+    }
+    check(genPw1.size() == 16 && genPw1 != genPw2 && hasUpper && hasLower && hasDigit && hasSymbol,
+          "modern temporary password generator creates high-entropy diverse passwords");
+
     if (failures) std::cerr << failures << " auth service checks failed\n";
     std::remove(path.c_str());
     std::remove((path + "-shm").c_str());
