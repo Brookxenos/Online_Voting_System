@@ -2628,6 +2628,21 @@ input[type="checkbox"]:disabled { cursor:not-allowed;opacity:.58; }
 .admin-reset-confirm { padding:10px 12px;border:1px solid #e1e9e7;border-radius:9px;background:#f7faf9;color:#465652;font-size:.8rem; }
 .admin-password-form .error-box,.admin-password-form .success-box { margin:0; }
 .admin-password-form .btn-row:last-child { margin-top:3px; }
+
+/* Professional Temporary Password Reset Result Card */
+.admin-reset-result-card { display:grid;gap:12px;padding:16px;background:#f7faf9;border:1px solid #d3dfdc;border-radius:10px;margin-top:4px; }
+.admin-reset-card-header { display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap; }
+.admin-reset-pill { display:inline-block;padding:3px 8px;background:var(--brand-teal,#1985a1);color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:4px; }
+.admin-reset-expiry-note { color:#687573; }
+.admin-reset-credential-box { display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--brand-teal,#1985a1);border-radius:8px;padding:4px 6px 4px 12px; }
+.admin-credential-input { flex:1;min-width:0;border:none!important;background:transparent!important;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:1.15rem;font-weight:700;color:#1a202c;letter-spacing:.05em;padding:6px 0;box-shadow:none!important;outline:none!important; }
+.btn-copy-icon { display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;background:#edf2f7;border:1px solid #cbd5e0;border-radius:6px;color:#4a5568;cursor:pointer;transition:all .15s ease; }
+.btn-copy-icon:hover { background:#e2e8f0;color:#1a202c;border-color:#a0aec0; }
+.btn-copy-icon svg { width:18px;height:18px;fill:currentColor; }
+.admin-reset-copy-extra { display:flex;justify-content:flex-start; }
+.admin-reset-copy-extra .btn { display:inline-flex;align-items:center;gap:6px;font-size:.85rem;padding:6px 12px; }
+.admin-reset-copy-extra svg { width:14px;height:14px;fill:currentColor; }
+.admin-reset-success-callout { margin-bottom:4px; }
 .admin-dashboard [hidden] { display:none!important; }
 @media(max-width:760px) {
   .admin-dashboard #user-list { overflow:visible; }

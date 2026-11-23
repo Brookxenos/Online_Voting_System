@@ -549,6 +549,7 @@ function renderLogin(view) {
       });
       state.user = r.user;
       if (r.user.mustChangePassword) {
+        state.temporaryPassword = fd.get('password');
         toast('Temporary password in use. Please set your permanent password now.');
         go('#/change-password');
       } else {
@@ -1091,18 +1092,40 @@ async function renderAdmin(view) {
         <div class="admin-user-controls"><label>Search users<input id="admin-user-search" type="search" placeholder="Search username or display name"></label><label>Role<select id="admin-user-role"><option value="all">All roles</option><option value="voter">Voter</option><option value="org_admin">Organization admin</option><option value="platform_admin">Platform admin</option><option value="observer">Observer</option></select></label><label>Status<select id="admin-user-status"><option value="all">All accounts</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label><label>Sort by<select id="admin-user-sort"><option value="username">Username</option><option value="displayName">Display name</option><option value="role">Role</option></select></label></div>
         <div id="user-list" class="table-wrap"><div class="loading-state">Loading users…</div></div>
         <dialog id="admin-password-dialog" class="admin-password-dialog" aria-labelledby="admin-password-title">
-          <form id="admin-password-form" class="admin-password-form">
+          <div class="admin-password-form">
             <header><p class="section-kicker">User management</p><h2 id="admin-password-title">Reset password</h2><p>Reset access for <strong id="admin-reset-username"></strong>.</p><span class="pill pill-muted" id="admin-reset-account-status"></span></header>
-            <label for="admin-reset-password">Temporary password</label>
-            <p class="muted small admin-reset-time-notice">This temporary password expires in 2 minutes and can only be used once. The user will be required to change their password upon sign-in.</p>
-            <div class="admin-password-field"><input id="admin-reset-password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required><button class="btn btn-secondary" id="admin-password-reveal" type="button" aria-pressed="false">Show</button></div>
-            <div class="btn-row admin-password-tools"><button class="btn btn-secondary" id="admin-password-generate" type="button">Generate password</button><button class="btn btn-secondary" id="admin-password-copy" type="button">Copy password</button><button class="btn btn-secondary" id="admin-account-copy" type="button">Copy account details</button></div>
-            <label class="check-label admin-reset-confirm"><input id="admin-reset-confirm" type="checkbox" required> I confirm this reset. The user's current sessions will be revoked.</label>
-            <div id="admin-password-feedback" class="error-box" role="alert" aria-live="polite" hidden></div>
-            <div id="admin-password-copy-feedback" class="success-box" role="status" aria-live="polite" hidden></div>
-            <div id="admin-password-success" class="success-box" role="status" aria-live="polite" hidden></div>
-            <div class="btn-row"><button class="btn btn-primary" type="submit">Reset password</button><button class="btn btn-link" id="admin-password-cancel" type="button">Cancel</button></div>
-          </form>
+            <div id="admin-reset-initial-view">
+              <p class="muted small admin-reset-time-notice">Resetting this user's password will immediately revoke all active sessions. A secure temporary password will be automatically generated upon confirmation. The user will be required to change it upon sign-in.</p>
+              <label class="check-label admin-reset-confirm"><input id="admin-reset-confirm" type="checkbox" required> I confirm this reset. The user's current sessions will be revoked.</label>
+              <div id="admin-password-feedback" class="error-box" role="alert" aria-live="polite" hidden></div>
+              <div class="btn-row"><button class="btn btn-primary" id="btn-admin-do-reset" type="button">Reset password</button><button class="btn btn-link" id="admin-password-cancel" type="button">Cancel</button></div>
+            </div>
+            <div id="admin-reset-success-view" hidden>
+              <div class="alert-box alert-success admin-reset-success-callout" role="alert">
+                <strong>Password reset successfully!</strong> A new temporary password was generated. Active sessions were revoked.
+              </div>
+              <div class="admin-reset-result-card">
+                <div class="admin-reset-card-header">
+                  <span class="admin-reset-pill">Temporary password</span>
+                  <span class="muted small admin-reset-expiry-note">Expires in 2 minutes · Single use</span>
+                </div>
+                <div class="admin-reset-credential-box">
+                  <input id="admin-reset-password" type="text" readonly class="admin-credential-input" autocomplete="off" aria-label="Generated temporary password">
+                  <button type="button" class="btn-copy-icon" id="admin-password-copy" title="Copy temporary password" aria-label="Copy temporary password">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M5 6H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1"/></svg>
+                  </button>
+                </div>
+                <div id="admin-password-copy-feedback" class="success-box" role="status" aria-live="polite" hidden></div>
+                <div class="admin-reset-copy-extra">
+                  <button type="button" class="btn btn-secondary" id="admin-account-copy">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M5 6H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1"/></svg>
+                    <span>Copy account details</span>
+                  </button>
+                </div>
+              </div>
+              <div class="btn-row"><button class="btn btn-primary" id="admin-reset-done" type="button">Done</button></div>
+            </div>
+          </div>
         </dialog>
       </div>
       <div id="tab-audit" class="tab-panel">
@@ -1357,109 +1380,123 @@ async function renderAdmin(view) {
   };
 
   const resetDialog = document.getElementById('admin-password-dialog');
-  const resetForm = document.getElementById('admin-password-form');
+  const resetInitialView = document.getElementById('admin-reset-initial-view');
+  const resetSuccessView = document.getElementById('admin-reset-success-view');
+  const resetConfirmCheckbox = document.getElementById('admin-reset-confirm');
+  const resetSubmitBtn = document.getElementById('btn-admin-do-reset');
   const resetPassword = document.getElementById('admin-reset-password');
   const resetFeedback = document.getElementById('admin-password-feedback');
   const resetCopyFeedback = document.getElementById('admin-password-copy-feedback');
-  const resetSuccess = document.getElementById('admin-password-success');
   let resetTarget = null;
   let resetOpener = null;
   const resetMessage = (element, message) => { element.textContent = message; element.hidden = !message; };
+
   function openPasswordReset(userId, opener) {
     resetTarget = adminUsers.find(u => String(u.id) === String(userId));
     if (!resetTarget) return;
     resetOpener = opener;
-    resetForm.reset();
-    resetPassword.type = 'password';
-    document.getElementById('admin-password-reveal').textContent = 'Show';
-    document.getElementById('admin-password-reveal').setAttribute('aria-pressed','false');
+    resetInitialView.hidden = false;
+    resetSuccessView.hidden = true;
+    resetConfirmCheckbox.checked = false;
+    resetSubmitBtn.disabled = false;
+    resetSubmitBtn.textContent = 'Reset password';
+    resetPassword.value = '';
+    resetPassword.type = 'text';
     document.getElementById('admin-reset-username').textContent = resetTarget.username;
     document.getElementById('admin-reset-account-status').textContent = `${roleLabel(resetTarget.role)} · ${resetTarget.disabled ? 'Disabled' : 'Active'}`;
-    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, '');
-    resetForm.querySelector('[type="submit"]').disabled = false;
+    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, '');
     resetDialog.showModal();
-    resetPassword.focus();
+    resetConfirmCheckbox.focus();
   }
+
   function generateSecureTemporaryPassword(length = 16) {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower = 'abcdefghijkmnopqrstuvwxyz';
     const digits = '23456789';
-    const symbols = '!@#$%*&-_=+';
-    const all = upper + lower + digits + symbols;
+    const all = upper + lower + digits;
     const n = all.length;
     const limit = 256 - (256 % n);
+    const randomChar = () => {
+      while (true) {
+        const buf = new Uint8Array(4);
+        window.crypto.getRandomValues(buf);
+        for (let i = 0; i < buf.length; i++) {
+          if (buf[i] < limit) return all[buf[i] % n];
+        }
+      }
+    };
     while (true) {
       let pwd = '';
-      const buf = new Uint8Array(length * 2);
-      crypto.getRandomValues(buf);
-      let bufIdx = 0;
-      while (pwd.length < length) {
-        if (bufIdx >= buf.length) {
-          crypto.getRandomValues(buf);
-          bufIdx = 0;
-        }
-        const b = buf[bufIdx++];
-        if (b < limit) {
-          pwd += all[b % n];
+      for (let i = 0; i < length; i++) {
+        if ((i === 4 || i === 9) && length >= 12) {
+          pwd += '-';
+        } else {
+          pwd += randomChar();
         }
       }
       const hasUpper = /[A-Z]/.test(pwd);
       const hasLower = /[a-z]/.test(pwd);
       const hasDigit = /[0-9]/.test(pwd);
-      const hasSymbol = /[!@#$%*&_\-=+]/.test(pwd);
+      const hasSymbol = /-/.test(pwd);
       if (hasUpper && hasLower && hasDigit && hasSymbol) {
         return pwd;
       }
     }
   }
 
-  document.getElementById('admin-password-generate').addEventListener('click', () => {
-    resetPassword.value = generateSecureTemporaryPassword(16);
-    resetPassword.type = 'text';
-    document.getElementById('admin-password-reveal').textContent = 'Hide';
-    document.getElementById('admin-password-reveal').setAttribute('aria-pressed','true');
-    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetPassword.focus();
-  });
-  document.getElementById('admin-password-reveal').addEventListener('click', ev => {
-    const show = resetPassword.type === 'password';
-    resetPassword.type = show ? 'text' : 'password';
-    ev.currentTarget.textContent = show ? 'Hide' : 'Show';
-    ev.currentTarget.setAttribute('aria-pressed', String(show));
-  });
   const copyResetText = async value => {
     resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, '');
-    if (!value) { resetMessage(resetFeedback, 'Enter or generate a password first.'); return; }
+    if (!value) return;
     try {
       if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('Clipboard access is unavailable.');
       await navigator.clipboard.writeText(value);
-      resetMessage(resetCopyFeedback, 'Copied to clipboard.');
+      resetMessage(resetCopyFeedback, 'Copied to clipboard!');
     } catch (_) {
       resetPassword.focus(); resetPassword.select();
-      resetMessage(resetFeedback, 'Clipboard access is unavailable. The password is selected so you can copy it manually.');
+      resetMessage(resetCopyFeedback, 'Password selected — press Ctrl+C to copy.');
     }
   };
+
   document.getElementById('admin-password-copy').addEventListener('click', () => copyResetText(resetPassword.value));
   document.getElementById('admin-account-copy').addEventListener('click', () => {
     if (!resetTarget) return;
     copyResetText(`Username: ${resetTarget.username}\nTemporary password: ${resetPassword.value}`);
   });
-  resetForm.addEventListener('submit', async ev => {
-    ev.preventDefault();
-    if (!resetTarget || !resetForm.reportValidity()) return;
-    const submit = resetForm.querySelector('[type="submit"]');
-    submit.disabled = true; resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, '');
+
+  resetSubmitBtn.addEventListener('click', async () => {
+    if (!resetTarget) return;
+    if (!resetConfirmCheckbox.checked) {
+      resetMessage(resetFeedback, 'Please check the box to confirm session revocation and reset.');
+      resetConfirmCheckbox.focus();
+      return;
+    }
+    resetMessage(resetFeedback, '');
+    resetSubmitBtn.disabled = true;
+    resetSubmitBtn.textContent = 'Resetting…';
     try {
-      await api(`users/${resetTarget.id}/password`, {method:'POST',body:{password:resetPassword.value}});
-      resetMessage(resetSuccess, `Password reset for ${resetTarget.username}. Their active sessions were revoked. This temporary password expires in 2 minutes, is valid for one use only, and requires the user to set a new password upon sign-in. Deliver it securely.`);
-      submit.disabled = true;
-    } catch (err) { resetMessage(resetFeedback, err.message); submit.disabled = false; }
+      const generated = generateSecureTemporaryPassword(16);
+      await api(`users/${resetTarget.id}/password`, {method:'POST', body:{password: generated}});
+      resetPassword.value = generated;
+      resetPassword.type = 'text';
+      resetInitialView.hidden = true;
+      resetSuccessView.hidden = false;
+      document.getElementById('admin-password-copy').focus();
+    } catch (err) {
+      resetMessage(resetFeedback, err.message);
+      resetSubmitBtn.disabled = false;
+      resetSubmitBtn.textContent = 'Reset password';
+    }
   });
+
   document.getElementById('admin-password-cancel').addEventListener('click', () => resetDialog.close());
+  document.getElementById('admin-reset-done').addEventListener('click', () => resetDialog.close());
   resetDialog.addEventListener('close', () => {
-    resetForm.reset(); resetPassword.type = 'password';
-    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetMessage(resetSuccess, ''); resetTarget = null;
+    resetInitialView.hidden = false; resetSuccessView.hidden = true;
+    resetConfirmCheckbox.checked = false; resetPassword.value = '';
+    resetMessage(resetFeedback, ''); resetMessage(resetCopyFeedback, ''); resetTarget = null;
     if (resetOpener && resetOpener.isConnected) resetOpener.focus();
     resetOpener = null;
+  });
   });
   ['admin-user-search','admin-user-role','admin-user-status','admin-user-sort'].forEach(id => {
     document.getElementById(id).addEventListener(id === 'admin-user-search' ? 'input' : 'change',drawAdminUsers);

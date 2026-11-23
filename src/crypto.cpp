@@ -138,23 +138,30 @@ std::string generateTemporaryPassword(size_t length) {
     init();
     if (length < 8) length = 16;
     // Unambiguous character subsets: omits easily confused characters (I, O, l, 0, 1)
-    static const char upper[]   = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    static const char lower[]   = "abcdefghijkmnopqrstuvwxyz";
-    static const char digits[]  = "23456789";
-    static const char symbols[] = "!@#$%*&-_=+";
-    static const std::string alphabet = std::string(upper) + lower + digits + symbols;
+    static const char upper[]  = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    static const char lower[]  = "abcdefghijkmnopqrstuvwxyz";
+    static const char digits[] = "23456789";
+    static const std::string alphabet = std::string(upper) + lower + digits;
     const size_t n = alphabet.size();
     // Rejection sampling bound to eliminate modulo bias
     const unsigned int limit = 256 - (256 % n);
 
+    auto randomChar = [&]() -> char {
+        while (true) {
+            unsigned char b = 0;
+            randombytes_buf(&b, 1);
+            if (b < limit) return alphabet[b % n];
+        }
+    };
+
     while (true) {
         std::string pwd;
         pwd.reserve(length);
-        while (pwd.size() < length) {
-            unsigned char b = 0;
-            randombytes_buf(&b, 1);
-            if (b < limit) {
-                pwd.push_back(alphabet[b % n]);
+        for (size_t i = 0; i < length; ++i) {
+            if ((i == 4 || i == 9) && length >= 12) {
+                pwd.push_back('-');
+            } else {
+                pwd.push_back(randomChar());
             }
         }
         bool hasUpper = false, hasLower = false, hasDigit = false, hasSymbol = false;
@@ -162,7 +169,7 @@ std::string generateTemporaryPassword(size_t length) {
             if (std::strchr(upper, c)) hasUpper = true;
             else if (std::strchr(lower, c)) hasLower = true;
             else if (std::strchr(digits, c)) hasDigit = true;
-            else if (std::strchr(symbols, c)) hasSymbol = true;
+            else if (c == '-') hasSymbol = true;
         }
         if (hasUpper && hasLower && hasDigit && hasSymbol) {
             return pwd;
