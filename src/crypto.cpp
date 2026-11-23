@@ -134,6 +134,42 @@ std::string randomHex(size_t bytes) {
     return out;
 }
 
+std::string generateTemporaryPassword(size_t length) {
+    init();
+    if (length < 8) length = 16;
+    // Unambiguous character subsets: omits easily confused characters (I, O, l, 0, 1)
+    static const char upper[]   = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    static const char lower[]   = "abcdefghijkmnopqrstuvwxyz";
+    static const char digits[]  = "23456789";
+    static const char symbols[] = "!@#$%*&-_=+";
+    static const std::string alphabet = std::string(upper) + lower + digits + symbols;
+    const size_t n = alphabet.size();
+    // Rejection sampling bound to eliminate modulo bias
+    const unsigned int limit = 256 - (256 % n);
+
+    while (true) {
+        std::string pwd;
+        pwd.reserve(length);
+        while (pwd.size() < length) {
+            unsigned char b = 0;
+            randombytes_buf(&b, 1);
+            if (b < limit) {
+                pwd.push_back(alphabet[b % n]);
+            }
+        }
+        bool hasUpper = false, hasLower = false, hasDigit = false, hasSymbol = false;
+        for (char c : pwd) {
+            if (std::strchr(upper, c)) hasUpper = true;
+            else if (std::strchr(lower, c)) hasLower = true;
+            else if (std::strchr(digits, c)) hasDigit = true;
+            else if (std::strchr(symbols, c)) hasSymbol = true;
+        }
+        if (hasUpper && hasLower && hasDigit && hasSymbol) {
+            return pwd;
+        }
+    }
+}
+
 std::string sha256Hex(const std::string& input) {
     init();
     unsigned char digest[32];

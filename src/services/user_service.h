@@ -14,6 +14,7 @@ public:
     Result update(const User& actor, long long id, const std::string& displayName,
                   const std::string& role, long long orgId);
     Status setDisabled(const User& actor, long long id, bool disabled);
+    Status changePassword(const User& actor, long long id, std::string& password);
     Status changePassword(const User& actor, long long id, const std::string& password);
     Status remove(const User& actor, long long id);
 private:

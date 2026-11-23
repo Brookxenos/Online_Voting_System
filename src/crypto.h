@@ -41,6 +41,11 @@ bool isModernHash(const std::string& stored);
 // Hex string of `bytes` random bytes from the OS CSPRNG (via libsodium).
 std::string randomHex(size_t bytes = 32);
 
+// Generates a cryptographically secure, high-entropy temporary password (16 characters)
+// using libsodium's CSPRNG (randombytes_buf). Uses an unambiguous alphabet with uppercase,
+// lowercase, numbers, and symbols, ensuring structural diversity and zero modulo bias.
+std::string generateTemporaryPassword(size_t length = 16);
+
 // --- Hashing ----------------------------------------------------------------
 
 // Lowercase hex SHA-256 digest (libsodium implementation).
