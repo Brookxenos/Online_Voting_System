@@ -17,6 +17,7 @@
 // Request / Response helpers
 // ---------------------------------------------------------------------------
 
+
 std::string HttpServer::Request::header(const std::string& key) const {
     auto it = headers.find(key);
     return it == headers.end() ? "" : it->second;

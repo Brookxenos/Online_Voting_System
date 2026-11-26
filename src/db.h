@@ -2,7 +2,7 @@
 #define DB_H
 
 //
-// Transactional SQL storage for OpenVote.
+// Transactional SQL storage for ElectraVote.
 //
 // The environment has the SQLite runtime library but no PostgreSQL client
 // development headers or an accessible PostgreSQL role, so persistence runs
