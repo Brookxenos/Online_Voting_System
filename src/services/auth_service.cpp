@@ -79,6 +79,9 @@ AuthService::LoginResult AuthService::login(const std::string& username, const s
         return {false, true, {}, {}};
     }
     auto user = store_.findUserByUsername(username);
+    if (!user) {
+        user = store_.findUserByDisplayName(username);
+    }
     if (!user || user->disabled || !crypto::verifyPassword(password, user->passwordHash)) {
         failure(key); store_.addAudit(username, "LOGIN_FAIL", 0, "");
         return {};

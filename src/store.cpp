@@ -313,9 +313,23 @@ Store::CreateUserResult Store::createUser(User& user) {
 }
 
 std::optional<User> Store::findUserByUsername(const std::string& username) {
-    auto rows = db_.query("SELECT * FROM users WHERE username=? AND deleted=0", {username});
+    auto rows = db_.query("SELECT * FROM users WHERE LOWER(username)=LOWER(?) AND deleted=0", {username});
     if (rows.empty()) return std::nullopt;
     return userFromRow(rows[0]);
+}
+
+std::optional<User> Store::findUserByDisplayName(const std::string& displayName) {
+    auto rows = db_.query("SELECT * FROM users WHERE LOWER(display_name)=LOWER(?) AND deleted=0", {displayName});
+    if (rows.size() == 1) return userFromRow(rows[0]);
+    return std::nullopt;
+}
+
+bool Store::updateUsername(long long userId, const std::string& username) {
+    auto existing = db_.query("SELECT id FROM users WHERE LOWER(username)=LOWER(?) AND id!=? AND deleted=0",
+                              {username, std::to_string(userId)});
+    if (!existing.empty()) return false;
+    db_.exec("UPDATE users SET username=? WHERE id=?", {username, std::to_string(userId)});
+    return true;
 }
 
 std::optional<User> Store::findUserById(long long id) {

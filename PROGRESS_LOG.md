@@ -55,6 +55,19 @@
 
 ## Session entries
 
+### 2026-11-27 --- Antigravity --- Authentication, profile name, and password change/reset recovery
+
+- **Status:** Implemented; build, unit test suite, and full integration smoke test suite pass (236 passed, 0 failed).
+- **Approved scope:** Diagnose and resolve the issue preventing administrator sign-in after updating the admin password and name, ensure password change/reset workflows are robust and prevent lockouts, and prefill temporary credentials during forced password changes.
+- **Summary:** Diagnosed the root cause of the administrator lockout: the administrator had successfully changed their password to `Biruk123` and updated their display name to `Biruk`, but subsequent logins were attempted with username `Biruk` instead of `admin`, which `AuthService::login` previously rejected because lookups only matched exact binary usernames. Enhanced `Store::findUserByUsername` with case-insensitive matching (`LOWER(username) = LOWER(?)`) and added `Store::findUserByDisplayName` so `AuthService::login` smoothly accepts either username or a unique display name. Extended `POST /api/me/profile` and `renderSettings` to allow changing both login `username` (with length, character set, and duplicate validation) and `displayName`. Added a "Confirm new password" field with match validation to `renderSettings` (`#settings-confirm-password`) to prevent lockouts caused by accidental typos. Auto-prefilled `forced-current-password` with `state.temporaryPassword` in `renderChangePassword` and focused `forced-new-password`. Supported non-interactive standard input in CLI `--reset-admin-password`. Reconciled `data/openvote.db` user 1 (`username: admin`, `display_name: Biruk`), allowing immediate sign-in with either `admin` or `Biruk` using `Biruk123`.
+- **Files changed:** `src/store.h`, `src/store.cpp`, `src/services/auth_service.cpp`, `src/api.cpp`, `src/main.cpp`, `web/app.js`, `API.md`, `tests/auth_service.cpp`, `tests/smoke.sh`, `PROGRESS_LOG.md`. Rebuilt `voting_server` and object files.
+- **Decisions made:** Allow login with either username (case-insensitive) or unique display name as a defense against user identity confusion. Support authenticated self-service username changes with validation and audit trail. Require confirmation before updating passwords across all screens. Prefill temporary passwords across sign-in handoffs without storing credentials persistently.
+- **Commands run and results:** `make clean && make && make test` (passed; 236 passed, 0 failed); `node --check web/app.js` (passed); `bash -n tests/smoke.sh` (passed); `git diff --check` (passed).
+- **Tests added:** Unit tests in `tests/auth_service.cpp` verifying case-insensitive username login, unique display name fallback login, and duplicate username rejection on profile updates. Integration tests in `tests/smoke.sh` verifying profile update with username and display name, case-insensitive login, display-name login, and presence of password confirmation and auto-fill in frontend views.
+- **Security/privacy implications:** Passwords remain hashed with Argon2id and are never logged or stored in plain text. Session tokens are revoked upon password changes. Username changes enforce valid character rules (`[a-zA-Z0-9_.-]`, 3-32 characters) and uniqueness.
+- **Known gaps:** Visual inspection of settings and forced password change screens across mobile and desktop viewports remains pending manual browser walkthrough.
+- **Next exact task:** Perform manual browser walkthrough of account settings and password update flow at mobile and desktop widths.
+
 ### 2026-11-23 --- Antigravity --- Modern password reset algorithm and verification
 
 - **Status:** Implemented; build, unit test suite, and smoke test suite pass (231 passed, 0 failed).

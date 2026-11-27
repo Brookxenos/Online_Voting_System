@@ -2099,16 +2099,24 @@ function renderSettings(view) {
         <a class="btn settings-action settings-back" href="#/elections"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10H4.5M9 5l-5 5 5 5"/></svg><span>Back to elections</span></a>
       </header>
       <section class="settings-section" aria-labelledby="profile-details-title">
-        <div class="settings-section-heading"><div><h3 id="profile-details-title">Profile details</h3><p>Your account information and access level.</p></div><span class="profile-initial" aria-hidden="true">${escapeHtml((state.user.displayName || state.user.username || 'V').trim().charAt(0).toUpperCase())}</span></div>
+        <div class="settings-section-heading"><div><h3 id="profile-details-title">Profile details</h3><p>Your account information and sign-in credentials.</p></div><span class="profile-initial" aria-hidden="true">${escapeHtml((state.user.displayName || state.user.username || 'V').trim().charAt(0).toUpperCase())}</span></div>
         <div class="profile-details-grid">
           <div><span class="meta-label">Display name</span><strong>${escapeHtml(state.user.displayName || 'Not set')}</strong></div>
-          <div><span class="meta-label">Username</span><strong>${escapeHtml(state.user.username)}</strong></div>
+          <div><span class="meta-label">Username (used to sign in)</span><strong>${escapeHtml(state.user.username)}</strong></div>
           <div><span class="meta-label">Account type</span><strong>${escapeHtml(roleLabel(state.user.role))}</strong></div>
         </div>
         <form id="form-profile-name" class="stack-form profile-name-form">
-          <label for="profile-display-name">Edit display name<input id="profile-display-name" type="text" name="displayName" maxlength="100" autocomplete="name" value="${escapeHtml(state.user.displayName || '')}" required></label>
+          <div class="form-row">
+            <label for="profile-username">Username (sign-in identifier)
+              <input id="profile-username" type="text" name="username" minlength="3" maxlength="32" autocomplete="username" value="${escapeHtml(state.user.username)}" required>
+            </label>
+            <label for="profile-display-name">Display name (how your name appears)
+              <input id="profile-display-name" type="text" name="displayName" maxlength="100" autocomplete="name" value="${escapeHtml(state.user.displayName || '')}" required>
+            </label>
+          </div>
+          <p class="muted small">You can sign in using either your username or your display name.</p>
           <div class="error-box" id="profile-name-error" hidden></div>
-          <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3 14.8-.7 3 3-.7L16.8 7.6a2.1 2.1 0 0 0-3-3L3 14.8Z"/><path d="m12.5 5.9 3 3"/></svg><span>Save changes</span></button>
+          <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3 14.8-.7 3 3-.7L16.8 7.6a2.1 2.1 0 0 0-3-3L3 14.8Z"/><path d="m12.5 5.9 3 3"/></svg><span>Save profile</span></button>
           <button type="button" id="cancel-profile-name" class="btn btn-link">Cancel changes</button>
         </form>
       </section>
@@ -2122,6 +2130,7 @@ function renderSettings(view) {
       <form id="form-password" class="stack-form">
         <label>Current password<span class="password-input-wrap"><input id="settings-current-password" type="password" name="currentPassword" autocomplete="current-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="settings-current-password" aria-pressed="false">Show</button></span></label>
         <label>New password (min 8 chars)<span class="password-input-wrap"><input id="settings-new-password" type="password" name="newPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="settings-new-password" aria-pressed="false">Show</button></span></label>
+        <label>Confirm new password<span class="password-input-wrap"><input id="settings-confirm-password" type="password" name="confirmPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="settings-confirm-password" aria-pressed="false">Show</button></span></label>
         <div class="error-box" id="pwd-error" hidden></div>
         <button type="submit" class="btn btn-primary settings-action"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8.5" width="12" height="9" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v2"/></svg><span>Update password</span></button>
       </form>
@@ -2130,13 +2139,19 @@ function renderSettings(view) {
   const form = document.getElementById('form-password');
   const nameForm = document.getElementById('form-profile-name');
   bindPasswordToggles(form);
+  const curPwdInput = document.getElementById('settings-current-password');
+  if (curPwdInput && state.temporaryPassword && !curPwdInput.value) {
+    curPwdInput.value = state.temporaryPassword;
+  }
   document.getElementById('cancel-profile-name').addEventListener('click', () => {
     nameForm.reset();
     document.getElementById('profile-name-error').hidden = true;
   });
   nameForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const displayName = String(new FormData(nameForm).get('displayName') || '').trim();
+    const fd = new FormData(nameForm);
+    const username = String(fd.get('username') || '').trim();
+    const displayName = String(fd.get('displayName') || '').trim();
     const errBox = document.getElementById('profile-name-error');
     errBox.hidden = true;
     const submitButton = nameForm.querySelector('button[type="submit"]');
@@ -2145,16 +2160,16 @@ function renderSettings(view) {
     submitButton.setAttribute('aria-busy','true');
     submitButton.querySelector('span').textContent = 'Saving…';
     try {
-      const result = await api('me/profile', { method: 'POST', body: { displayName } });
+      const result = await api('me/profile', { method: 'POST', body: { username, displayName } });
       state.user = result.user;
       render();
-      toast('Display name updated.');
+      toast('Profile updated successfully.');
     } catch (err) {
       errBox.textContent = err.message;
       errBox.hidden = false;
       submitButton.disabled = false;
       submitButton.removeAttribute('aria-busy');
-      submitButton.querySelector('span').textContent = 'Save changes';
+      submitButton.querySelector('span').textContent = 'Save profile';
     }
   });
   form.addEventListener('submit', async (ev) => {
@@ -2162,6 +2177,13 @@ function renderSettings(view) {
     const fd = new FormData(form);
     const errBox = document.getElementById('pwd-error');
     errBox.hidden = true;
+    const newPwd = fd.get('newPassword') || '';
+    const confirmPwd = fd.get('confirmPassword') || '';
+    if (newPwd !== confirmPwd) {
+      errBox.textContent = 'New passwords do not match. Please verify both fields.';
+      errBox.hidden = false;
+      return;
+    }
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton.disabled) return;
     submitButton.disabled = true;
@@ -2170,9 +2192,10 @@ function renderSettings(view) {
     try {
       await api('auth/password', {
         method: 'POST',
-        body: { currentPassword: fd.get('currentPassword'), newPassword: fd.get('newPassword') }
+        body: { currentPassword: fd.get('currentPassword'), newPassword: newPwd }
       });
       state.user = null;
+      state.temporaryPassword = null;
       toast('Password updated. Please log in again.');
       go('#/login');
     } catch (err) {
@@ -2198,6 +2221,7 @@ function renderChangePassword(view) {
         <div class="alert-box alert-warn password-must-change-callout" role="alert">
           <strong>Action required:</strong> You signed in using a temporary reset password. Enter your temporary password below and choose a new permanent password to secure your account.
         </div>
+        ${state.temporaryPassword ? '<p class="muted small admin-reset-time-notice">Your temporary password from sign-in has been automatically filled in above.</p>' : ''}
         <form id="form-forced-password" class="stack-form">
           <label>Current temporary password<span class="password-input-wrap"><input id="forced-current-password" type="password" name="currentPassword" autocomplete="current-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-current-password" aria-pressed="false">Show</button></span></label>
           <label>New password (min 8 chars)<span class="password-input-wrap"><input id="forced-new-password" type="password" name="newPassword" minlength="8" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="forced-new-password" aria-pressed="false">Show</button></span></label>
@@ -2210,7 +2234,15 @@ function renderChangePassword(view) {
   const form = document.getElementById('form-forced-password');
   bindPasswordToggles(form);
   const currentInput = document.getElementById('forced-current-password');
-  if (currentInput) setTimeout(() => currentInput.focus(), 60);
+  const newPwdInput = document.getElementById('forced-new-password');
+  if (currentInput) {
+    if (state.temporaryPassword) {
+      currentInput.value = state.temporaryPassword;
+      if (newPwdInput) setTimeout(() => newPwdInput.focus(), 60);
+    } else {
+      setTimeout(() => currentInput.focus(), 60);
+    }
+  }
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(form);
@@ -2234,6 +2266,7 @@ function renderChangePassword(view) {
         body: { currentPassword: fd.get('currentPassword'), newPassword: newPwd }
       });
       state.user = null;
+      state.temporaryPassword = null;
       toast('Password updated successfully! Please log in with your new permanent password.');
       go('#/login');
     } catch (err) {

@@ -11,11 +11,11 @@ the HttpOnly `ov_session` cookie. Do not trust a role supplied by a client.
 | `GET /api/bootstrap/status` | Public | — | `needsSetup` |
 | `POST /api/bootstrap/setup` | Public, only before an enabled platform admin exists | `username`, `password` | `user`; 400 validation, 409 already configured |
 | `POST /api/auth/register` | Public, if an organization allows registration | `username`, `password`, optional `displayName` | `user`; creates a voter, 400 invalid, 409 duplicate, 429 throttled |
-| `POST /api/auth/login` | Public | `username`, `password` | `user` and session cookie; 401 uniform credential failure, 429 throttled |
+| `POST /api/auth/login` | Public | `username`, `password` | `user` and session cookie; accepts username (case-insensitive) or unique display name; 401 uniform credential failure, 429 throttled |
 | `POST /api/auth/logout` | Public/session optional | — | Revokes current session and clears cookie |
 | `GET /api/me` | Authenticated | — | Current user's permitted profile |
 | `GET /api/me/dashboard` | Voter | — | Visible elections and own participation timestamps; no ballot choices |
-| `POST /api/me/profile` | Authenticated | `displayName` | Updated profile |
+| `POST /api/me/profile` | Authenticated | `displayName`, optional `username` | Updates display name and optionally unique login username; 400 invalid, 409 duplicate |
 | `POST /api/auth/password` | Authenticated | `currentPassword`, `newPassword` | Updates password and revokes all sessions |
 
 ## Public discovery

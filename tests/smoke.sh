@@ -61,6 +61,8 @@ check "password reset dialog includes generate and copy actions" "admin-account-
 check "generated temporary password is revealed for copying" "resetPassword.type = 'text'" "$(jget /app.js)"
 check "serves password reset awareness banner component" "password-reset-alert-banner" "$(jget /app.js)"
 check "serves change password dedicated view" "change-password-page" "$(jget /app.js)"
+check "settings password update includes confirm password" "settings-confirm-password" "$(jget /app.js)"
+check "profile settings form supports username editing" "profile-username" "$(jget /app.js)"
 check "serves redirect click handler for warning banner" "btn-banner-change-password" "$(jget /app.js)"
 check "serves password reset awareness styles" ".password-reset-alert-banner" "$(jget /style.css)"
 check "serves the shared custom checkbox style" "label.check-label" "$(jget /style.css)"
@@ -91,6 +93,14 @@ check "bad username rejected" "3-32" \
   "$(jpost /api/auth/register '{"username":"x","password":"password123"}')"
 jpost /api/auth/login '{"username":"voterA","password":"password123"}' -c "$TMP/voterA.jar" > /dev/null
 check "voter login works" '"role":"voter"' "$(jget /api/me -b "$TMP/voterA.jar")"
+check "voter can update profile username and display name" '"username":"votera-renamed"' \
+  "$(jpost /api/me/profile '{"username":"votera-renamed","displayName":"Unique Voter"}' -b "$TMP/voterA.jar")"
+check "login via case-insensitive username succeeds" '"ok":true' \
+  "$(jpost /api/auth/login '{"username":"VOTERA-RENAMED","password":"password123"}')"
+check "login via unique display name succeeds" '"ok":true' \
+  "$(jpost /api/auth/login '{"username":"Unique Voter","password":"password123"}')"
+# Revert voter username back to voterA so subsequent tests referencing voterA stay aligned
+jpost /api/me/profile '{"username":"voterA","displayName":"Voter A"}' -b "$TMP/voterA.jar" > /dev/null
 check "voter cannot create org" "Platform administrator" \
   "$(jpost /api/orgs '{"name":"Nope","slug":"nope1"}' -b "$TMP/voterA.jar")"
 check "admin creates org B" '"slug":"org-b"' \

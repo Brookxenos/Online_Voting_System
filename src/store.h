@@ -45,9 +45,11 @@ public:
     CreateUserResult createUser(User& user); // fills id/createdAt
     DeleteUserResult deleteUserSafely(long long userId, const std::string& actor);
     std::optional<User> findUserByUsername(const std::string& username);
+    std::optional<User> findUserByDisplayName(const std::string& displayName);
     std::optional<User> findUserById(long long id);
     std::vector<User> listUsers(std::optional<long long> orgId = std::nullopt);
     void updateDisplayName(long long userId, const std::string& displayName);
+    bool updateUsername(long long userId, const std::string& username);
     void updateUserRoleAndOrg(long long userId, const std::string& role, long long orgId);
     void updatePasswordHash(long long userId, const std::string& hash);
     void resetPassword(long long userId, const std::string& hash, int expireMinutes = 2);

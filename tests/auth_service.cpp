@@ -79,6 +79,25 @@ int main() {
     check(genPw1.size() == 16 && genPw1 != genPw2 && hasUpper && hasLower && hasDigit && hasSymbol,
           "modern temporary password generator creates high-entropy diverse passwords");
 
+    // Case-insensitive username and display-name login tests:
+    store.updatePasswordHash(registered.user.id, crypto::hashPassword("new-permanent-pw-456"));
+    auto caseInsensitiveLogin = auth.login("AuthVoter", "new-permanent-pw-456", "auth-test-login-8", 1);
+    check(caseInsensitiveLogin.ok && caseInsensitiveLogin.user.id == registered.user.id,
+          "case-insensitive username login succeeds");
+    if (caseInsensitiveLogin.ok) auth.logout(caseInsensitiveLogin.token);
+
+    auto displayNameLogin = auth.login("Auth Voter", "new-permanent-pw-456", "auth-test-login-9", 1);
+    check(displayNameLogin.ok && displayNameLogin.user.id == registered.user.id,
+          "display name login fallback succeeds");
+    if (displayNameLogin.ok) auth.logout(displayNameLogin.token);
+
+    check(store.updateUsername(registered.user.id, "authvoter-renamed"),
+          "updating username to unique handle succeeds");
+    auto reg2 = auth.registerVoter("authvoter2", "Auth Voter Two", "password123", "auth-test-ip-reg2");
+    check(reg2.status == AuthService::RegisterStatus::Ok, "second voter registration succeeds");
+    check(!store.updateUsername(reg2.user.id, "authvoter-renamed"),
+          "updating username to duplicate handle is rejected");
+
     if (failures) std::cerr << failures << " auth service checks failed\n";
     std::remove(path.c_str());
     std::remove((path + "-shm").c_str());

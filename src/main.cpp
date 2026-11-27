@@ -43,8 +43,8 @@ static void usage(const char* prog) {
 
 static bool readHiddenInput(const std::string& prompt, std::string& value) {
     if (!::isatty(STDIN_FILENO)) {
-        std::cerr << "[main] password reset requires an interactive terminal\n";
-        return false;
+        std::cout << prompt << std::flush;
+        return static_cast<bool>(std::getline(std::cin, value));
     }
     termios original{};
     if (::tcgetattr(STDIN_FILENO, &original) != 0) {

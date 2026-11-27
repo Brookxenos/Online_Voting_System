@@ -352,8 +352,20 @@ void registerApiRoutes(HttpServer& server, Store& store, const ApiConfig& cfg) {
         if (!validTextField(displayName, 1, 100)) {
             return fail(400, "Display name must be between 1 and 100 characters");
         }
+        std::string nextUsername = trimStr(body.getString("username", user->username));
+        if (nextUsername.empty()) nextUsername = user->username;
+        if (nextUsername != user->username) {
+            if (!validUsername(nextUsername)) {
+                return fail(400, "Username must be 3-32 characters (letters, digits, _ . -)");
+            }
+            if (!store.updateUsername(user->id, nextUsername)) {
+                return fail(409, "Username is already taken");
+            }
+            user->username = nextUsername;
+        }
         store.updateDisplayName(user->id, displayName);
         user->displayName = displayName;
+        store.addAudit(user->username, "PROFILE_UPDATED", 0, "name: " + displayName);
         return ok({{"user", userJson(*user)}});
     });
 
